@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY src ./src
 
 RUN npm run build
 
-FROM node:22-alpine
+FROM node:20-alpine
 
 ENV NODE_ENV=production
 
@@ -23,4 +23,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/main.js"]
