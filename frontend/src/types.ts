@@ -196,6 +196,8 @@ export type RegionRosterReportOverviewRow = {
     | 'PENDING_CHANGES'
     | 'REPORTED_WITH_CHANGES'
     | 'REPORTED_WITHOUT_CHANGES';
+  totalDelegations: number;
+  confirmedDelegationReports: number;
   pendingDelegationReports: number;
   lastReport: VehicleRosterReport | null;
 };

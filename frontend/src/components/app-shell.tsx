@@ -287,18 +287,20 @@ export function AppShell() {
         </button>
 
         <div className="sidebar-panel">
-          <div className="sidebar-logo-wrap">
-            <img
-              className="sidebar-logo"
-              src="/policia-vial-estatal-oaxaca-seeklogo.png"
-              alt="Logotipo institucional"
-            />
-          </div>
+          <div className="sidebar-brand">
+            <div className="brand-logo-wrap sidebar-logo-wrap">
+              <img
+                className="institutional-logo sidebar-logo"
+                src="/policia-vial-estatal-oaxaca-seeklogo.png"
+                alt="Policía Vial Estatal de Oaxaca"
+              />
+            </div>
 
-          <div className="sidebar-title-wrap">
-            <p className="eyebrow">Sistema vehicular</p>
-            <h1 className="sidebar-title">{roleLabels[session.user.role]}</h1>
-            <p className="sidebar-subtitle">{formatUserName(session.user)}</p>
+            <div className="sidebar-title-wrap">
+              <p className="eyebrow">Sistema vehicular</p>
+              <h1 className="sidebar-title">{roleLabels[session.user.role]}</h1>
+              <p className="sidebar-subtitle">{formatUserName(session.user)}</p>
+            </div>
           </div>
 
           <div className="sidebar-session-card">

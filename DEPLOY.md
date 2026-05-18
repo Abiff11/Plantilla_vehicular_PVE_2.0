@@ -2,7 +2,7 @@
 
 ## Requisitos minimos
 
-- **Node.js 22+** (para desarrollo local)
+- **Node.js 20.x** (para desarrollo local)
 - **PostgreSQL 15+** (para desarrollo local)
 - **Docker 24+** y **Docker Compose v2** (para despliegue reproducible)
 
@@ -67,6 +67,10 @@ Respuesta esperada:
 
 ## Despliegue con Docker
 
+> `docker-compose.yml` en este repositorio es para uso **standalone/local**.
+> En el despliegue integrado de la intranet, la entrada HTTP/HTTPS pasa por el **Nginx central**.
+> Si Nginx central ya ocupa `80/443`, no expongas `80:80` en este servicio; ajusta puertos internos o usa red interna sin publicar ese puerto.
+
 ### Build y arranque
 
 ```bash
@@ -102,7 +106,6 @@ docker compose exec backend npm run migration:run
 ```bash
 docker compose logs -f backend
 docker compose logs -f frontend
-docker compose logs -f db
 ```
 
 ### Detener

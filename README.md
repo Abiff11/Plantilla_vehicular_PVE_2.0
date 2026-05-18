@@ -1,48 +1,55 @@
 # Sistema de Control Vehicular
 
-Monorepo con dos carpetas:
+Estructura del repositorio:
 
-- `backend`: API NestJS + PostgreSQL + TypeORM + JWT + WebSockets.
-- `frontend`: aplicación React + TypeScript + Vite para operación por rol.
+- `backend/`
+- `frontend/`
+- `expediente/`
+- `docs/` (si no existe en tu clon actual, crearla cuando se generen artefactos documentales)
+- `DEPLOY.md`
+- `INSTRUCTIONS.md`
+- `docker-compose.yml`
+- `expediente/*.md`
 
 ## Roles del sistema
 
-| Rol | Clave | Función |
+| Rol | Clave | Funcion |
 |---|---|---|
-| Enlace | `enlace` | Captura registros vehiculares de su delegación |
-| Director Operativo | `director_operativo` | Monitorea delegaciones de su región |
-| Admin Plantilla Vehicular | `plantilla_vehicular` | Consulta operación completa por región/delegación |
+| Enlace | `enlace` | Captura registros vehiculares de su delegacion |
+| Director Operativo | `director_operativo` | Monitorea delegaciones de su region |
+| Admin Plantilla Vehicular | `plantilla_vehicular` | Consulta operacion completa por region/delegacion |
 | Director General | `director_general` | Dashboard directivo con KPIs globales |
-| Superadministrador | `superadmin` | Administra usuarios y bitácora |
-| Coordinación | `coordinacion` | Administra usuarios, bitácora y consulta operación |
+| Superadministrador | `superadmin` | Administra usuarios y bitacora |
+| Coordinacion | `coordinacion` | Administra usuarios, bitacora y consulta operacion |
 
 ## Base de datos y migraciones
 
-El esquema se gestiona con **migraciones de TypeORM**, no con `synchronize`.
+El esquema se gestiona con **migraciones de TypeORM** en:
+
+- `backend/src/database/migrations`
 
 ```bash
 cd backend
 npm run migration:show   # Ver estado de migraciones
 npm run migration:run    # Ejecutar pendientes
-npm run migration:revert # Revertir última
+npm run migration:revert # Revertir ultima
 ```
 
-Al arrancar (`npm run start:dev` o `npm start`), las migraciones pendientes se ejecutan automáticamente (`migrationsRun: true`).
+Al arrancar (`npm run start:dev` o `npm start`), las migraciones pendientes se ejecutan automaticamente (`migrationsRun: true`).
 
 ## Variables de entorno
 
 Revisar:
 
-- [backend/.env.example](backend/.env.example)
-- [frontend/.env.example](frontend/.env.example)
+- `backend/.env.example`
+- `frontend/.env.example`
 
 ## Arranque
 
 1. Instalar dependencias en `backend` y `frontend`.
 2. Crear base de datos PostgreSQL.
 3. Copiar `.env.example` a `.env` en cada proyecto.
-   En backend define `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` y opcionalmente `SUPERADMIN_FULL_NAME`.
-4. `cd backend && npm run start:dev` (las migraciones corren automáticamente).
+4. `cd backend && npm run start:dev`.
 5. `cd frontend && npm run dev`.
 
 Para primer despliegue, ejecutar seed: `npm run seed:users`.
@@ -50,7 +57,7 @@ Para primer despliegue, ejecutar seed: `npm run seed:users`.
 ## Notas
 
 - Soft delete habilitado en usuarios y registros vehiculares.
-- Bitácora de auditoría registra creación, edición, traslado, baja lógica y login/logout.
-- Catálogo de regiones/delegaciones se gestiona como módulo con tablas `regions` y `delegations`.
-- Mensajería entre usuarios disponible para roles `enlace`, `plantilla_vehicular` y `coordinacion`.
-- Fotos de vehículos: máximo 3, formato JPG/JPEG/PNG/WEBP, máximo 5MB cada una.
+- Bitacora de auditoria registra creacion, edicion, traslado, baja logica y login/logout.
+- Catalogo de regiones/delegaciones se gestiona como modulo con tablas `regions` y `delegations`.
+- Mensajeria entre usuarios disponible para roles `enlace`, `plantilla_vehicular` y `coordinacion`.
+- Fotos de vehiculos: maximo 3, formato JPG/JPEG/PNG/WEBP, maximo 5MB cada una.

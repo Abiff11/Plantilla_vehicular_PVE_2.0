@@ -46,10 +46,12 @@ function getReportStatusUi(status: ReportStatus) {
 
 function getPendingDelegationText(row: RegionRosterReportOverviewRow) {
   if (row.pendingDelegationReports === 0) {
-    return 'Todas confirmadas';
+    return `${row.confirmedDelegationReports}/${row.totalDelegations} confirmadas`;
   }
 
-  return `${row.pendingDelegationReports} sin confirmar`;
+  return `${row.confirmedDelegationReports}/${row.totalDelegations} confirmadas, ${
+    row.pendingDelegationReports
+  } pendientes`;
 }
 
 function getLastRegionalReportText(row: RegionRosterReportOverviewRow) {
@@ -132,7 +134,19 @@ export function PlantillaReportesPage() {
       .sort((left, right) => +new Date(right.submittedAt) - +new Date(left.submittedAt))[0] ?? null;
   }, [reportOverview, selectedRegionId]);
 
-
+  const selectedRegionOverview = useMemo(
+    () => reportOverview.find((row) => row.regionId === selectedRegionId) ?? null,
+    [reportOverview, selectedRegionId],
+  );
+  const hasPendingDelegationReports =
+    (selectedRegionOverview?.pendingDelegationReports ?? 0) > 0;
+  const isRegionalClosureDisabled =
+    !selectedRegionId || hasPendingDelegationReports;
+  const regionalClosureButtonText = !selectedRegionId
+    ? 'Selecciona una región'
+    : hasPendingDelegationReports
+      ? 'Faltan delegaciones por confirmar'
+      : 'Confirmar cierre mensual';
 
   const submitRegionalReport = async () => {
     if (!session) {
@@ -144,6 +158,16 @@ export function PlantillaReportesPage() {
         icon: 'warning',
         title: 'Selecciona una región',
         text: 'Debes seleccionar una región para confirmar su cierre mensual.',
+        confirmButtonText: 'Entendido',
+      });
+      return;
+    }
+
+    if (hasPendingDelegationReports) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Delegaciones pendientes',
+        text: 'No puedes confirmar el cierre regional hasta que todas las delegaciones hayan confirmado su plantilla mensual.',
         confirmButtonText: 'Entendido',
       });
       return;
@@ -220,8 +244,13 @@ export function PlantillaReportesPage() {
               Último cierre mensual: {latestRegionalReport ? new Date(latestRegionalReport.submittedAt).toLocaleDateString() : 'Sin cierre'}
             </div>
             {canSubmitRegionalClosure && (
-              <button className="primary-button" type="button" onClick={submitRegionalReport}>
-                Confirmar cierre mensual
+              <button
+                className="primary-button"
+                type="button"
+                disabled={isRegionalClosureDisabled}
+                onClick={submitRegionalReport}
+              >
+                {regionalClosureButtonText}
               </button>
             )}
           </div>
@@ -293,7 +322,7 @@ export function PlantillaReportesPage() {
                 <tr>
                   <th>Región</th>
                   <th>Estado de validación</th>
-                  <th>Delegaciones sin confirmar</th>
+                  <th>Delegaciones</th>
                   <th>Última validación regional</th>
                   <th>Validado por</th>
                 </tr>

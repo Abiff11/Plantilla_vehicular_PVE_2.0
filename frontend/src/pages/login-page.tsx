@@ -47,6 +47,13 @@ export function LoginPage() {
         }}
       >
         <p className="eyebrow">Acceso</p>
+        <div className="brand-logo-wrap login-logo-wrap">
+          <img
+            className="institutional-logo"
+            src="/policia-vial-estatal-oaxaca-seeklogo.png"
+            alt="Policía Vial Estatal de Oaxaca"
+          />
+        </div>
         <h1>Sistema de control vehicular</h1>
         <p>Ingresa con tu cuenta para acceder a tu panel operativo.</p>
 
