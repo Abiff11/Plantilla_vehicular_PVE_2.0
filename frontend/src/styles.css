@@ -88,7 +88,7 @@ table {
 
 .login-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -109,6 +109,33 @@ table {
   margin: 0;
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.brand-logo-wrap {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.login-logo-wrap {
+  width: 84px;
+  height: 84px;
+  flex-basis: 84px;
+  border-color: var(--border);
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.institutional-logo {
+  display: block;
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
 }
 
 .dashboard-shell {
@@ -189,27 +216,32 @@ table {
   transform: translateX(0);
 }
 
-.sidebar-logo-wrap {
-  width: 100%;
-  max-width: 272px;
-  margin: 0 auto 8px;
-  display: flex;
-  justify-content: center;
-}
-
-.sidebar-logo {
-  display: block;
-  max-width: 96px;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-}
-
-.sidebar-title-wrap {
+.sidebar-brand {
   width: 100%;
   max-width: 272px;
   margin: 0 auto 12px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-logo-wrap {
+  width: 64px;
+  height: 64px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-logo {
+  width: 78%;
+  height: 78%;
+}
+
+.sidebar-title-wrap {
+  min-width: 0;
+  text-align: left;
 }
 
 .sidebar-title {
@@ -707,6 +739,11 @@ table {
 .primary-button:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .secondary-button {

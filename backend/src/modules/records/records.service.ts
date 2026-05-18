@@ -188,6 +188,8 @@ type RegionReportOverviewRow = {
     | "PENDING_CHANGES"
     | "REPORTED_WITH_CHANGES"
     | "REPORTED_WITHOUT_CHANGES";
+  totalDelegations: number;
+  confirmedDelegationReports: number;
   pendingDelegationReports: number;
   lastReport: VehicleRosterReportEntity | null;
 };
@@ -515,6 +517,17 @@ export class RecordsService {
       region.id,
       lastReport?.submittedAt ?? null,
     );
+
+    if (delegationProgress.pendingDelegationReports > 0) {
+      throw new BadRequestException({
+        message: `No se puede confirmar el cierre mensual regional porque aún hay ${delegationProgress.pendingDelegationReports} delegaciones pendientes de confirmar.`,
+        totalDelegations: delegationProgress.totalDelegations,
+        confirmedDelegationReports:
+          delegationProgress.confirmedDelegationReports,
+        pendingDelegationReports: delegationProgress.pendingDelegationReports,
+      });
+    }
+
     const confirmedDelegationReports = delegationProgress.confirmedDelegationReports;
     const report = await this.rosterReportRepository.save(
       this.rosterReportRepository.create({
@@ -1151,30 +1164,48 @@ export class RecordsService {
   }
 
   private async getRegionalDelegationProgress(regionId: string, since: Date | null) {
-    const totalDelegations = await this.delegationRepository.count({
+    const delegations = await this.delegationRepository.find({
       where: {
         region: {
           id: regionId,
         },
       },
     });
+    let confirmedDelegationReports = 0;
 
-    const query = this.rosterReportRepository
-      .createQueryBuilder("report")
-      .leftJoin("report.delegation", "delegation")
-      .leftJoin("delegation.region", "region")
-      .where("report.reportScope = :reportScope", { reportScope: "DELEGATION" })
-      .andWhere("region.id = :regionId", { regionId })
-      .select("COUNT(DISTINCT delegation.id)", "confirmedDelegationReports");
+    for (const delegation of delegations) {
+      const reportQuery = this.rosterReportRepository
+        .createQueryBuilder("report")
+        .leftJoin("report.delegation", "delegation")
+        .where("report.reportScope = :reportScope", {
+          reportScope: "DELEGATION",
+        })
+        .andWhere("delegation.id = :delegationId", {
+          delegationId: delegation.id,
+        })
+        .orderBy("report.submittedAt", "DESC");
 
-    if (since) {
-      query.andWhere("report.submittedAt > :since", { since });
+      if (since) {
+        reportQuery.andWhere("report.submittedAt > :since", { since });
+      }
+
+      const lastDelegationReport = await reportQuery.getOne();
+
+      if (!lastDelegationReport) {
+        continue;
+      }
+
+      const movementsSinceLastReport = await this.countDelegationMovementsSince(
+        delegation.id,
+        lastDelegationReport.submittedAt,
+      );
+
+      if (movementsSinceLastReport === 0) {
+        confirmedDelegationReports += 1;
+      }
     }
 
-    const rawResult = await query.getRawOne<{ confirmedDelegationReports: string }>();
-    const confirmedDelegationReports = Number(
-      rawResult?.confirmedDelegationReports ?? "0",
-    );
+    const totalDelegations = delegations.length;
 
     return {
       totalDelegations,
@@ -1493,6 +1524,9 @@ export class RecordsService {
               ? "REPORTED_WITH_CHANGES"
               : "REPORTED_WITHOUT_CHANGES"
           : "NOT_REPORTED",
+        totalDelegations: delegationProgress.totalDelegations,
+        confirmedDelegationReports:
+          delegationProgress.confirmedDelegationReports,
         pendingDelegationReports,
         lastReport,
       });
