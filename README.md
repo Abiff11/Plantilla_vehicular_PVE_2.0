@@ -8,33 +8,48 @@ Repositorio separado del monorepo de intranet, con historial Git propio.
 - `frontend/`
 - `docs/`
 
+## Despliegue en servidor / intranet
+
+Este repositorio no debe orquestar toda la infraestructura.
+
+La orquestación principal debe vivir en el servidor o en el repositorio de intranet.
+
+Este repo solo expone las imágenes de la aplicación:
+
+- `Dockerfile.backend`
+- `Dockerfile.frontend`
+
+## Build de imágenes
+
+Backend:
+
+```bash
+docker build -f Dockerfile.backend -t plantilla-vehicular-backend .
+```
+
+Frontend:
+
+```bash
+docker build -f Dockerfile.frontend -t plantilla-vehicular-frontend .
+```
+
 ## Variables de entorno
 
 Las credenciales reales no se versionan.
 
 - Usa `backend/.env.example` para backend.
 - Usa `frontend/.env.example` para frontend.
-- Usa `.env.example` solo cuando ejecutes `docker-compose.yml` desde la raiz.
-- Crea tus archivos locales `.env` segun el entorno.
+- Crea tus archivos locales `.env` según el entorno.
 
 ## Base de datos
 
-La aplicacion usa PostgreSQL configurado por variables de entorno.
+La aplicación usa PostgreSQL configurado por variables de entorno.
 
-Variables principales del backend:
+En producción no deben versionarse credenciales ni secretos.
 
-```env
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USER=postgres
-DATABASE_PASSWORD=
-DATABASE_NAME=vehicle_control
-DATABASE_SSL=false
-```
+## Desarrollo local
 
-En produccion no deben versionarse credenciales ni secretos.
-
-## Backend
+Backend:
 
 ```bash
 cd backend
@@ -44,7 +59,7 @@ npm run start:dev
 npm run test
 ```
 
-## Frontend
+Frontend:
 
 ```bash
 cd frontend
@@ -53,7 +68,7 @@ npm run build
 npm run dev
 ```
 
-## Validacion rapida
+## Validación rápida
 
 ```bash
 cd backend
@@ -65,9 +80,9 @@ cd ../frontend
 npm run build
 ```
 
-## Documentacion
+## Documentación
 
-La documentacion tecnica y operativa vive en:
+La documentación técnica y operativa vive en:
 
 ```txt
 docs/
