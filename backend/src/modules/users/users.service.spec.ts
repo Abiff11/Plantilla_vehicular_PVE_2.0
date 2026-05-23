@@ -9,10 +9,6 @@ import { RegionEntity } from 'src/modules/catalog/entities/region.entity';
 import { UserEntity } from './entities/user.entity';
 import { UsersService } from './users.service';
 
-const mockAuditLogsService = {
-  register: jest.fn().mockResolvedValue(undefined),
-};
-
 function createMockUser(overrides: Partial<UserEntity> = {}): UserEntity {
   return {
     id: 'test-user-id',
@@ -24,6 +20,7 @@ function createMockUser(overrides: Partial<UserEntity> = {}): UserEntity {
     passwordHash: 'hashed',
     role: Role.Enlace,
     isActive: true,
+    sessionVersion: 0,
     region: null,
     delegation: null,
     createdRecords: [],
@@ -42,9 +39,11 @@ describe('UsersService', () => {
   beforeEach(async () => {
     const mockUserRepo = {
       findOne: jest.fn(),
+      findOneBy: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
       softDelete: jest.fn(),
+      createQueryBuilder: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -60,17 +59,16 @@ describe('UsersService', () => {
         },
         {
           provide: getRepositoryToken(DelegationEntity),
-          useValue: { findOne: jest.fn() },
+          useValue: { findOne: jest.fn(), findOneBy: jest.fn() },
         },
         {
           provide: AuditLogsService,
-          useValue: mockAuditLogsService,
+          useValue: {
+            register: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
-    })
-      .overrideProvider(getRepositoryToken(UserEntity))
-      .useValue(mockUserRepo)
-      .compile();
+    }).compile();
 
     service = module.get<UsersService>(UsersService);
     userRepository = module.get(getRepositoryToken(UserEntity));

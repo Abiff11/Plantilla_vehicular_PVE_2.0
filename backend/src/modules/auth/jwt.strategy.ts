@@ -1,12 +1,36 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { Request } from 'express';
+import { UsersService } from 'src/modules/users/users.service';
 import { JwtPayload } from './jwt-payload.type';
+
+const AUTH_COOKIE_NAME = 'pve_vehicle_access_token';
+
+function extractCookieToken(request: Request): string | null {
+  const cookieHeader = request.headers.cookie;
+
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const cookies = cookieHeader.split(';').map((cookie) => cookie.trim());
+  const authCookie = cookies.find((cookie) => cookie.startsWith(`${AUTH_COOKIE_NAME}=`));
+
+  if (!authCookie) {
+    return null;
+  }
+
+  return decodeURIComponent(authCookie.slice(AUTH_COOKIE_NAME.length + 1));
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly usersService: UsersService,
+  ) {
     const jwtSecret = configService.get<string>('JWT_SECRET');
 
     const knownInsecureSecrets = [
@@ -26,13 +50,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        extractCookieToken,
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       secretOrKey: jwtSecret,
     });
   }
 
-  validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload) {
+    const user = await this.usersService.findOneEntity(payload.sub);
+
+    if (!user.isActive || user.sessionVersion !== payload.sessionVersion) {
+      throw new UnauthorizedException('Sesion invalida o expirada.');
+    }
+
     return payload;
   }
 }

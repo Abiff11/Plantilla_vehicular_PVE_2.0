@@ -6,4 +6,5 @@ export type JwtPayload = {
   role: Role;
   regionId: string | null;
   delegationId: string | null;
+  sessionVersion: number;
 };

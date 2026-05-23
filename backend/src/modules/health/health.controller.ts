@@ -1,11 +1,13 @@
-import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { DataSource } from 'typeorm';
+import { RequireRoles } from 'src/common/auth/roles.decorator';
+import { RolesGuard } from 'src/common/auth/roles.guard';
+import { Role } from 'src/common/enums/role.enum';
+import { JwtAuthGuard } from 'src/modules/auth/jwt-auth.guard';
 
 @Controller('health')
 export class HealthController {
-  private readonly startTime = Date.now();
-
   constructor(private readonly dataSource: DataSource) {}
 
   @Get()
@@ -34,6 +36,8 @@ export class HealthController {
   }
 
   @Get('metrics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @RequireRoles(Role.SuperAdmin)
   async metrics() {
     const dbStatus = await this.checkDatabase();
     const uptimeSeconds = Math.floor(process.uptime());

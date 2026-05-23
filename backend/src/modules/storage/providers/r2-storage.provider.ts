@@ -1,16 +1,16 @@
-import { Injectable } from "@nestjs/common";
-import { SavedFileInput, StorageProvider, StoredFile } from "../storage.types";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { SavedFileInput, StorageProvider, StoredFile, StoredFileObject } from "../storage.types";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { ConfigService } from "@nestjs/config";
 import { createStorageConfig } from "../storage.config";
 import { extname } from "path";
 import { randomBytes } from "crypto";
+import { Readable } from "stream";
 
 @Injectable()
 export class R2StorageProvider implements StorageProvider {
   private readonly client: S3Client;
   private readonly bucket: string;
-  private readonly publicUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     const storageConfig = createStorageConfig(this.configService);
@@ -32,7 +32,6 @@ export class R2StorageProvider implements StorageProvider {
     }
 
     this.bucket = storageConfig.r2.bucket;
-    this.publicUrl = storageConfig.r2.publicUrl.replace(/\/$/, "");
 
     this.client = new S3Client({
       region: "auto",
@@ -65,10 +64,49 @@ export class R2StorageProvider implements StorageProvider {
       originalName: file.originalname,
       fileName,
       objectKey,
-      publicUrl: `${this.publicUrl}/${objectKey}`,
+      publicUrl: `/api/files/${objectKey}`,
       mimeType: file.mimetype,
       size: file.size,
       storageProvider: "r2",
     };
+  }
+
+  async getObject(objectKey: string): Promise<StoredFileObject> {
+    try {
+      const result = await this.client.send(
+        new GetObjectCommand({
+          Bucket: this.bucket,
+          Key: objectKey,
+        }),
+      );
+
+      if (!result.Body) {
+        throw new NotFoundException("No se encontro el archivo.");
+      }
+
+      const buffer = await this.streamToBuffer(result.Body as Readable);
+
+      return {
+        buffer,
+        mimeType: result.ContentType ?? "application/octet-stream",
+        size: result.ContentLength ?? buffer.length,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new NotFoundException("No se encontro el archivo.");
+    }
+  }
+
+  private streamToBuffer(stream: Readable) {
+    return new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+
+      stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+      stream.once("error", reject);
+      stream.once("end", () => resolve(Buffer.concat(chunks)));
+    });
   }
 }

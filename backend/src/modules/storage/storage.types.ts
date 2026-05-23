@@ -24,6 +24,13 @@ export type StoredFile = {
   storageProvider: StorageDriver;
 };
 
+export type StoredFileObject = {
+  buffer: Buffer;
+  mimeType: string;
+  size: number;
+};
+
 export interface StorageProvider {
   saveFile(input: SavedFileInput): Promise<StoredFile>;
+  getObject(objectKey: string): Promise<StoredFileObject>;
 }

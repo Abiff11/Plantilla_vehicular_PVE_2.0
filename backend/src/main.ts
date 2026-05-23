@@ -5,7 +5,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
-import { httpLoggingMiddleware, rateLimitMiddleware, requestIdMiddleware } from './common/middleware';
+import { csrfMiddleware, httpLoggingMiddleware, rateLimitMiddleware, requestIdMiddleware } from './common/middleware';
 
 const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
@@ -89,18 +89,10 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.getHttpAdapter().getInstance().set('trust proxy', resolveTrustProxy());
 
-  const uploadsDir = join(process.cwd(), 'uploads');
-  app.useStaticAssets(uploadsDir, {
-    prefix: '/uploads',
-    setHeaders: (res: Response) => {
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-    },
-  });
-
   app.use(requestIdMiddleware);
   app.use(rateLimitMiddleware);
   app.use(httpLoggingMiddleware);
+  app.use(csrfMiddleware);
 
   app.enableCors({
     origin: buildCorsOriginChecker(),
@@ -109,16 +101,8 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   app.use((request: Request, response: Response, next: NextFunction) => {
-    const isUpload = request.path.startsWith('/uploads');
-
     Object.entries(SECURITY_HEADERS).forEach(([headerName, headerValue]) => {
-      if (isUpload && headerName === 'Cross-Origin-Resource-Policy') {
-        response.setHeader(headerName, 'cross-origin');
-      } else if (isUpload && headerName === 'Cache-Control') {
-        response.setHeader(headerName, 'public, max-age=86400');
-      } else {
-        response.setHeader(headerName, headerValue);
-      }
+      response.setHeader(headerName, headerValue);
     });
 
     if (request.secure || request.headers['x-forwarded-proto'] === 'https') {
@@ -138,8 +122,7 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? 3101);
   const host = process.env.HOST ?? '0.0.0.0';
   await app.listen(port, host);
-  console.log("servidor listo");
-  
+  console.log('servidor listo');
 }
 
 bootstrap();

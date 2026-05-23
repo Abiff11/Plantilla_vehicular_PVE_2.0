@@ -1,12 +1,15 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { RealtimeGateway } from './realtime.gateway';
 
 @Global()
 @Module({
   imports: [
     ConfigModule,
+    TypeOrmModule.forFeature([UserEntity]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {

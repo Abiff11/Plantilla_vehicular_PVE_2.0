@@ -19,6 +19,7 @@ describe('AuthService E2E-style', () => {
     const mockUsersService = {
       findByEmail: jest.fn(),
       findOne: jest.fn(),
+      revokeSessions: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockAuditLogsService = {
@@ -58,6 +59,7 @@ describe('AuthService E2E-style', () => {
         region: null,
         delegation: null,
         isActive: true,
+        sessionVersion: 0,
       } as never;
 
       usersService.findByEmail.mockResolvedValue(mockUser);
@@ -71,6 +73,7 @@ describe('AuthService E2E-style', () => {
           sub: 'user-1',
           email: 'test@example.com',
           role: 'capturist',
+          sessionVersion: 0,
         }),
       );
       expect(auditLogsService.register).toHaveBeenCalledWith(
@@ -94,6 +97,7 @@ describe('AuthService E2E-style', () => {
         region: null,
         delegation: null,
         isActive: true,
+        sessionVersion: 0,
       } as never;
 
       usersService.findByEmail.mockResolvedValue(mockUser);
@@ -129,6 +133,7 @@ describe('AuthService E2E-style', () => {
         region: null,
         delegation: null,
         isActive: true,
+        sessionVersion: 0,
       } as never;
 
       usersService.findByEmail.mockResolvedValue(mockUser);
@@ -142,9 +147,10 @@ describe('AuthService E2E-style', () => {
   });
 
   describe('logout flow', () => {
-    it('registers USER_LOGGED_OUT audit event', async () => {
+    it('revokes sessions and registers USER_LOGGED_OUT audit event', async () => {
       await service.logout('user-1');
 
+      expect(usersService.revokeSessions).toHaveBeenCalledWith('user-1');
       expect(auditLogsService.register).toHaveBeenCalledWith({
         actorId: 'user-1',
         action: 'USER_LOGGED_OUT',
@@ -166,7 +172,7 @@ describe('AuthService E2E-style', () => {
 
       await expect(
         service.login('test@example.com', 'wrong', '127.0.0.1'),
-      ).rejects.toThrow('Too many login attempts');
+      ).rejects.toThrow('Demasiados intentos de inicio de sesion');
     });
   });
 });

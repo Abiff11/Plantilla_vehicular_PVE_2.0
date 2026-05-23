@@ -285,6 +285,7 @@ export type DirectorOverview = {
 
 export type AuthResponse = {
   accessToken: string;
+  csrfToken?: string;
   user: User;
 };
 

@@ -9,12 +9,7 @@ import {
 import { api, setUnauthorizedHandler } from '../../lib/api';
 import { connectSocket, disconnectSocket, resetSocketReconnectAttempts } from '../../lib/socket';
 import type { AuthResponse } from '../../types';
-import {
-  clearLegacyAuthStorage,
-  clearStoredAccessToken,
-  readStoredAccessToken,
-  writeStoredAccessToken,
-} from './auth-storage';
+import { clearLegacyAuthStorage, clearStoredAccessToken } from './auth-storage';
 
 type AuthState = AuthResponse | null;
 
@@ -26,6 +21,7 @@ type AuthContextValue = {
   logoutWithApi: () => Promise<void>;
 };
 
+const EMPTY_ACCESS_TOKEN = '';
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -47,20 +43,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const bootstrapSession = async () => {
+      clearStoredAccessToken();
       clearLegacyAuthStorage();
-      const accessToken = readStoredAccessToken();
-
-      if (!accessToken) {
-        setIsHydrating(false);
-        return;
-      }
 
       try {
-        const user = await api.getCurrentUser(accessToken);
-        setSession({ accessToken, user });
+        const user = await api.getCurrentUser(EMPTY_ACCESS_TOKEN);
+        setSession({ accessToken: EMPTY_ACCESS_TOKEN, user });
         connectSocket();
       } catch {
-        clearStoredAccessToken();
         setSession(null);
       } finally {
         setIsHydrating(false);
@@ -76,8 +66,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isHydrating,
       async login(email, password) {
         const response = await api.login(email, password);
-        setSession(response);
-        writeStoredAccessToken(response.accessToken);
+        setSession({ accessToken: EMPTY_ACCESS_TOKEN, user: response.user });
         resetSocketReconnectAttempts();
         connectSocket();
       },
@@ -88,12 +77,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         disconnectSocket();
       },
       async logoutWithApi() {
-        const currentToken = session?.accessToken;
-
         try {
-          if (currentToken) {
-            await api.logout(currentToken);
-          }
+          await api.logout(EMPTY_ACCESS_TOKEN);
         } catch {
         } finally {
           setSession(null);

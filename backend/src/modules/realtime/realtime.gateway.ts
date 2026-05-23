@@ -10,9 +10,14 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Server, type Socket } from 'socket.io';
+import { Repository } from 'typeorm';
 import { Role } from 'src/common/enums/role.enum';
 import type { JwtPayload } from 'src/modules/auth/jwt-payload.type';
+import { UserEntity } from 'src/modules/users/entities/user.entity';
+
+const AUTH_COOKIE_NAME = 'pve_vehicle_access_token';
 
 function resolveRealtimeOrigins() {
   const configuredOrigins = (process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? '')
@@ -49,6 +54,23 @@ function isLocalDevelopmentOrigin(origin: string) {
   } catch {
     return false;
   }
+}
+
+function extractTokenFromCookieHeader(cookieHeader: string | undefined) {
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const authCookie = cookieHeader
+    .split(';')
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith(`${AUTH_COOKIE_NAME}=`));
+
+  if (!authCookie) {
+    return null;
+  }
+
+  return decodeURIComponent(authCookie.slice(AUTH_COOKIE_NAME.length + 1));
 }
 
 type AuthenticatedSocketData = {
@@ -100,29 +122,34 @@ function regionRoom(regionId: string) {
 export class RealtimeGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
 {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
+  ) {}
 
   @WebSocketServer()
   server!: Server;
 
   onModuleInit() {
     this.server.use((socket, next) => {
-      try {
-        const user = this.authenticateSocket(socket);
-        (socket.data as AuthenticatedSocketData).user = user;
-        realtimeDebugLog('auth_ok', {
-          socketId: socket.id,
-          userId: user.sub,
-          role: user.role,
+      void this.authenticateSocket(socket)
+        .then((user) => {
+          (socket.data as AuthenticatedSocketData).user = user;
+          realtimeDebugLog('auth_ok', {
+            socketId: socket.id,
+            userId: user.sub,
+            role: user.role,
+          });
+          next();
+        })
+        .catch((error) => {
+          realtimeDebugLog('auth_error', {
+            socketId: socket.id,
+            message: error instanceof Error ? error.message : 'Unknown socket auth error',
+          });
+          next(new UnauthorizedException('Unauthorized socket connection.'));
         });
-        next();
-      } catch (error) {
-        realtimeDebugLog('auth_error', {
-          socketId: socket.id,
-          message: error instanceof Error ? error.message : 'Unknown socket auth error',
-        });
-        next(new UnauthorizedException('Unauthorized socket connection.'));
-      }
     });
   }
 
@@ -231,17 +258,32 @@ export class RealtimeGateway
     }
   }
 
-  private authenticateSocket(socket: Socket) {
+  private async authenticateSocket(socket: Socket) {
     const token = this.extractToken(socket);
 
     if (!token) {
       throw new UnauthorizedException('Missing socket token.');
     }
 
-    return this.jwtService.verify<JwtPayload>(token);
+    const payload = this.jwtService.verify<JwtPayload>(token);
+    const user = await this.userRepository.findOne({
+      where: { id: payload.sub },
+    });
+
+    if (!user || !user.isActive || user.sessionVersion !== payload.sessionVersion) {
+      throw new UnauthorizedException('Sesion invalida o expirada.');
+    }
+
+    return payload;
   }
 
   private extractToken(socket: Socket) {
+    const cookieToken = extractTokenFromCookieHeader(socket.handshake.headers.cookie);
+
+    if (cookieToken) {
+      return cookieToken;
+    }
+
     const authToken = socket.handshake.auth?.token;
 
     if (typeof authToken === 'string' && authToken.trim().length > 0) {
@@ -258,7 +300,7 @@ export class RealtimeGateway
   }
 
   private canAccessOversightRecordsChannel(role: Role) {
-    return [Role.PlantillaVehicular, Role.DirectorGeneral, Role.SuperAdmin, Role.Coordinacion, Role.DirectorOperativo].includes(role);
+    return [Role.PlantillaVehicular, Role.DirectorGeneral, Role.SuperAdmin, Role.Coordinacion].includes(role);
   }
 
   private canAccessAuditChannel(role: Role) {

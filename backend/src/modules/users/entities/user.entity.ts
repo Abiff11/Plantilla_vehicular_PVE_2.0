@@ -35,6 +35,9 @@ export class UserEntity extends BaseEntity {
   @Column({ default: true })
   isActive!: boolean;
 
+  @Column({ type: 'integer', default: 0 })
+  sessionVersion!: number;
+
   @ManyToOne(() => RegionEntity, { nullable: true, onDelete: 'RESTRICT' })
   region!: RegionEntity | null;
 

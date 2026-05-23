@@ -24,6 +24,16 @@ function normalizeEmail(value: string) {
   return normalizeText(value).toLowerCase();
 }
 
+const PRIVILEGED_ROLES = [Role.SuperAdmin, Role.Coordinacion];
+
+function sanitizeUserAuditMetadata(dto: UpdateUserDto) {
+  const { password: _password, ...safeMetadata } = dto;
+  return {
+    ...safeMetadata,
+    passwordChanged: Boolean(dto.password),
+  };
+}
+
 export type SafeUser = Omit<UserEntity, 'passwordHash'> & {
   fullName: string;
 };
@@ -41,6 +51,8 @@ export class UsersService {
   ) {}
 
   async create(dto: CreateUserDto, actorId?: string) {
+    await this.assertPrivilegedRoleChangeAllowed(dto.role, actorId);
+
     const normalizedEmail = normalizeEmail(dto.email);
     const existingUser = await this.userRepository.findOne({
       where: { email: normalizedEmail },
@@ -167,14 +179,19 @@ export class UsersService {
       .leftJoinAndSelect('user.delegation', 'delegation')
       .leftJoinAndSelect('delegation.region', 'delegationRegion')
       .where('user.email = :email', { email: email.toLowerCase() })
+      .andWhere('user.deletedAt IS NULL')
       .getOne();
   }
 
   async update(id: string, dto: UpdateUserDto, actorId?: string) {
     const user = await this.findOneEntity(id);
 
-    if (user.role === Role.SuperAdmin || user.role === Role.Coordinacion) {
+    if (PRIVILEGED_ROLES.includes(user.role)) {
       throw new ForbiddenException('No se permite editar usuarios de coordinacion o superadministrador.');
+    }
+
+    if (dto.role) {
+      await this.assertPrivilegedRoleChangeAllowed(dto.role, actorId);
     }
 
     if (dto.email) {
@@ -196,6 +213,7 @@ export class UsersService {
 
     if (dto.password) {
       user.passwordHash = await bcrypt.hash(dto.password, 10);
+      user.sessionVersion += 1;
     }
 
     if (dto.firstName) {
@@ -237,7 +255,7 @@ export class UsersService {
       action: 'USER_UPDATED',
       entityType: 'user',
       entityId: user.id,
-      metadata: { ...dto },
+      metadata: sanitizeUserAuditMetadata(dto),
     });
 
     return this.findOne(id);
@@ -246,10 +264,13 @@ export class UsersService {
   async softDelete(id: string, actorId?: string) {
     const user = await this.findOneEntity(id);
 
-    if (user.role === Role.SuperAdmin || user.role === Role.Coordinacion) {
+    if (PRIVILEGED_ROLES.includes(user.role)) {
       throw new ForbiddenException('No se permite eliminar usuarios de coordinacion o superadministrador.');
     }
 
+    user.isActive = false;
+    user.sessionVersion += 1;
+    await this.userRepository.save(user);
     await this.userRepository.softDelete(id);
 
     await this.auditLogsService.register({
@@ -261,6 +282,30 @@ export class UsersService {
         email: user.email,
       },
     });
+  }
+
+  async revokeSessions(id: string) {
+    const user = await this.findOneEntity(id);
+    user.sessionVersion += 1;
+    await this.userRepository.save(user);
+  }
+
+  private async assertPrivilegedRoleChangeAllowed(role: Role, actorId?: string) {
+    if (!PRIVILEGED_ROLES.includes(role)) {
+      return;
+    }
+
+    if (!actorId) {
+      throw new ForbiddenException('Solo superadmin puede crear o asignar roles privilegiados.');
+    }
+
+    const actor = await this.userRepository.findOne({
+      where: { id: actorId },
+    });
+
+    if (!actor || actor.role !== Role.SuperAdmin) {
+      throw new ForbiddenException('Solo superadmin puede crear o asignar roles privilegiados.');
+    }
   }
 
   private toSafeUser(user: UserEntity): SafeUser {

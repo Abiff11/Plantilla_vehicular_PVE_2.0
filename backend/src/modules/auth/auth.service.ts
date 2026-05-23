@@ -37,7 +37,7 @@ export class AuthService {
 
     const user = await this.usersService.findByEmail(normalizedEmail);
 
-    if (!user) {
+    if (!user || !user.isActive) {
       this.registerFailedAttempt(attemptKey);
       throw new UnauthorizedException('Credenciales invalidas.');
     }
@@ -57,6 +57,7 @@ export class AuthService {
       role: user.role,
       regionId: user.region?.id ?? user.delegation?.region?.id ?? null,
       delegationId: user.delegation?.id ?? null,
+      sessionVersion: user.sessionVersion,
     };
 
     await this.auditLogsService.register({
@@ -80,6 +81,8 @@ export class AuthService {
   }
 
   async logout(userId: string) {
+    await this.usersService.revokeSessions(userId);
+
     await this.auditLogsService.register({
       actorId: userId,
       action: 'USER_LOGGED_OUT',

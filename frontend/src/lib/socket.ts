@@ -1,5 +1,4 @@
 import { io } from 'socket.io-client';
-import { readStoredAccessToken } from '../modules/auth/auth-storage';
 import { resolveConfiguredNetworkUrl } from './resolve-network-url';
 
 const SOCKET_DEBUG_ENABLED = import.meta.env.VITE_SOCKET_DEBUG === 'true';
@@ -56,11 +55,11 @@ export const socket = io(SOCKET_URL, {
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   transports: ['websocket', 'polling'],
+  withCredentials: true,
 });
 
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 3;
-let activeSocketToken = '';
 
 socket.on('connect', () => {
   reconnectAttempts = 0;
@@ -89,37 +88,21 @@ socket.on('connect_error', (error) => {
 });
 
 export function connectSocket() {
-  const token = readStoredAccessToken();
-
-  if (!token) {
-    socketDebugLog('connect_skip_no_token');
-    return;
-  }
-
-  socket.auth = { token };
-
-  if (socket.connected && activeSocketToken === token) {
+  if (socket.connected) {
     socketDebugLog('connect_skip_already_connected');
     return;
-  }
-
-  if (socket.connected && activeSocketToken !== token) {
-    socketDebugLog('connect_reauth');
-    socket.disconnect();
   }
 
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     reconnectAttempts = 0;
   }
 
-  activeSocketToken = token;
   socketDebugLog('connect_attempt', { url: SOCKET_URL });
   socket.connect();
 }
 
 export function disconnectSocket() {
   reconnectAttempts = 0;
-  activeSocketToken = '';
   socket.auth = {};
   socketDebugLog('disconnect_manual');
   socket.disconnect();

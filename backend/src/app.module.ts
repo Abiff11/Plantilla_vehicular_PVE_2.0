@@ -7,6 +7,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { FilesModule } from './modules/files/files.module';
 import { HealthModule } from './modules/health/health.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { RecordsModule } from './modules/records/records.module';
@@ -27,6 +28,7 @@ import { UsersModule } from './modules/users/users.module';
     AuditLogsModule,
     AuthModule,
     CatalogModule,
+    FilesModule,
     UsersModule,
     RecordsModule,
     MessagesModule,

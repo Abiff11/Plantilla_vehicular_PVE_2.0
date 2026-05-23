@@ -1,7 +1,7 @@
-import { Injectable } from "@nestjs/common";
-import { SavedFileInput, StorageProvider, StoredFile } from "../storage.types";
-import { extname, join } from "path";
-import { mkdir, writeFile } from "fs/promises";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { SavedFileInput, StorageProvider, StoredFile, StoredFileObject } from "../storage.types";
+import { extname, join, normalize } from "path";
+import { mkdir, readFile, stat, writeFile } from "fs/promises";
 import { randomBytes } from "crypto";
 
 @Injectable()
@@ -20,7 +20,7 @@ export class LocalStorageProvider implements StorageProvider {
     await writeFile(filePath, file.buffer);
 
     const objectKey = `${folder}/${fileName}`;
-    const publicUrl = `/uploads/${objectKey}`;
+    const publicUrl = `/api/files/${objectKey}`;
 
     return {
       originalName: file.originalname,
@@ -31,5 +31,45 @@ export class LocalStorageProvider implements StorageProvider {
       size: file.size,
       storageProvider: "local",
     };
+  }
+
+  async getObject(objectKey: string): Promise<StoredFileObject> {
+    const normalizedKey = normalize(objectKey).replace(/^\.{2}(\/|\\|$)/u, "");
+    const filePath = join(this.uploadsRoot, normalizedKey);
+
+    if (!filePath.startsWith(this.uploadsRoot)) {
+      throw new NotFoundException("No se encontro el archivo.");
+    }
+
+    try {
+      const [fileBuffer, fileStat] = await Promise.all([
+        readFile(filePath),
+        stat(filePath),
+      ]);
+
+      return {
+        buffer: fileBuffer,
+        mimeType: this.resolveMimeType(filePath),
+        size: fileStat.size,
+      };
+    } catch {
+      throw new NotFoundException("No se encontro el archivo.");
+    }
+  }
+
+  private resolveMimeType(filePath: string) {
+    const extension = extname(filePath).toLowerCase();
+
+    const mimeTypes: Record<string, string> = {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".webp": "image/webp",
+      ".pdf": "application/pdf",
+      ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
+
+    return mimeTypes[extension] ?? "application/octet-stream";
   }
 }
