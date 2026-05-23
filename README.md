@@ -1,63 +1,109 @@
 # Sistema de Control Vehicular
 
-Estructura del repositorio:
+Aplicacion web full-stack para registro, seguimiento, validacion y consulta de plantilla vehicular institucional.
+
+## Estructura del repositorio
+
+```txt
+.
+├── backend/              # API NestJS, TypeORM, migraciones, WebSocket y tests
+├── frontend/             # App React + Vite y Nginx de frontend
+├── docs/                 # Documentacion funcional, tecnica y de operacion
+├── .github/              # Workflows de CI
+├── .env.example          # Plantilla de variables para docker-compose.yml
+├── docker-compose.yml    # Orquestacion standalone/local
+├── DEPLOY.md             # Guia de despliegue y checklist operacional
+├── INSTRUCTIONS.md       # Reglas de trabajo para asistentes/codex
+└── README.md             # Vista general del repositorio
+```
+
+## Regla de organizacion
+
+La raiz del repositorio queda reservada para configuracion de despliegue, dockerizacion, documentacion principal, CI y archivos globales del repositorio.
+
+El codigo de aplicacion vive exclusivamente en:
 
 - `backend/`
 - `frontend/`
-- `expediente/`
-- `docs/` (si no existe en tu clon actual, crearla cuando se generen artefactos documentales)
-- `DEPLOY.md`
-- `INSTRUCTIONS.md`
-- `docker-compose.yml`
-- `expediente/*.md`
 
-## Roles del sistema
+## Backend
 
-| Rol | Clave | Funcion |
-|---|---|---|
-| Enlace | `enlace` | Captura registros vehiculares de su delegacion |
-| Director Operativo | `director_operativo` | Monitorea delegaciones de su region |
-| Admin Plantilla Vehicular | `plantilla_vehicular` | Consulta operacion completa por region/delegacion |
-| Director General | `director_general` | Dashboard directivo con KPIs globales |
-| Superadministrador | `superadmin` | Administra usuarios y bitacora |
-| Coordinacion | `coordinacion` | Administra usuarios, bitacora y consulta operacion |
-
-## Base de datos y migraciones
-
-El esquema se gestiona con **migraciones de TypeORM** en:
-
-- `backend/src/database/migrations`
+Ruta oficial:
 
 ```bash
-cd backend
-npm run migration:show   # Ver estado de migraciones
-npm run migration:run    # Ejecutar pendientes
-npm run migration:revert # Revertir ultima
+backend/
 ```
 
-Al arrancar (`npm run start:dev` o `npm start`), las migraciones pendientes se ejecutan automaticamente (`migrationsRun: true`).
+Responsabilidades:
 
-## Variables de entorno
+- API REST NestJS;
+- autenticacion y autorizacion;
+- WebSocket/Socket.IO;
+- entidades TypeORM;
+- migraciones de base de datos;
+- almacenamiento de archivos;
+- pruebas unitarias.
 
-Revisar:
+## Frontend
 
-- `backend/.env.example`
-- `frontend/.env.example`
+Ruta oficial:
 
-## Arranque
+```bash
+frontend/
+```
 
-1. Instalar dependencias en `backend` y `frontend`.
-2. Crear base de datos PostgreSQL.
-3. Copiar `.env.example` a `.env` en cada proyecto.
-4. `cd backend && npm run start:dev`.
-5. `cd frontend && npm run dev`.
+Responsabilidades:
 
-Para primer despliegue, ejecutar seed: `npm run seed:users`.
+- aplicacion React + Vite;
+- vistas por rol;
+- consumo de API;
+- conexion WebSocket;
+- build estatico servido por Nginx.
 
-## Notas
+## Docker standalone
 
-- Soft delete habilitado en usuarios y registros vehiculares.
-- Bitacora de auditoria registra creacion, edicion, traslado, baja logica y login/logout.
-- Catalogo de regiones/delegaciones se gestiona como modulo con tablas `regions` y `delegations`.
-- Mensajeria entre usuarios disponible para roles `enlace`, `plantilla_vehicular` y `coordinacion`.
-- Fotos de vehiculos: maximo 3, formato JPG/JPEG/PNG/WEBP, maximo 5MB cada una.
+```bash
+cp .env.example .env
+# editar .env con valores reales
+
+docker compose up -d --build
+```
+
+## Documentacion
+
+La documentacion extendida vive en:
+
+```txt
+docs/
+```
+
+El expediente funcional/tecnico se ubica en:
+
+```txt
+docs/expediente/
+```
+
+## Seguridad
+
+La rama de hardening incorpora:
+
+- JWT en cookie HttpOnly;
+- CSRF por cookie/header;
+- revocacion de sesiones por `sessionVersion`;
+- WebSocket validado contra estado vivo del usuario;
+- entrega autenticada de archivos por `/api/files/*`;
+- bloqueo de `/uploads` publico;
+- validacion de firma real de imagenes;
+- metricas protegidas por rol `superadmin`;
+- backend Docker con usuario no-root.
+
+## Validacion CI
+
+El workflow principal corre backend typecheck/build/tests y frontend build.
+
+## Notas operativas
+
+- No comitar archivos `.env` reales.
+- Usar `.env.example` raiz solo como contrato de variables para Docker Compose.
+- Usar `backend/.env.example` y `frontend/.env.example` para desarrollo por separado.
+- Revisar `DEPLOY.md` antes de desplegar.
