@@ -1,109 +1,81 @@
-# Sistema de Control Vehicular
+# Sistema de Control Vehicular PVE
 
-Aplicacion web full-stack para registro, seguimiento, validacion y consulta de plantilla vehicular institucional.
+Repositorio separado del monorepo de intranet, con historial Git propio.
 
-## Estructura del repositorio
-
-```txt
-.
-├── backend/              # API NestJS, TypeORM, migraciones, WebSocket y tests
-├── frontend/             # App React + Vite y Nginx de frontend
-├── docs/                 # Documentacion funcional, tecnica y de operacion
-├── .github/              # Workflows de CI
-├── .env.example          # Plantilla de variables para docker-compose.yml
-├── docker-compose.yml    # Orquestacion standalone/local
-├── DEPLOY.md             # Guia de despliegue y checklist operacional
-├── INSTRUCTIONS.md       # Reglas de trabajo para asistentes/codex
-└── README.md             # Vista general del repositorio
-```
-
-## Regla de organizacion
-
-La raiz del repositorio queda reservada para configuracion de despliegue, dockerizacion, documentacion principal, CI y archivos globales del repositorio.
-
-El codigo de aplicacion vive exclusivamente en:
+## Estructura
 
 - `backend/`
 - `frontend/`
+- `docs/`
+
+## Variables de entorno
+
+Las credenciales reales no se versionan.
+
+- Usa `backend/.env.example` para backend.
+- Usa `frontend/.env.example` para frontend.
+- Usa `.env.example` solo cuando ejecutes `docker-compose.yml` desde la raiz.
+- Crea tus archivos locales `.env` segun el entorno.
+
+## Base de datos
+
+La aplicacion usa PostgreSQL configurado por variables de entorno.
+
+Variables principales del backend:
+
+```env
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=postgres
+DATABASE_PASSWORD=
+DATABASE_NAME=vehicle_control
+DATABASE_SSL=false
+```
+
+En produccion no deben versionarse credenciales ni secretos.
 
 ## Backend
 
-Ruta oficial:
-
 ```bash
-backend/
+cd backend
+npm install
+npm run build
+npm run start:dev
+npm run test
 ```
-
-Responsabilidades:
-
-- API REST NestJS;
-- autenticacion y autorizacion;
-- WebSocket/Socket.IO;
-- entidades TypeORM;
-- migraciones de base de datos;
-- almacenamiento de archivos;
-- pruebas unitarias.
 
 ## Frontend
 
-Ruta oficial:
-
 ```bash
-frontend/
+cd frontend
+npm install
+npm run build
+npm run dev
 ```
 
-Responsabilidades:
-
-- aplicacion React + Vite;
-- vistas por rol;
-- consumo de API;
-- conexion WebSocket;
-- build estatico servido por Nginx.
-
-## Docker standalone
+## Validacion rapida
 
 ```bash
-cp .env.example .env
-# editar .env con valores reales
+cd backend
+npm run build
+npm run lint
+npm run test
 
-docker compose up -d --build
+cd ../frontend
+npm run build
 ```
 
 ## Documentacion
 
-La documentacion extendida vive en:
+La documentacion tecnica y operativa vive en:
 
 ```txt
 docs/
 ```
 
-El expediente funcional/tecnico se ubica en:
+Documentos principales:
 
-```txt
-docs/expediente/
-```
-
-## Seguridad
-
-La rama de hardening incorpora:
-
-- JWT en cookie HttpOnly;
-- CSRF por cookie/header;
-- revocacion de sesiones por `sessionVersion`;
-- WebSocket validado contra estado vivo del usuario;
-- entrega autenticada de archivos por `/api/files/*`;
-- bloqueo de `/uploads` publico;
-- validacion de firma real de imagenes;
-- metricas protegidas por rol `superadmin`;
-- backend Docker con usuario no-root.
-
-## Validacion CI
-
-El workflow principal corre backend typecheck/build/tests y frontend build.
-
-## Notas operativas
-
-- No comitar archivos `.env` reales.
-- Usar `.env.example` raiz solo como contrato de variables para Docker Compose.
-- Usar `backend/.env.example` y `frontend/.env.example` para desarrollo por separado.
-- Revisar `DEPLOY.md` antes de desplegar.
+- `docs/DEPLOY.md`
+- `docs/INSTRUCTIONS.md`
+- `docs/PROJECT_STRUCTURE.md`
+- `docs/expediente/`
