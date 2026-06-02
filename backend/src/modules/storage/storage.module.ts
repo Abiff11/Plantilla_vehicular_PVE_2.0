@@ -34,6 +34,6 @@ const storageLogger = new Logger('StorageModule');
     },
     StorageService,
   ],
-  exports: [StorageService],
+  exports: [StorageService, STORAGE_PROVIDER],
 })
 export class StorageModule {}
