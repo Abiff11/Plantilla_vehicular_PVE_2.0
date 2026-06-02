@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   Controller,
+  Get,
+  Param,
   Post,
   UploadedFile,
   UseGuards,
@@ -30,27 +32,47 @@ type AuthUser = {
 };
 
 const MAX_EXCEL_SIZE = 15 * 1024 * 1024;
+const IMPORT_ADMIN_ROLES = [
+  Role.PlantillaVehicular,
+  Role.SuperAdmin,
+  Role.Coordinacion,
+];
 
 @Controller('records/imports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RecordsImportController {
   constructor(private readonly recordsImportService: RecordsImportService) {}
 
+  @Get()
+  @RequireRoles(...IMPORT_ADMIN_ROLES)
+  findImportBatches() {
+    return this.recordsImportService.findImportBatches();
+  }
+
+  @Get(':id/errors')
+  @RequireRoles(...IMPORT_ADMIN_ROLES)
+  findImportErrors(@Param('id') id: string) {
+    return this.recordsImportService.findImportErrors(id);
+  }
+
   @Post('preview')
-  @RequireRoles(Role.PlantillaVehicular, Role.SuperAdmin, Role.Coordinacion)
+  @RequireRoles(...IMPORT_ADMIN_ROLES)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
       limits: { fileSize: MAX_EXCEL_SIZE },
     }),
   )
-  preview(@UploadedFile() file?: UploadedExcelFile) {
+  preview(
+    @UploadedFile() file: UploadedExcelFile | undefined,
+    @CurrentUser() user: AuthUser,
+  ) {
     assertUploadedExcel(file);
-    return this.recordsImportService.preview(file);
+    return this.recordsImportService.preview(file, user);
   }
 
   @Post('commit')
-  @RequireRoles(Role.PlantillaVehicular, Role.SuperAdmin, Role.Coordinacion)
+  @RequireRoles(...IMPORT_ADMIN_ROLES)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
