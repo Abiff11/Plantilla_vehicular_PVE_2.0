@@ -14,6 +14,10 @@ import {
   VehicleImportBatchStatus,
 } from '../entities/vehicle-import-batch.entity';
 import { VehicleImportErrorEntity } from '../entities/vehicle-import-error.entity';
+import {
+  normalizeExcelImportRecord,
+  type NormalizedExcelImportRecord,
+} from './excel-import-normalizer';
 import { parseExcelWorkbook } from './excel-workbook.parser';
 
 type UploadedExcelFile = {
@@ -34,38 +38,8 @@ type ImportRow = {
   sourceRowNumber: number;
   sourceSection: string;
   values: Record<string, string>;
-  normalized: NormalizedImportRecord;
+  normalized: NormalizedExcelImportRecord;
   errors: string[];
-};
-
-type NormalizedImportRecord = {
-  civ: string;
-  previousPlates: string;
-  plates2024: string;
-  plates2025: string;
-  plates2026: string;
-  plates: string;
-  brand: string;
-  type: string;
-  useType: string;
-  vehicleClass: string;
-  model: string;
-  cylinders: string;
-  fuelCapacityLiters: string;
-  engineNumber: string;
-  serialNumber: string;
-  adscription: string;
-  custodian: string;
-  patrolNumber: string;
-  color: string;
-  physicalStatus: string;
-  status: string;
-  rawCirculationStatus: string;
-  assetClassification: string;
-  observation: string;
-  realLocation: string;
-  sourceSection: string;
-  sourceRowNumber: number;
 };
 
 type CatalogLookup = Map<string, Set<string>>;
@@ -109,7 +83,7 @@ const EXPECTED_HEADERS = [
 ] as const;
 
 const CATALOG_FIELD_MAP: Array<{
-  field: keyof NormalizedImportRecord;
+  field: keyof NormalizedExcelImportRecord;
   catalogCode: string;
   required: boolean;
 }> = [
@@ -338,7 +312,7 @@ export class RecordsImportService {
           rowNumber: row.sourceRowNumber,
           section: row.sourceSection,
           columnName: resolveErrorColumnName(message),
-          rawValue: '',
+          rawValue: resolveErrorRawValue(message, row),
           errorType: resolveErrorType(message),
           message,
         }),
@@ -486,7 +460,7 @@ export class RecordsImportService {
         continue;
       }
 
-      const normalized = normalizeImportRecord(values, currentSection, index + 1);
+      const normalized = normalizeExcelImportRecord(values, currentSection, index + 1);
       rows.push({
         sourceRowNumber: index + 1,
         sourceSection: currentSection,
@@ -610,46 +584,8 @@ export class RecordsImportService {
   }
 }
 
-function normalizeImportRecord(
-  values: Record<string, string>,
-  sourceSection: string,
-  sourceRowNumber: number,
-): NormalizedImportRecord {
-  const rawCirculationStatus = normalizeUpper(values.ESTATUS || 'SIN ESTATUS');
-
-  return {
-    civ: normalizeUpper(values.CIV),
-    previousPlates: normalizeUpper(values['PLACAS ANTERIORES']),
-    plates2024: normalizeUpper(values['PLACAS 2024']),
-    plates2025: normalizeUpper(values['PLACAS 2025']),
-    plates2026: normalizeUpper(values['PLACAS 2026']),
-    plates: resolveMainPlates(values),
-    brand: normalizeUpper(values.MARCA),
-    type: normalizeUpper(values.TIPO),
-    useType: normalizeUpper(values.USO),
-    vehicleClass: normalizeUpper(values['TIPO DE VEHICULO']),
-    model: normalizeUpper(values['MOD.']),
-    cylinders: normalizeUpper(values['CIL.']),
-    fuelCapacityLiters: normalizeUpper(values['CAP.LTS']),
-    engineNumber: normalizeUpper(values['NO. DE MOTOR']),
-    serialNumber: normalizeUpper(values['NO. DE SERIE']),
-    adscription: normalizeUpper(values.ADSCRIPCION),
-    custodian: normalizeUpper(values.RESGUARDANTE),
-    patrolNumber: normalizeUpper(values['NO. PATRULLA']),
-    color: normalizeUpper(values['COLOR DE LA UNIDAD']),
-    physicalStatus: normalizeUpper(values['ESTADO FISICO']),
-    status: deriveSystemStatus(rawCirculationStatus),
-    rawCirculationStatus,
-    assetClassification: normalizeUpper(values['ANOTACION GENERAL'] || 'OTRO'),
-    observation: normalizeText(values.OBSERVACION),
-    realLocation: normalizeUpper(values['UBICACION REAL']),
-    sourceSection: normalizeUpper(sourceSection),
-    sourceRowNumber,
-  };
-}
-
 function validateRow(
-  record: NormalizedImportRecord,
+  record: NormalizedExcelImportRecord,
   catalogLookup: CatalogLookup,
   duplicateLookup: DuplicateLookup,
 ) {
@@ -738,6 +674,22 @@ function resolveErrorColumnName(message: string) {
   return '';
 }
 
+function resolveErrorRawValue(message: string, row: ImportRow) {
+  const catalogMatch = message.match(/catalogo ([^:]+): (.+)\./iu);
+
+  if (catalogMatch) {
+    return catalogMatch[2];
+  }
+
+  const requiredMatch = message.match(/Campo obligatorio vacio: ([^.]+)\./iu);
+
+  if (requiredMatch) {
+    return String(row.normalized[requiredMatch[1] as keyof NormalizedExcelImportRecord] ?? '');
+  }
+
+  return '';
+}
+
 function resolveErrorType(message: string) {
   if (message.includes('duplicad') || message.includes('ya existe')) {
     return 'DUPLICATE';
@@ -757,7 +709,7 @@ function detectSection(values: Record<string, string>, row: string[]) {
   const joined = row.map(normalizeText).filter(Boolean).join(' ');
 
   if (!civ && !brand && !serialNumber && joined.length > 0) {
-    return normalizeUpper(joined);
+    return normalizeCatalogValue(joined);
   }
 
   return '';
@@ -772,40 +724,6 @@ function isVehicleRow(values: Record<string, string>) {
   );
 }
 
-function resolveMainPlates(values: Record<string, string>) {
-  const candidates = [
-    values['PLACAS 2026'],
-    values['PLACAS 2025'],
-    values['PLACAS 2024'],
-    values['PLACAS ANTERIORES'],
-  ];
-
-  for (const candidate of candidates) {
-    const normalized = normalizeUpper(candidate);
-
-    if (normalized && normalized !== 'S/P' && normalized !== 'SP') {
-      return normalized;
-    }
-  }
-
-  return '';
-}
-
-function deriveSystemStatus(rawCirculationStatus: string) {
-  switch (normalizeCatalogValue(rawCirculationStatus)) {
-    case 'CIRCULANDO':
-    case 'NUEVA':
-    case 'REPOSICION':
-      return 'ACTIVO';
-    case 'NO CIRCULANDO':
-      return 'INCATIVO';
-    case 'BAJA':
-      return 'PARA BAJA';
-    default:
-      return 'OTRO';
-  }
-}
-
 function countValues(values: string[]) {
   const result = new Map<string, number>();
 
@@ -817,9 +735,7 @@ function countValues(values: string[]) {
 }
 
 function normalizeHeader(value: string) {
-  return normalizeUpper(value)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/gu, '')
+  return normalizeCatalogValue(value)
     .replace(/\s+/gu, ' ')
     .replace(/^NO\s+/u, 'NO. ')
     .trim();
