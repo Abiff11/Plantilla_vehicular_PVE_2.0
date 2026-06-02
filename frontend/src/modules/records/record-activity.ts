@@ -39,6 +39,15 @@ function escapeHtml(value: unknown) {
     .replaceAll("'", "&#39;");
 }
 
+function renderVehicleDetailField(label: string, value: unknown) {
+  return `
+    <div class="vehicle-detail-field">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value || "-")}</strong>
+    </div>
+  `;
+}
+
 function renderTransferLine(transfer: VehicleTransferEvent) {
   return `
     <div class="activity-item">
@@ -85,7 +94,7 @@ function renderEditLine(edit: VehicleEditEvent) {
 
 function joinUrl(base: string, path: string) {
   const cleanedBase = base.replace(/\/+$/, "");
-  const cleanedPath = path.replace(/^\/+/, "");
+  const cleanedPath = path.replace(/^\/+/u, "");
   return `${cleanedBase}/${cleanedPath}`;
 }
 
@@ -159,6 +168,10 @@ export function getRecordActivitySummary(record: VehicleRecord) {
     );
   }
 
+  if (record.importBatchId) {
+    parts.push("Importado desde Excel");
+  }
+
   return parts.length > 0 ? parts.join(" · ") : "Sin movimientos recientes";
 }
 
@@ -167,61 +180,37 @@ export async function openRecordDetails(record: VehicleRecord) {
     <div class="activity-item vehicle-detail-summary">
       <div class="activity-item-head">
         <strong>Datos del vehículo</strong>
-        <span>${escapeHtml(record.plates || "-")}</span>
+        <span>${escapeHtml(record.plates || record.plates2026 || "-")}</span>
       </div>
       <div class="vehicle-detail-grid">
-        <div class="vehicle-detail-field">
-          <span>Placas</span>
-          <strong>${escapeHtml(record.plates || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Clase</span>
-          <strong>${escapeHtml(record.vehicleClass || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Uso</span>
-          <strong>${escapeHtml(record.useType || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Marca</span>
-          <strong>${escapeHtml(record.brand || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Tipo</span>
-          <strong>${escapeHtml(record.type || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Modelo</span>
-          <strong>${escapeHtml(record.model || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Número de motor</span>
-          <strong>${escapeHtml(record.engineNumber || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Número de serie</span>
-          <strong>${escapeHtml(record.serialNumber || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Resguardante</span>
-          <strong>${escapeHtml(record.custodian || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Estado físico</span>
-          <strong>${escapeHtml(record.physicalStatus || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Estatus</span>
-          <strong>${escapeHtml(record.status || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Clasificación del bien</span>
-          <strong>${escapeHtml(record.assetClassification || "-")}</strong>
-        </div>
-        <div class="vehicle-detail-field">
-          <span>Delegación actual</span>
-          <strong>${escapeHtml(record.delegation.name || "-")}</strong>
-        </div>
+        ${renderVehicleDetailField("Placas", record.plates)}
+        ${renderVehicleDetailField("CIV", record.civ)}
+        ${renderVehicleDetailField("Placas anteriores", record.previousPlates)}
+        ${renderVehicleDetailField("Placas 2024", record.plates2024)}
+        ${renderVehicleDetailField("Placas 2025", record.plates2025)}
+        ${renderVehicleDetailField("Placas 2026", record.plates2026)}
+        ${renderVehicleDetailField("Clase", record.vehicleClass)}
+        ${renderVehicleDetailField("Uso", record.useType)}
+        ${renderVehicleDetailField("Marca", record.brand)}
+        ${renderVehicleDetailField("Tipo", record.type)}
+        ${renderVehicleDetailField("Modelo", record.model)}
+        ${renderVehicleDetailField("Cilindros", record.cylinders)}
+        ${renderVehicleDetailField("Capacidad litros", record.fuelCapacityLiters)}
+        ${renderVehicleDetailField("Número de motor", record.engineNumber)}
+        ${renderVehicleDetailField("Número de serie", record.serialNumber)}
+        ${renderVehicleDetailField("Resguardante", record.custodian)}
+        ${renderVehicleDetailField("No. patrulla", record.patrolNumber)}
+        ${renderVehicleDetailField("Color", record.color)}
+        ${renderVehicleDetailField("Adscripción", record.adscription)}
+        ${renderVehicleDetailField("Ubicación real", record.realLocation)}
+        ${renderVehicleDetailField("Estado físico", record.physicalStatus)}
+        ${renderVehicleDetailField("Estatus sistema", record.status)}
+        ${renderVehicleDetailField("Estatus Excel", record.rawCirculationStatus)}
+        ${renderVehicleDetailField("Clasificación del bien", record.assetClassification)}
+        ${renderVehicleDetailField("Delegación actual", record.delegation.name)}
+        ${renderVehicleDetailField("Sección Excel", record.sourceSection)}
+        ${renderVehicleDetailField("Fila Excel", record.sourceRowNumber)}
+        ${renderVehicleDetailField("Lote importación", record.importBatchId)}
       </div>
     </div>
   `;
@@ -254,7 +243,7 @@ export async function openRecordDetails(record: VehicleRecord) {
       : '<div class="activity-item"><span>Sin fotos cargadas.</span></div>';
 
   await Swal.fire({
-    title: `Historial de ${escapeHtml(record.plates)}`,
+    title: `Historial de ${escapeHtml(record.plates || record.plates2026 || "S/P")}`,
     width: 900,
     confirmButtonText: "Cerrar",
     html: `
