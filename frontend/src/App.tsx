@@ -11,6 +11,7 @@ import { CoordinacionAuditPage } from "./pages/coordinacion-audit-page";
 import { DirectorGeneralPage } from "./pages/director-general-page";
 import { DirectorGeneralMapPage } from "./pages/director-general-map-page";
 import { DirectorOperativoPage } from "./pages/director-operativo-page";
+import { CatalogsPage } from "./pages/catalogs-page";
 import { APP_ROUTES, LEGACY_ROUTE_REDIRECTS } from "./lib/routes";
 import { ALL_ROLES, ROUTE_ROLES } from "./lib/role-access";
 import { PlantillaReportesPage } from "./pages/plantilla-reportes-page";
@@ -82,6 +83,14 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={ROUTE_ROLES.control}>
               <CoordinacionPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={APP_ROUTES.catalogs.slice(1)}
+          element={
+            <ProtectedRoute allowedRoles={ROUTE_ROLES.catalogs}>
+              <CatalogsPage />
             </ProtectedRoute>
           }
         />
