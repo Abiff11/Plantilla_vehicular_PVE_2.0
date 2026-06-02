@@ -13,6 +13,8 @@ import { ConversationEntity } from "../modules/messages/entities/conversation.en
 import { MessageEntity } from "../modules/messages/entities/message.entity";
 import { MessagePhotoEntity } from "../modules/messages/entities/message-photo.entity";
 import { RecordEntity } from "../modules/records/entities/record.entity";
+import { VehicleImportBatchEntity } from "../modules/records/entities/vehicle-import-batch.entity";
+import { VehicleImportErrorEntity } from "../modules/records/entities/vehicle-import-error.entity";
 import { VehiclePhotoEntity } from "../modules/records/entities/vehicle-photo.entity";
 import { VehicleRosterReportEntity } from "../modules/records/entities/vehicle-roster-report.entity";
 import { VehicleTransferEntity } from "../modules/records/entities/vehicle-transfer.entity";
@@ -30,6 +32,8 @@ const ENTITIES = [
   RecordEntity,
   RegionEntity,
   UserEntity,
+  VehicleImportBatchEntity,
+  VehicleImportErrorEntity,
   VehiclePhotoEntity,
   VehicleRosterReportEntity,
   VehicleTransferEntity,
