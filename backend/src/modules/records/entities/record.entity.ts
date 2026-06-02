@@ -6,6 +6,21 @@ import { VehiclePhotoEntity } from './vehicle-photo.entity';
 
 @Entity('records')
 export class RecordEntity extends BaseEntity {
+  @Column({ default: '' })
+  civ!: string;
+
+  @Column({ default: '' })
+  previousPlates!: string;
+
+  @Column({ default: '' })
+  plates2024!: string;
+
+  @Column({ default: '' })
+  plates2025!: string;
+
+  @Column({ default: '' })
+  plates2026!: string;
+
   @Column()
   plates!: string;
 
@@ -24,11 +39,20 @@ export class RecordEntity extends BaseEntity {
   @Column()
   model!: string;
 
+  @Column({ default: '' })
+  cylinders!: string;
+
+  @Column({ default: '' })
+  fuelCapacityLiters!: string;
+
   @Column()
   engineNumber!: string;
 
   @Column()
   serialNumber!: string;
+
+  @Column({ default: '' })
+  adscription!: string;
 
   @Column()
   custodian!: string;
@@ -36,17 +60,35 @@ export class RecordEntity extends BaseEntity {
   @Column()
   patrolNumber!: string;
 
+  @Column({ default: '' })
+  color!: string;
+
   @Column()
   physicalStatus!: string;
 
   @Column()
   status!: string;
 
+  @Column({ default: '' })
+  rawCirculationStatus!: string;
+
   @Column()
   assetClassification!: string;
 
   @Column({ type: 'text', default: '' })
   observation!: string;
+
+  @Column({ default: '' })
+  realLocation!: string;
+
+  @Column({ default: '' })
+  sourceSection!: string;
+
+  @Column({ type: 'int', nullable: true })
+  sourceRowNumber!: number | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  importBatchId!: string | null;
 
   @ManyToOne(() => DelegationEntity, (delegation) => delegation.records, {
     nullable: false,
