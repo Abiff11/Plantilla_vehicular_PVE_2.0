@@ -61,6 +61,21 @@ function matchesCatalogFilter(
   return !standardValues.has(recordValue);
 }
 
+function resolveRecordDisplayPlates(record: VehicleRecord) {
+  return record.plates || record.plates2026 || record.plates2025 || record.plates2024 || record.previousPlates || 'S/P';
+}
+
+function resolveImportMetadata(record: VehicleRecord) {
+  const parts = [
+    record.civ ? `CIV ${record.civ}` : '',
+    record.plates2026 ? `P2026 ${record.plates2026}` : '',
+    record.color ? `Color ${record.color}` : '',
+    record.sourceSection ? `Sección ${record.sourceSection}` : '',
+  ].filter(Boolean);
+
+  return parts.join(' · ');
+}
+
 export function GroupedRecords({
   regions,
   fieldCatalogs,
@@ -89,12 +104,23 @@ export function GroupedRecords({
                   region.regionName,
                   delegation.delegationName,
                   record.plates,
+                  record.previousPlates,
+                  record.plates2024,
+                  record.plates2025,
+                  record.plates2026,
+                  record.civ,
                   record.brand,
                   record.type,
                   record.useType,
                   record.vehicleClass,
                   record.model,
                   record.custodian,
+                  record.patrolNumber,
+                  record.color,
+                  record.adscription,
+                  record.realLocation,
+                  record.rawCirculationStatus,
+                  record.sourceSection,
                   record.status,
                   getRecordActivitySummary(record),
                 ]
@@ -160,7 +186,7 @@ export function GroupedRecords({
             <label className="toolbar-search">
               <span>Buscar</span>
               <input
-                placeholder="Delegacion, placas, marca o movimiento"
+                placeholder="Delegación, placas, CIV, color, adscripción o movimiento"
                 value={filters.search}
                 onChange={(event) =>
                   setFilters((current) => ({ ...current, search: event.target.value }))
@@ -339,15 +365,17 @@ export function GroupedRecords({
                             <td>{new Date(record.createdAt).toLocaleString()}</td>
                             <td>
                               <div className="vehicle-main-cell">
-                                <strong>{record.plates}</strong>
+                                <strong>{resolveRecordDisplayPlates(record)}</strong>
                                 <span>{record.vehicleClass} · {record.useType}</span>
                                 <small>{record.brand} {record.type} · Modelo {record.model}</small>
+                                {resolveImportMetadata(record) && <small>{resolveImportMetadata(record)}</small>}
                               </div>
                             </td>
                             <td>
                               <div className="vehicle-main-cell">
                                 <strong>{record.custodian}</strong>
-                                <span>{record.delegation.name}</span>
+                                <span>{record.adscription || record.delegation.name}</span>
+                                <small>{record.realLocation || record.delegation.name}</small>
                                 {record.recordState === 'TRANSFERRED_OUT' && (
                                   <small>Registro trasladado</small>
                                 )}
@@ -357,7 +385,7 @@ export function GroupedRecords({
                               <div className="vehicle-main-cell">
                                 <span className={`record-chip ${resolveVehicleStatusTone(record.status)}`}>{record.status}</span>
                                 <span className={`record-chip ${resolveVehiclePhysicalStatusTone(record.physicalStatus)}`}>{record.physicalStatus}</span>
-                                <small>{record.assetClassification}</small>
+                                <small>{record.rawCirculationStatus || record.assetClassification}</small>
                               </div>
                             </td>
                             <td>
@@ -367,6 +395,9 @@ export function GroupedRecords({
                                 )}
                                 {record.latestEdit && (
                                   <span className="record-chip is-info">Editado</span>
+                                )}
+                                {record.importBatchId && (
+                                  <span className="record-chip is-info">Importado</span>
                                 )}
                                 <span className="record-activity-text">
                                   {getRecordActivitySummary(record)}
@@ -403,6 +434,3 @@ export function GroupedRecords({
     </div>
   );
 }
-
-
-
