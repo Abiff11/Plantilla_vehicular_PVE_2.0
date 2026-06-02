@@ -4,6 +4,7 @@ export class CreateDynamicCatalogs1780421000000 implements MigrationInterface {
   name = 'CreateDynamicCatalogs1780421000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
     await queryRunner.query(`CREATE TABLE "catalog_groups" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), "deletedAt" TIMESTAMP, "code" character varying NOT NULL, "name" character varying NOT NULL, "description" text NOT NULL DEFAULT '', "isSystem" boolean NOT NULL DEFAULT false, "sortOrder" integer NOT NULL DEFAULT 0, CONSTRAINT "UQ_catalog_groups_code" UNIQUE ("code"), CONSTRAINT "PK_catalog_groups" PRIMARY KEY ("id"))`);
     await queryRunner.query(`CREATE TABLE "catalog_items" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), "deletedAt" TIMESTAMP, "code" character varying NOT NULL, "label" character varying NOT NULL, "normalizedValue" character varying NOT NULL DEFAULT '', "metadata" jsonb NOT NULL DEFAULT '{}', "isActive" boolean NOT NULL DEFAULT true, "sortOrder" integer NOT NULL DEFAULT 0, "groupId" uuid NOT NULL, CONSTRAINT "PK_catalog_items" PRIMARY KEY ("id"))`);
     await queryRunner.query(`CREATE UNIQUE INDEX "IDX_catalog_items_group_code" ON "catalog_items" ("groupId", "code") WHERE "deletedAt" IS NULL`);
