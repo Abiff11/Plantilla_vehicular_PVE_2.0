@@ -1,9 +1,19 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RecordEntity } from 'src/modules/records/entities/record.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { REGION_CATALOG } from './catalog.seed';
+import { CreateCatalogAliasDto } from './dto/create-catalog-alias.dto';
+import { CreateCatalogGroupDto } from './dto/create-catalog-group.dto';
+import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
+import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
 import { DYNAMIC_CATALOG_SEED } from './dynamic-catalog.seed';
 import { CatalogAliasEntity } from './entities/catalog-alias.entity';
 import { CatalogGroupEntity } from './entities/catalog-group.entity';
@@ -37,6 +47,189 @@ export class CatalogService implements OnApplicationBootstrap {
     await this.removeObsoleteCatalog();
     await this.seedRegionCatalog();
     await this.seedDynamicCatalogs();
+  }
+
+  findAllCatalogGroups() {
+    return this.catalogGroupRepository.find({
+      relations: {
+        items: {
+          aliases: true,
+        },
+      },
+      order: {
+        sortOrder: 'ASC',
+        items: {
+          sortOrder: 'ASC',
+          label: 'ASC',
+        },
+      },
+    });
+  }
+
+  async createCatalogGroup(dto: CreateCatalogGroupDto) {
+    const code = normalizeCatalogCode(dto.code);
+    const existingGroup = await this.catalogGroupRepository.findOne({
+      where: { code },
+      withDeleted: true,
+    });
+
+    if (existingGroup) {
+      throw new ConflictException(`El catalogo '${code}' ya existe.`);
+    }
+
+    return this.catalogGroupRepository.save(
+      this.catalogGroupRepository.create({
+        code,
+        name: normalizeCatalogLabel(dto.name),
+        description: normalizeCatalogText(dto.description ?? ''),
+        isSystem: false,
+      }),
+    );
+  }
+
+  async findCatalogItemsByGroupCode(groupCode: string) {
+    const group = await this.findCatalogGroupByCodeOrFail(groupCode);
+
+    return this.catalogItemRepository.find({
+      where: {
+        group: { id: group.id },
+      },
+      relations: {
+        group: true,
+        aliases: true,
+      },
+      order: {
+        sortOrder: 'ASC',
+        label: 'ASC',
+      },
+    });
+  }
+
+  async createCatalogItem(groupCode: string, dto: CreateCatalogItemDto) {
+    const group = await this.findCatalogGroupByCodeOrFail(groupCode);
+    const code = normalizeCatalogCode(dto.code);
+    const existingItem = await this.catalogItemRepository.findOne({
+      where: {
+        group: { id: group.id },
+        code,
+      },
+      relations: {
+        group: true,
+      },
+      withDeleted: true,
+    });
+
+    if (existingItem) {
+      throw new ConflictException(
+        `El valor '${code}' ya existe en el catalogo '${group.code}'.`,
+      );
+    }
+
+    return this.catalogItemRepository.save(
+      this.catalogItemRepository.create({
+        group,
+        code,
+        label: normalizeCatalogLabel(dto.label),
+        normalizedValue: normalizeCatalogLabel(dto.normalizedValue ?? dto.label),
+        metadata: dto.metadata ?? {},
+        isActive: dto.isActive ?? true,
+      }),
+    );
+  }
+
+  async updateCatalogItem(id: string, dto: UpdateCatalogItemDto) {
+    const item = await this.catalogItemRepository.findOne({
+      where: { id },
+      relations: {
+        group: true,
+        aliases: true,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException('No se encontro el valor del catalogo.');
+    }
+
+    if (dto.label !== undefined) {
+      item.label = normalizeCatalogLabel(dto.label);
+    }
+
+    if (dto.normalizedValue !== undefined) {
+      item.normalizedValue = normalizeCatalogLabel(dto.normalizedValue);
+    }
+
+    if (dto.metadata !== undefined) {
+      item.metadata = dto.metadata;
+    }
+
+    if (dto.isActive !== undefined) {
+      item.isActive = dto.isActive;
+    }
+
+    return this.catalogItemRepository.save(item);
+  }
+
+  async softDeleteCatalogItem(id: string) {
+    const item = await this.catalogItemRepository.findOne({ where: { id } });
+
+    if (!item) {
+      throw new NotFoundException('No se encontro el valor del catalogo.');
+    }
+
+    await this.catalogItemRepository.softDelete(id);
+
+    return { success: true };
+  }
+
+  async createCatalogAlias(itemId: string, dto: CreateCatalogAliasDto) {
+    const item = await this.catalogItemRepository.findOne({
+      where: { id: itemId },
+      relations: {
+        group: true,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException('No se encontro el valor del catalogo.');
+    }
+
+    const rawValue = normalizeCatalogText(dto.rawValue);
+    const normalizedRawValue = normalizeCatalogValue(rawValue);
+    const existingAlias = await this.catalogAliasRepository.findOne({
+      where: {
+        catalogItem: { id: item.id },
+        normalizedRawValue,
+      },
+      relations: {
+        catalogItem: true,
+      },
+      withDeleted: true,
+    });
+
+    if (existingAlias) {
+      throw new ConflictException('El alias ya existe para este valor de catalogo.');
+    }
+
+    return this.catalogAliasRepository.save(
+      this.catalogAliasRepository.create({
+        catalogItem: item,
+        rawValue,
+        normalizedRawValue,
+        source: normalizeCatalogText(dto.source ?? 'manual'),
+      }),
+    );
+  }
+
+  private async findCatalogGroupByCodeOrFail(code: string) {
+    const group = await this.catalogGroupRepository.findOne({
+      where: { code: normalizeCatalogCode(code) },
+    });
+
+    if (!group) {
+      throw new NotFoundException('No se encontro el catalogo solicitado.');
+    }
+
+    return group;
   }
 
   private async seedRegionCatalog() {
@@ -255,4 +448,20 @@ export class CatalogService implements OnApplicationBootstrap {
 
 function normalizeCatalogValue(value: string) {
   return value.trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+function normalizeCatalogText(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function normalizeCatalogLabel(value: string) {
+  return normalizeCatalogText(value).toUpperCase();
+}
+
+function normalizeCatalogCode(value: string) {
+  return normalizeCatalogValue(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .replace(/[^A-Z0-9]+/gu, '_')
+    .replace(/^_+|_+$/gu, '');
 }
