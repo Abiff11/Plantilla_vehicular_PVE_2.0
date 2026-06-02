@@ -1,15 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { randomUUID } from 'node:crypto';
 import { Role } from 'src/common/enums/role.enum';
+import { AuditLogsService } from 'src/modules/audit-logs/audit-logs.service';
 import { CatalogAliasEntity } from 'src/modules/catalog/entities/catalog-alias.entity';
 import { CatalogGroupEntity } from 'src/modules/catalog/entities/catalog-group.entity';
 import { CatalogItemEntity } from 'src/modules/catalog/entities/catalog-item.entity';
 import { DelegationEntity } from 'src/modules/catalog/entities/delegation.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
-import { AuditLogsService } from 'src/modules/audit-logs/audit-logs.service';
 import { RecordEntity } from '../entities/record.entity';
+import {
+  VehicleImportBatchEntity,
+  VehicleImportBatchStatus,
+} from '../entities/vehicle-import-batch.entity';
+import { VehicleImportErrorEntity } from '../entities/vehicle-import-error.entity';
 import { parseExcelWorkbook } from './excel-workbook.parser';
 
 type UploadedExcelFile = {
@@ -150,20 +154,216 @@ export class RecordsImportService {
     private readonly catalogItemRepository: Repository<CatalogItemEntity>,
     @InjectRepository(CatalogAliasEntity)
     private readonly catalogAliasRepository: Repository<CatalogAliasEntity>,
+    @InjectRepository(VehicleImportBatchEntity)
+    private readonly importBatchRepository: Repository<VehicleImportBatchEntity>,
+    @InjectRepository(VehicleImportErrorEntity)
+    private readonly importErrorRepository: Repository<VehicleImportErrorEntity>,
     private readonly auditLogsService: AuditLogsService,
   ) {}
 
-  async preview(file: UploadedExcelFile) {
+  async preview(file: UploadedExcelFile, authUser: AuthUser) {
     this.assertExcelFile(file);
+    this.assertImportRole(authUser);
+
+    const user = await this.resolveUser(authUser);
     const parsed = await this.parseImportRows(file);
     const catalogLookup = await this.buildCatalogLookup();
     const rows = await this.validateRows(parsed.rows, catalogLookup);
+    const summary = this.buildImportSummary(file.originalname, parsed.sheetName, rows, catalogLookup);
+    const batch = await this.createBatch(summary, user, VehicleImportBatchStatus.Previewed, 0);
+
+    await this.persistImportErrors(batch, rows);
+    await this.auditLogsService.register({
+      actorId: authUser.sub,
+      action: 'VEHICLE_IMPORT_PREVIEWED',
+      entityType: 'vehicle_import_batch',
+      entityId: batch.id,
+      metadata: {
+        fileName: file.originalname,
+        sheetName: parsed.sheetName,
+        totalRows: summary.totalRows,
+        validRows: summary.validRows,
+        invalidRows: summary.invalidRows,
+      },
+    });
+
+    return {
+      importBatchId: batch.id,
+      ...summary,
+      sampleRows: rows.slice(0, 20).map((row) => row.normalized),
+    };
+  }
+
+  async commit(file: UploadedExcelFile, authUser: AuthUser) {
+    this.assertExcelFile(file);
+    this.assertImportRole(authUser);
+
+    const user = await this.resolveUser(authUser);
+    const defaultDelegation = await this.resolveDefaultDelegation(authUser);
+    const parsed = await this.parseImportRows(file);
+    const catalogLookup = await this.buildCatalogLookup();
+    const rows = await this.validateRows(parsed.rows, catalogLookup);
+    const summary = this.buildImportSummary(file.originalname, parsed.sheetName, rows, catalogLookup);
+    const hasBlockingErrors = summary.invalidRows > 0 || summary.pendingCatalogValues.length > 0;
+    const batch = await this.createBatch(
+      summary,
+      user,
+      hasBlockingErrors ? VehicleImportBatchStatus.Failed : VehicleImportBatchStatus.Imported,
+      0,
+    );
+
+    await this.persistImportErrors(batch, rows);
+
+    if (hasBlockingErrors) {
+      await this.auditLogsService.register({
+        actorId: authUser.sub,
+        action: 'VEHICLE_IMPORT_FAILED',
+        entityType: 'vehicle_import_batch',
+        entityId: batch.id,
+        metadata: {
+          fileName: file.originalname,
+          sheetName: parsed.sheetName,
+          invalidRows: summary.invalidRows,
+          pendingCatalogValues: summary.pendingCatalogValues,
+        },
+      });
+
+      throw new BadRequestException({
+        message: 'La importacion tiene errores o valores pendientes de catalogo.',
+        importBatchId: batch.id,
+        invalidRows: summary.invalidRows,
+        pendingCatalogValues: summary.pendingCatalogValues,
+        errors: summary.errors.slice(0, 50),
+      });
+    }
+
+    const records = rows.map((row) =>
+      this.recordRepository.create({
+        ...row.normalized,
+        importBatchId: batch.id,
+        delegation: defaultDelegation,
+        createdBy: user,
+      }),
+    );
+    const savedRecords = await this.recordRepository.save(records, { chunk: 50 });
+
+    batch.importedRows = savedRecords.length;
+    batch.finishedAt = new Date();
+    await this.importBatchRepository.save(batch);
+
+    await this.auditLogsService.register({
+      actorId: authUser.sub,
+      action: 'VEHICLE_IMPORT_COMMITTED',
+      entityType: 'vehicle_import_batch',
+      entityId: batch.id,
+      metadata: {
+        fileName: file.originalname,
+        sheetName: parsed.sheetName,
+        importedRows: savedRecords.length,
+        delegationId: defaultDelegation.id,
+        importBatchId: batch.id,
+      },
+    });
+
+    return {
+      importBatchId: batch.id,
+      fileName: file.originalname,
+      sheetName: parsed.sheetName,
+      importedRows: savedRecords.length,
+    };
+  }
+
+  findImportBatches() {
+    return this.importBatchRepository.find({
+      relations: { createdBy: true },
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
+  }
+
+  async findImportErrors(batchId: string) {
+    const batch = await this.importBatchRepository.findOne({ where: { id: batchId } });
+
+    if (!batch) {
+      throw new NotFoundException('No se encontro el lote de importacion.');
+    }
+
+    return this.importErrorRepository.find({
+      where: { batch: { id: batchId } },
+      order: { rowNumber: 'ASC', createdAt: 'ASC' },
+    });
+  }
+
+  private async resolveUser(authUser: AuthUser) {
+    const user = await this.userRepository.findOneBy({ id: authUser.sub });
+
+    if (!user) {
+      throw new NotFoundException('No se encontro el usuario autenticado.');
+    }
+
+    return user;
+  }
+
+  private async createBatch(
+    summary: ReturnType<RecordsImportService['buildImportSummary']>,
+    user: UserEntity,
+    status: VehicleImportBatchStatus,
+    importedRows: number,
+  ) {
+    return this.importBatchRepository.save(
+      this.importBatchRepository.create({
+        fileName: summary.fileName,
+        sheetName: summary.sheetName,
+        totalRows: summary.totalRows,
+        validRows: summary.validRows,
+        invalidRows: summary.invalidRows,
+        importedRows,
+        status,
+        sourceSections: summary.sourceSections,
+        pendingCatalogValues: summary.pendingCatalogValues,
+        finishedAt:
+          status === VehicleImportBatchStatus.Imported || status === VehicleImportBatchStatus.Failed
+            ? new Date()
+            : null,
+        createdBy: user,
+      }),
+    );
+  }
+
+  private async persistImportErrors(batch: VehicleImportBatchEntity, rows: ImportRow[]) {
+    const errors = rows.flatMap((row) =>
+      row.errors.map((message) =>
+        this.importErrorRepository.create({
+          batch,
+          rowNumber: row.sourceRowNumber,
+          section: row.sourceSection,
+          columnName: resolveErrorColumnName(message),
+          rawValue: '',
+          errorType: resolveErrorType(message),
+          message,
+        }),
+      ),
+    );
+
+    if (errors.length === 0) {
+      return [];
+    }
+
+    return this.importErrorRepository.save(errors, { chunk: 100 });
+  }
+
+  private buildImportSummary(
+    fileName: string,
+    sheetName: string,
+    rows: ImportRow[],
+    catalogLookup: CatalogLookup,
+  ) {
     const invalidRows = rows.filter((row) => row.errors.length > 0);
     const pendingCatalogValues = this.findPendingCatalogValues(rows, catalogLookup);
 
     return {
-      fileName: file.originalname,
-      sheetName: parsed.sheetName,
+      fileName,
+      sheetName,
       totalRows: rows.length,
       validRows: rows.length - invalidRows.length,
       invalidRows: invalidRows.length,
@@ -174,71 +374,6 @@ export class RecordsImportService {
         section: row.sourceSection,
         messages: row.errors,
       })),
-      sampleRows: rows.slice(0, 20).map((row) => row.normalized),
-    };
-  }
-
-  async commit(file: UploadedExcelFile, authUser: AuthUser) {
-    this.assertExcelFile(file);
-    this.assertImportRole(authUser);
-
-    const user = await this.userRepository.findOneBy({ id: authUser.sub });
-
-    if (!user) {
-      throw new NotFoundException('No se encontro el usuario autenticado.');
-    }
-
-    const defaultDelegation = await this.resolveDefaultDelegation(authUser);
-    const parsed = await this.parseImportRows(file);
-    const catalogLookup = await this.buildCatalogLookup();
-    const rows = await this.validateRows(parsed.rows, catalogLookup);
-    const invalidRows = rows.filter((row) => row.errors.length > 0);
-    const pendingCatalogValues = this.findPendingCatalogValues(rows, catalogLookup);
-
-    if (invalidRows.length > 0 || pendingCatalogValues.length > 0) {
-      throw new BadRequestException({
-        message: 'La importacion tiene errores o valores pendientes de catalogo.',
-        invalidRows: invalidRows.length,
-        pendingCatalogValues,
-        errors: invalidRows.slice(0, 50).map((row) => ({
-          rowNumber: row.sourceRowNumber,
-          section: row.sourceSection,
-          messages: row.errors,
-        })),
-      });
-    }
-
-    const importBatchId = randomUUID();
-    const records = rows.map((row) =>
-      this.recordRepository.create({
-        ...row.normalized,
-        importBatchId,
-        delegation: defaultDelegation,
-        createdBy: user,
-      }),
-    );
-
-    const savedRecords = await this.recordRepository.save(records, { chunk: 50 });
-
-    await this.auditLogsService.register({
-      actorId: authUser.sub,
-      action: 'VEHICLE_IMPORT_COMMITTED',
-      entityType: 'vehicle_import_batch',
-      entityId: importBatchId,
-      metadata: {
-        fileName: file.originalname,
-        sheetName: parsed.sheetName,
-        importedRows: savedRecords.length,
-        delegationId: defaultDelegation.id,
-        importBatchId,
-      },
-    });
-
-    return {
-      importBatchId,
-      fileName: file.originalname,
-      sheetName: parsed.sheetName,
-      importedRows: savedRecords.length,
     };
   }
 
@@ -433,9 +568,7 @@ export class RecordsImportService {
       ...(engineNumbers.length > 0 ? [{ engineNumber: In(engineNumbers) }] : []),
       ...(civs.length > 0 ? [{ civ: In(civs) }] : []),
     ];
-    const existingRecords = where.length > 0
-      ? await this.recordRepository.find({ where })
-      : [];
+    const existingRecords = where.length > 0 ? await this.recordRepository.find({ where }) : [];
 
     return {
       plates: countValues(plates),
@@ -587,6 +720,34 @@ function validateRow(
   }
 
   return errors;
+}
+
+function resolveErrorColumnName(message: string) {
+  const catalogMatch = message.match(/catalogo ([^:]+):/iu);
+
+  if (catalogMatch) {
+    return catalogMatch[1];
+  }
+
+  const requiredMatch = message.match(/Campo obligatorio vacio: ([^.]+)\./iu);
+
+  if (requiredMatch) {
+    return requiredMatch[1];
+  }
+
+  return '';
+}
+
+function resolveErrorType(message: string) {
+  if (message.includes('duplicad') || message.includes('ya existe')) {
+    return 'DUPLICATE';
+  }
+
+  if (message.includes('catalogo')) {
+    return 'CATALOG';
+  }
+
+  return 'VALIDATION';
 }
 
 function detectSection(values: Record<string, string>, row: string[]) {
