@@ -28,15 +28,14 @@ const BASE_ROW: Record<string, string> = {
   'UBICACION REAL': 'Plaza',
 };
 
-function normalize(overrides: Partial<Record<string, string>> = {}) {
-  return normalizeExcelImportRecord(
-    {
-      ...BASE_ROW,
-      ...overrides,
-    },
-    'Delegación Regional Plaza',
-    10,
-  );
+function normalize(overrides: Record<string, string | undefined> = {}) {
+  const row: Record<string, string> = { ...BASE_ROW };
+
+  for (const [key, value] of Object.entries(overrides)) {
+    row[key] = value ?? '';
+  }
+
+  return normalizeExcelImportRecord(row, 'Delegación Regional Plaza', 10);
 }
 
 function assertBaseNormalization() {
