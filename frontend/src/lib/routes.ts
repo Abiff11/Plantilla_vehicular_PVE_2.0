@@ -1,4 +1,4 @@
-﻿export const APP_ROUTES = {
+export const APP_ROUTES = {
   home: '/',
   access: '/portal',
   workspace: '/workspace',
@@ -8,6 +8,7 @@
   insights: '/insights',
   insightsMap: '/insights/map',
   control: '/control',
+  catalogs: '/catalogs',
   controlActivity: '/control/activity',
   reportsRegional: '/reports/regional',
   reportsDelegations: '/reports/delegations',
@@ -32,4 +33,3 @@ export const LEGACY_ROUTE_REDIRECTS = [
   { from: '/reports', to: APP_ROUTES.reportsRegional },
   { from: '/reports/delegations/monthly', to: APP_ROUTES.reportsDelegations },
 ] as const;
-
