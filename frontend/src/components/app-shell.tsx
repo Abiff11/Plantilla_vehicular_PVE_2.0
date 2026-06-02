@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { formatUserName } from "../lib/format-user-name";
 import { api } from "../lib/api";
@@ -58,6 +58,11 @@ const pageTitles: Record<string, { title: string; description: string }> = {
     title: "Usuarios",
     description:
       "Administra accesos, roles y cobertura operativa del sistema.",
+  },
+  [APP_ROUTES.catalogs]: {
+    title: "Catálogos",
+    description:
+      "Administra valores vehiculares, equivalencias e insumos para importación.",
   },
   [APP_ROUTES.controlActivity]: {
     title: "Bitácora",
@@ -161,6 +166,12 @@ const sidebarSections: SidebarSection[] = [
         label: "Usuarios",
         route: APP_ROUTES.control,
         allowedRoles: ROUTE_ROLES.control,
+        end: true,
+      },
+      {
+        label: "Catálogos",
+        route: APP_ROUTES.catalogs,
+        allowedRoles: ROUTE_ROLES.catalogs,
         end: true,
       },
       {
@@ -422,7 +433,3 @@ export function AppShell() {
     </div>
   );
 }
-
-
-
-
