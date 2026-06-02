@@ -1,7 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { CurrentUser } from 'src/common/auth/current-user.decorator';
+import { CATALOG_ADMIN_ROLES } from 'src/common/auth/role-groups';
 import { RequireRoles } from 'src/common/auth/roles.decorator';
 import { RolesGuard } from 'src/common/auth/roles.guard';
-import { Role } from 'src/common/enums/role.enum';
 import { JwtAuthGuard } from 'src/modules/auth/jwt-auth.guard';
 import { CatalogService } from './catalog.service';
 import { CreateCatalogAliasDto } from './dto/create-catalog-alias.dto';
@@ -9,11 +10,9 @@ import { CreateCatalogGroupDto } from './dto/create-catalog-group.dto';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
 import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
 
-const CATALOG_ADMIN_ROLES = [
-  Role.PlantillaVehicular,
-  Role.SuperAdmin,
-  Role.Coordinacion,
-];
+type AuthUser = {
+  sub: string;
+};
 
 @Controller('catalog')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -37,8 +36,11 @@ export class CatalogController {
 
   @Post('groups')
   @RequireRoles(...CATALOG_ADMIN_ROLES)
-  createCatalogGroup(@Body() dto: CreateCatalogGroupDto) {
-    return this.catalogService.createCatalogGroup(dto);
+  createCatalogGroup(
+    @Body() dto: CreateCatalogGroupDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.catalogService.createCatalogGroup(dto, user);
   }
 
   @Get('groups/:code/items')
@@ -51,8 +53,9 @@ export class CatalogController {
   createCatalogItem(
     @Param('code') code: string,
     @Body() dto: CreateCatalogItemDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.catalogService.createCatalogItem(code, dto);
+    return this.catalogService.createCatalogItem(code, dto, user);
   }
 
   @Patch('items/:id')
@@ -60,14 +63,18 @@ export class CatalogController {
   updateCatalogItem(
     @Param('id') id: string,
     @Body() dto: UpdateCatalogItemDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.catalogService.updateCatalogItem(id, dto);
+    return this.catalogService.updateCatalogItem(id, dto, user);
   }
 
   @Delete('items/:id')
   @RequireRoles(...CATALOG_ADMIN_ROLES)
-  softDeleteCatalogItem(@Param('id') id: string) {
-    return this.catalogService.softDeleteCatalogItem(id);
+  softDeleteCatalogItem(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.catalogService.softDeleteCatalogItem(id, user);
   }
 
   @Post('items/:id/aliases')
@@ -75,7 +82,8 @@ export class CatalogController {
   createCatalogAlias(
     @Param('id') id: string,
     @Body() dto: CreateCatalogAliasDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.catalogService.createCatalogAlias(id, dto);
+    return this.catalogService.createCatalogAlias(id, dto, user);
   }
 }
