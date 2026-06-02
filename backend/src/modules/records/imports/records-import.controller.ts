@@ -11,6 +11,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from 'src/common/auth/current-user.decorator';
+import { IMPORT_ADMIN_ROLES } from 'src/common/auth/role-groups';
 import { RequireRoles } from 'src/common/auth/roles.decorator';
 import { RolesGuard } from 'src/common/auth/roles.guard';
 import { Role } from 'src/common/enums/role.enum';
@@ -32,11 +33,6 @@ type AuthUser = {
 };
 
 const MAX_EXCEL_SIZE = 15 * 1024 * 1024;
-const IMPORT_ADMIN_ROLES = [
-  Role.PlantillaVehicular,
-  Role.SuperAdmin,
-  Role.Coordinacion,
-];
 
 @Controller('records/imports')
 @UseGuards(JwtAuthGuard, RolesGuard)
