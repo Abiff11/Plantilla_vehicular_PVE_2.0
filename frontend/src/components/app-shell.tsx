@@ -44,6 +44,11 @@ const pageTitles: Record<string, { title: string; description: string }> = {
     description:
       "Consulta la operación vehicular general organizada por región y delegación.",
   },
+  [APP_ROUTES.vehicleImports]: {
+    title: "Importar Excel",
+    description:
+      "Carga y valida la plantilla vehicular institucional desde archivo Excel.",
+  },
   [APP_ROUTES.insights]: {
     title: "Dashboard directivo",
     description:
@@ -172,6 +177,12 @@ const sidebarSections: SidebarSection[] = [
         label: "Catálogos",
         route: APP_ROUTES.catalogs,
         allowedRoles: ROUTE_ROLES.catalogs,
+        end: true,
+      },
+      {
+        label: "Importar Excel",
+        route: APP_ROUTES.vehicleImports,
+        allowedRoles: ROUTE_ROLES.vehicleImports,
         end: true,
       },
       {
