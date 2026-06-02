@@ -66,6 +66,17 @@ type NormalizedImportRecord = {
 
 type CatalogLookup = Map<string, Set<string>>;
 
+type DuplicateLookup = {
+  plates: Map<string, number>;
+  serialNumbers: Map<string, number>;
+  engineNumbers: Map<string, number>;
+  civs: Map<string, number>;
+  existingPlates: Set<string>;
+  existingSerialNumbers: Set<string>;
+  existingEngineNumbers: Set<string>;
+  existingCivs: Set<string>;
+};
+
 const EXPECTED_HEADERS = [
   'N°',
   'CIV',
@@ -262,17 +273,28 @@ export class RecordsImportService {
   }
 
   private async resolveDefaultDelegation(authUser: AuthUser) {
-    const delegation = await this.delegationRepository.findOne({
-      where: authUser.delegationId ? { id: authUser.delegationId } : {},
+    if (authUser.delegationId) {
+      const assignedDelegation = await this.delegationRepository.findOne({
+        where: { id: authUser.delegationId },
+        relations: { region: true },
+      });
+
+      if (assignedDelegation) {
+        return assignedDelegation;
+      }
+    }
+
+    const firstDelegation = await this.delegationRepository.findOne({
+      where: {},
       relations: { region: true },
       order: { sortOrder: 'ASC' },
     });
 
-    if (!delegation) {
+    if (!firstDelegation) {
       throw new BadRequestException('No existe una delegacion disponible para asociar la importacion.');
     }
 
-    return delegation;
+    return firstDelegation;
   }
 
   private async parseImportRows(file: UploadedExcelFile) {
@@ -398,22 +420,22 @@ export class RecordsImportService {
     return rows;
   }
 
-  private async buildDuplicateLookup(rows: ImportRow[]) {
+  private async buildDuplicateLookup(rows: ImportRow[]): Promise<DuplicateLookup> {
     const plates = rows.map((row) => row.normalized.plates).filter(Boolean);
     const serialNumbers = rows.map((row) => row.normalized.serialNumber).filter(Boolean);
     const civs = rows.map((row) => row.normalized.civ).filter(Boolean);
     const engineNumbers = rows
       .map((row) => row.normalized.engineNumber)
       .filter((value) => value && !GENERIC_ENGINE_VALUES.has(normalizeCatalogValue(value)));
-
-    const existingRecords = await this.recordRepository.find({
-      where: [
-        ...(plates.length > 0 ? [{ plates: In(plates) }] : []),
-        ...(serialNumbers.length > 0 ? [{ serialNumber: In(serialNumbers) }] : []),
-        ...(engineNumbers.length > 0 ? [{ engineNumber: In(engineNumbers) }] : []),
-        ...(civs.length > 0 ? [{ civ: In(civs) }] : []),
-      ],
-    });
+    const where = [
+      ...(plates.length > 0 ? [{ plates: In(plates) }] : []),
+      ...(serialNumbers.length > 0 ? [{ serialNumber: In(serialNumbers) }] : []),
+      ...(engineNumbers.length > 0 ? [{ engineNumber: In(engineNumbers) }] : []),
+      ...(civs.length > 0 ? [{ civ: In(civs) }] : []),
+    ];
+    const existingRecords = where.length > 0
+      ? await this.recordRepository.find({ where })
+      : [];
 
     return {
       plates: countValues(plates),
@@ -496,7 +518,7 @@ function normalizeImportRecord(
 function validateRow(
   record: NormalizedImportRecord,
   catalogLookup: CatalogLookup,
-  duplicateLookup: Awaited<ReturnType<RecordsImportService['buildDuplicateLookup']>>,
+  duplicateLookup: DuplicateLookup,
 ) {
   const errors: string[] = [];
 
@@ -524,22 +546,22 @@ function validateRow(
     }
   }
 
-  if (record.plates && duplicateLookup.plates.get(record.plates)! > 1) {
+  if (record.plates && (duplicateLookup.plates.get(record.plates) ?? 0) > 1) {
     errors.push(`Placas duplicadas dentro del Excel: ${record.plates}.`);
   }
 
-  if (record.serialNumber && duplicateLookup.serialNumbers.get(record.serialNumber)! > 1) {
+  if (record.serialNumber && (duplicateLookup.serialNumbers.get(record.serialNumber) ?? 0) > 1) {
     errors.push(`Numero de serie duplicado dentro del Excel: ${record.serialNumber}.`);
   }
 
-  if (record.civ && duplicateLookup.civs.get(record.civ)! > 1) {
+  if (record.civ && (duplicateLookup.civs.get(record.civ) ?? 0) > 1) {
     errors.push(`CIV duplicado dentro del Excel: ${record.civ}.`);
   }
 
   if (
     record.engineNumber &&
     !GENERIC_ENGINE_VALUES.has(normalizeCatalogValue(record.engineNumber)) &&
-    duplicateLookup.engineNumbers.get(record.engineNumber)! > 1
+    (duplicateLookup.engineNumbers.get(record.engineNumber) ?? 0) > 1
   ) {
     errors.push(`Numero de motor duplicado dentro del Excel: ${record.engineNumber}.`);
   }
