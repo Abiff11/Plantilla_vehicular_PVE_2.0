@@ -76,6 +76,23 @@ export type RecordFormValues = {
   observation: string;
 };
 
+export type ImportedVehicleFields = {
+  civ: string;
+  previousPlates: string;
+  plates2024: string;
+  plates2025: string;
+  plates2026: string;
+  cylinders: string;
+  fuelCapacityLiters: string;
+  adscription: string;
+  color: string;
+  rawCirculationStatus: string;
+  realLocation: string;
+  sourceSection: string;
+  sourceRowNumber: number | null;
+  importBatchId: string | null;
+};
+
 export type VehiclePhoto = {
   id: string;
   fileName: string;
@@ -89,7 +106,7 @@ export type VehiclePhoto = {
   createdAt: string;
 };
 
-export type VehicleRecord = RecordFormValues & {
+export type VehicleRecord = RecordFormValues & ImportedVehicleFields & {
   id: string;
   createdAt: string;
   updatedAt: string;
