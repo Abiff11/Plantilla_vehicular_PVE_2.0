@@ -8,6 +8,8 @@ import { CatalogItemEntity } from 'src/modules/catalog/entities/catalog-item.ent
 import { DelegationEntity } from 'src/modules/catalog/entities/delegation.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { RecordEntity } from './entities/record.entity';
+import { VehicleImportBatchEntity } from './entities/vehicle-import-batch.entity';
+import { VehicleImportErrorEntity } from './entities/vehicle-import-error.entity';
 import { VehiclePhotoEntity } from './entities/vehicle-photo.entity';
 import { VehicleRosterReportEntity } from './entities/vehicle-roster-report.entity';
 import { VehicleTransferEntity } from './entities/vehicle-transfer.entity';
@@ -27,6 +29,8 @@ import { StorageModule } from '../storage/storage.module';
       DelegationEntity,
       RecordEntity,
       UserEntity,
+      VehicleImportBatchEntity,
+      VehicleImportErrorEntity,
       VehiclePhotoEntity,
       VehicleRosterReportEntity,
       VehicleTransferEntity,
