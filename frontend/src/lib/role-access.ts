@@ -38,6 +38,7 @@ export const ROUTE_ROLES = {
   ] as Role[],
   insightsMap: ["director_general", "superadmin", "coordinacion"] as Role[],
   control: ["superadmin", "coordinacion"] as Role[],
+  catalogs: ["plantilla_vehicular", "superadmin", "coordinacion"] as Role[],
   controlActivity: ["superadmin", "coordinacion"] as Role[],
 } as const;
 export function hasAnyRole(userRole: Role, allowed: Role[]): boolean {
