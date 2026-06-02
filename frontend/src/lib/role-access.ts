@@ -23,6 +23,7 @@ export const ROUTE_ROLES = {
   archive: ["enlace"] as Role[],
   monitor: ["director_operativo"] as Role[],
   overview: ["plantilla_vehicular", "superadmin", "coordinacion"] as Role[],
+  vehicleImports: ["plantilla_vehicular", "superadmin", "coordinacion"] as Role[],
   reportsDelegations: ["director_operativo"] as Role[],
   reportsRegional: [
     "plantilla_vehicular",
