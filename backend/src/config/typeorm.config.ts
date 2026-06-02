@@ -4,6 +4,9 @@ import "reflect-metadata";
 import { ConfigService } from "@nestjs/config";
 import { DataSource, type DataSourceOptions } from "typeorm";
 import { AuditLogEntity } from "../modules/audit-logs/entities/audit-log.entity";
+import { CatalogAliasEntity } from "../modules/catalog/entities/catalog-alias.entity";
+import { CatalogGroupEntity } from "../modules/catalog/entities/catalog-group.entity";
+import { CatalogItemEntity } from "../modules/catalog/entities/catalog-item.entity";
 import { DelegationEntity } from "../modules/catalog/entities/delegation.entity";
 import { RegionEntity } from "../modules/catalog/entities/region.entity";
 import { ConversationEntity } from "../modules/messages/entities/conversation.entity";
@@ -17,6 +20,9 @@ import { UserEntity } from "../modules/users/entities/user.entity";
 
 const ENTITIES = [
   AuditLogEntity,
+  CatalogAliasEntity,
+  CatalogGroupEntity,
+  CatalogItemEntity,
   ConversationEntity,
   DelegationEntity,
   MessageEntity,
@@ -55,7 +61,7 @@ function loadEnvFile() {
     const value = line
       .slice(separatorIndex + 1)
       .trim()
-      .replace(/^['"]|['"]$/gu, "");
+      .replace(/^[‘'"]|[’'"]$/gu, "");
 
     if (!(key in process.env)) {
       process.env[key] = value;
