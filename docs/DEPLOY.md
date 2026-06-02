@@ -150,6 +150,42 @@ docker compose down
 - En produccion, configura `TRUST_PROXY=true` si hay un reverse proxy delante.
 - Configura `FRONTEND_ORIGINS` con los dominios reales de tu frontend.
 
+### Hardening Nginx del frontend
+
+El archivo `frontend/nginx.conf` se copia dentro de la imagen del frontend en `Dockerfile.frontend`, por lo que los headers y reglas de cache quedan versionados y se aplican al reconstruir la imagen.
+
+Esta configuracion cubre los hallazgos ZAP de:
+
+- `Content-Security-Policy` no configurada.
+- Revision de directivas de cache.
+- Rutas tecnicas servidas por fallback de React (`robots.txt`, `sitemap.xml`, `favicon.ico`).
+- Headers preventivos: `X-Content-Type-Options`, `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy`.
+
+Validacion local de la configuracion Nginx:
+
+```bash
+docker build -f Dockerfile.frontend -t plantilla-frontend-security-check .
+docker run --rm plantilla-frontend-security-check nginx -t
+```
+
+Validacion despues del despliegue:
+
+```bash
+curl -I https://plantilla.sisoaxaca.com/
+curl -I https://plantilla.sisoaxaca.com/assets/index-K1Qww7h_.js
+curl -i https://plantilla.sisoaxaca.com/robots.txt
+curl -i https://plantilla.sisoaxaca.com/sitemap.xml
+curl -i https://plantilla.sisoaxaca.com/favicon.ico
+```
+
+Resultado esperado:
+
+- `/` debe responder con `Content-Security-Policy`, `X-Content-Type-Options`, `Strict-Transport-Security` y `Cache-Control: no-cache, no-store, must-revalidate, private`.
+- `/assets/*` debe responder con `Cache-Control: public, max-age=31536000, immutable`.
+- `/robots.txt` debe responder `200` con `Disallow: /`.
+- `/sitemap.xml` debe responder `404`.
+- `/favicon.ico` no debe devolver el `index.html` de React.
+
 ---
 
 # Checklist de Release
