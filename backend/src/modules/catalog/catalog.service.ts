@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLogsService } from 'src/modules/audit-logs/audit-logs.service';
 import { RecordEntity } from 'src/modules/records/entities/record.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { REGION_CATALOG } from './catalog.seed';
@@ -21,6 +22,10 @@ import { CatalogItemEntity } from './entities/catalog-item.entity';
 import { DelegationEntity } from './entities/delegation.entity';
 import { RegionEntity } from './entities/region.entity';
 import { RECORD_FIELD_CATALOG } from './record-field-catalog';
+
+type AuthUser = {
+  sub: string;
+};
 
 @Injectable()
 export class CatalogService implements OnApplicationBootstrap {
@@ -41,6 +46,7 @@ export class CatalogService implements OnApplicationBootstrap {
     private readonly catalogItemRepository: Repository<CatalogItemEntity>,
     @InjectRepository(CatalogAliasEntity)
     private readonly catalogAliasRepository: Repository<CatalogAliasEntity>,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -66,7 +72,7 @@ export class CatalogService implements OnApplicationBootstrap {
     });
   }
 
-  async createCatalogGroup(dto: CreateCatalogGroupDto) {
+  async createCatalogGroup(dto: CreateCatalogGroupDto, actor: AuthUser) {
     const code = normalizeCatalogCode(dto.code);
     const existingGroup = await this.catalogGroupRepository.findOne({
       where: { code },
@@ -77,7 +83,7 @@ export class CatalogService implements OnApplicationBootstrap {
       throw new ConflictException(`El catalogo '${code}' ya existe.`);
     }
 
-    return this.catalogGroupRepository.save(
+    const group = await this.catalogGroupRepository.save(
       this.catalogGroupRepository.create({
         code,
         name: normalizeCatalogLabel(dto.name),
@@ -85,6 +91,19 @@ export class CatalogService implements OnApplicationBootstrap {
         isSystem: false,
       }),
     );
+
+    await this.auditLogsService.register({
+      actorId: actor.sub,
+      action: 'CATALOG_GROUP_CREATED',
+      entityType: 'catalog_group',
+      entityId: group.id,
+      metadata: {
+        code: group.code,
+        name: group.name,
+      },
+    });
+
+    return group;
   }
 
   async findCatalogItemsByGroupCode(groupCode: string) {
@@ -105,7 +124,7 @@ export class CatalogService implements OnApplicationBootstrap {
     });
   }
 
-  async createCatalogItem(groupCode: string, dto: CreateCatalogItemDto) {
+  async createCatalogItem(groupCode: string, dto: CreateCatalogItemDto, actor: AuthUser) {
     const group = await this.findCatalogGroupByCodeOrFail(groupCode);
     const code = normalizeCatalogCode(dto.code);
     const existingItem = await this.catalogItemRepository.findOne({
@@ -125,7 +144,7 @@ export class CatalogService implements OnApplicationBootstrap {
       );
     }
 
-    return this.catalogItemRepository.save(
+    const item = await this.catalogItemRepository.save(
       this.catalogItemRepository.create({
         group,
         code,
@@ -135,9 +154,23 @@ export class CatalogService implements OnApplicationBootstrap {
         isActive: dto.isActive ?? true,
       }),
     );
+
+    await this.auditLogsService.register({
+      actorId: actor.sub,
+      action: 'CATALOG_ITEM_CREATED',
+      entityType: 'catalog_item',
+      entityId: item.id,
+      metadata: {
+        groupCode: group.code,
+        code: item.code,
+        label: item.label,
+      },
+    });
+
+    return item;
   }
 
-  async updateCatalogItem(id: string, dto: UpdateCatalogItemDto) {
+  async updateCatalogItem(id: string, dto: UpdateCatalogItemDto, actor: AuthUser) {
     const item = await this.catalogItemRepository.findOne({
       where: { id },
       relations: {
@@ -149,6 +182,13 @@ export class CatalogService implements OnApplicationBootstrap {
     if (!item) {
       throw new NotFoundException('No se encontro el valor del catalogo.');
     }
+
+    const before = {
+      label: item.label,
+      normalizedValue: item.normalizedValue,
+      metadata: item.metadata,
+      isActive: item.isActive,
+    };
 
     if (dto.label !== undefined) {
       item.label = normalizeCatalogLabel(dto.label);
@@ -166,11 +206,36 @@ export class CatalogService implements OnApplicationBootstrap {
       item.isActive = dto.isActive;
     }
 
-    return this.catalogItemRepository.save(item);
+    const savedItem = await this.catalogItemRepository.save(item);
+
+    await this.auditLogsService.register({
+      actorId: actor.sub,
+      action: 'CATALOG_ITEM_UPDATED',
+      entityType: 'catalog_item',
+      entityId: savedItem.id,
+      metadata: {
+        groupCode: savedItem.group.code,
+        code: savedItem.code,
+        before,
+        after: {
+          label: savedItem.label,
+          normalizedValue: savedItem.normalizedValue,
+          metadata: savedItem.metadata,
+          isActive: savedItem.isActive,
+        },
+      },
+    });
+
+    return savedItem;
   }
 
-  async softDeleteCatalogItem(id: string) {
-    const item = await this.catalogItemRepository.findOne({ where: { id } });
+  async softDeleteCatalogItem(id: string, actor: AuthUser) {
+    const item = await this.catalogItemRepository.findOne({
+      where: { id },
+      relations: {
+        group: true,
+      },
+    });
 
     if (!item) {
       throw new NotFoundException('No se encontro el valor del catalogo.');
@@ -178,10 +243,22 @@ export class CatalogService implements OnApplicationBootstrap {
 
     await this.catalogItemRepository.softDelete(id);
 
+    await this.auditLogsService.register({
+      actorId: actor.sub,
+      action: 'CATALOG_ITEM_DELETED',
+      entityType: 'catalog_item',
+      entityId: item.id,
+      metadata: {
+        groupCode: item.group.code,
+        code: item.code,
+        label: item.label,
+      },
+    });
+
     return { success: true };
   }
 
-  async createCatalogAlias(itemId: string, dto: CreateCatalogAliasDto) {
+  async createCatalogAlias(itemId: string, dto: CreateCatalogAliasDto, actor: AuthUser) {
     const item = await this.catalogItemRepository.findOne({
       where: { id: itemId },
       relations: {
@@ -210,7 +287,7 @@ export class CatalogService implements OnApplicationBootstrap {
       throw new ConflictException('El alias ya existe para este valor de catalogo.');
     }
 
-    return this.catalogAliasRepository.save(
+    const alias = await this.catalogAliasRepository.save(
       this.catalogAliasRepository.create({
         catalogItem: item,
         rawValue,
@@ -218,6 +295,22 @@ export class CatalogService implements OnApplicationBootstrap {
         source: normalizeCatalogText(dto.source ?? 'manual'),
       }),
     );
+
+    await this.auditLogsService.register({
+      actorId: actor.sub,
+      action: 'CATALOG_ALIAS_CREATED',
+      entityType: 'catalog_alias',
+      entityId: alias.id,
+      metadata: {
+        groupCode: item.group.code,
+        itemCode: item.code,
+        rawValue: alias.rawValue,
+        normalizedRawValue: alias.normalizedRawValue,
+        source: alias.source,
+      },
+    });
+
+    return alias;
   }
 
   private async findCatalogGroupByCodeOrFail(code: string) {
