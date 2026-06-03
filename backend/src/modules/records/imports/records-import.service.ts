@@ -96,13 +96,17 @@ const CATALOG_FIELD_MAP: Array<{
   { field: 'sourceSection', catalogCode: 'excel_section', required: false },
 ];
 
-const GENERIC_ENGINE_VALUES = new Set([
+const GENERIC_IDENTIFIER_VALUES = new Set([
   'SIN NUMERO',
   'SIN NÚMERO',
   'N/A',
   'NA',
   'HECHO EN MEXICO',
   'HECHO EN MÉXICO',
+  'HECHO EN USA',
+  'HECHO EN U.S.A',
+  'HECHO EN U.S.A.',
+  'HECHO EN EUA',
   'SIN MOTOR',
   'S/M',
   'SM',
@@ -544,13 +548,15 @@ export class RecordsImportService {
     const plates = rows
       .map((row) => row.normalized.plates)
       .filter((value) => value && isStrongPlateValue(value));
-    const serialNumbers = rows.map((row) => row.normalized.serialNumber).filter(Boolean);
+    const serialNumbers = rows
+      .map((row) => row.normalized.serialNumber)
+      .filter((value) => value && !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value)));
     const civs = rows
       .map((row) => row.normalized.civ)
       .filter((value) => value && isStrongCivValue(value));
     const engineNumbers = rows
       .map((row) => row.normalized.engineNumber)
-      .filter((value) => value && !GENERIC_ENGINE_VALUES.has(normalizeCatalogValue(value)));
+      .filter((value) => value && !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value)));
     const where = [
       ...(plates.length > 0 ? [{ plates: In(plates) }] : []),
       ...(serialNumbers.length > 0 ? [{ serialNumber: In(serialNumbers) }] : []),
@@ -565,8 +571,16 @@ export class RecordsImportService {
       engineNumbers: countValues(engineNumbers),
       civs: countValues(civs),
       existingPlates: new Set(existingRecords.map((record) => record.plates).filter(isStrongPlateValue)),
-      existingSerialNumbers: new Set(existingRecords.map((record) => record.serialNumber).filter(Boolean)),
-      existingEngineNumbers: new Set(existingRecords.map((record) => record.engineNumber).filter(Boolean)),
+      existingSerialNumbers: new Set(
+        existingRecords
+          .map((record) => record.serialNumber)
+          .filter((value) => Boolean(value) && !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value))),
+      ),
+      existingEngineNumbers: new Set(
+        existingRecords
+          .map((record) => record.engineNumber)
+          .filter((value) => Boolean(value) && !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value))),
+      ),
       existingCivs: new Set(existingRecords.map((record) => record.civ).filter(isStrongCivValue)),
     };
   }
@@ -634,7 +648,11 @@ function validateRow(
     errors.push(`Placas duplicadas dentro del Excel: ${record.plates}.`);
   }
 
-  if (record.serialNumber && (duplicateLookup.serialNumbers.get(record.serialNumber) ?? 0) > 1) {
+  if (
+    record.serialNumber &&
+    !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(record.serialNumber)) &&
+    (duplicateLookup.serialNumbers.get(record.serialNumber) ?? 0) > 1
+  ) {
     errors.push(`Numero de serie duplicado dentro del Excel: ${record.serialNumber}.`);
   }
 
@@ -644,7 +662,7 @@ function validateRow(
 
   if (
     record.engineNumber &&
-    !GENERIC_ENGINE_VALUES.has(normalizeCatalogValue(record.engineNumber)) &&
+    !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(record.engineNumber)) &&
     (duplicateLookup.engineNumbers.get(record.engineNumber) ?? 0) > 1
   ) {
     errors.push(`Numero de motor duplicado dentro del Excel: ${record.engineNumber}.`);
@@ -654,13 +672,17 @@ function validateRow(
     errors.push(`Las placas ya existen en una captura activa: ${record.plates}.`);
   }
 
-  if (record.serialNumber && duplicateLookup.existingSerialNumbers.has(record.serialNumber)) {
+  if (
+    record.serialNumber &&
+    !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(record.serialNumber)) &&
+    duplicateLookup.existingSerialNumbers.has(record.serialNumber)
+  ) {
     errors.push(`El numero de serie ya existe en una captura activa: ${record.serialNumber}.`);
   }
 
   if (
     record.engineNumber &&
-    !GENERIC_ENGINE_VALUES.has(normalizeCatalogValue(record.engineNumber)) &&
+    !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(record.engineNumber)) &&
     duplicateLookup.existingEngineNumbers.has(record.engineNumber)
   ) {
     errors.push(`El numero de motor ya existe en una captura activa: ${record.engineNumber}.`);
