@@ -102,8 +102,14 @@ const GENERIC_ENGINE_VALUES = new Set([
   'N/A',
   'NA',
   'HECHO EN MEXICO',
+  'HECHO EN MÉXICO',
   'SIN MOTOR',
   'S/M',
+  'SM',
+  'S/N',
+  'SN',
+  'S.N.',
+  'IMPORTADO',
 ]);
 
 const EXCEL_MIME_TYPES = new Set([
@@ -461,6 +467,11 @@ export class RecordsImportService {
       }
 
       const normalized = normalizeExcelImportRecord(values, currentSection, index + 1);
+
+      if (!isImportableVehicleRow(normalized)) {
+        continue;
+      }
+
       rows.push({
         sourceRowNumber: index + 1,
         sourceSection: currentSection,
@@ -530,9 +541,13 @@ export class RecordsImportService {
   }
 
   private async buildDuplicateLookup(rows: ImportRow[]): Promise<DuplicateLookup> {
-    const plates = rows.map((row) => row.normalized.plates).filter(Boolean);
+    const plates = rows
+      .map((row) => row.normalized.plates)
+      .filter((value) => value && isStrongPlateValue(value));
     const serialNumbers = rows.map((row) => row.normalized.serialNumber).filter(Boolean);
-    const civs = rows.map((row) => row.normalized.civ).filter(Boolean);
+    const civs = rows
+      .map((row) => row.normalized.civ)
+      .filter((value) => value && isStrongCivValue(value));
     const engineNumbers = rows
       .map((row) => row.normalized.engineNumber)
       .filter((value) => value && !GENERIC_ENGINE_VALUES.has(normalizeCatalogValue(value)));
@@ -549,10 +564,10 @@ export class RecordsImportService {
       serialNumbers: countValues(serialNumbers),
       engineNumbers: countValues(engineNumbers),
       civs: countValues(civs),
-      existingPlates: new Set(existingRecords.map((record) => record.plates).filter(Boolean)),
+      existingPlates: new Set(existingRecords.map((record) => record.plates).filter(isStrongPlateValue)),
       existingSerialNumbers: new Set(existingRecords.map((record) => record.serialNumber).filter(Boolean)),
       existingEngineNumbers: new Set(existingRecords.map((record) => record.engineNumber).filter(Boolean)),
-      existingCivs: new Set(existingRecords.map((record) => record.civ).filter(Boolean)),
+      existingCivs: new Set(existingRecords.map((record) => record.civ).filter(isStrongCivValue)),
     };
   }
 
@@ -595,7 +610,7 @@ function validateRow(
     errors.push('La fila requiere placas, numero de serie o CIV para identificar la unidad.');
   }
 
-  for (const requiredField of ['brand', 'type', 'useType', 'vehicleClass', 'model', 'engineNumber', 'serialNumber', 'custodian', 'physicalStatus', 'status'] as const) {
+  for (const requiredField of ['type', 'useType', 'vehicleClass', 'model', 'serialNumber', 'custodian', 'physicalStatus', 'status'] as const) {
     if (!record[requiredField]) {
       errors.push(`Campo obligatorio vacio: ${requiredField}.`);
     }
@@ -615,7 +630,7 @@ function validateRow(
     }
   }
 
-  if (record.plates && (duplicateLookup.plates.get(record.plates) ?? 0) > 1) {
+  if (record.plates && isStrongPlateValue(record.plates) && (duplicateLookup.plates.get(record.plates) ?? 0) > 1) {
     errors.push(`Placas duplicadas dentro del Excel: ${record.plates}.`);
   }
 
@@ -623,7 +638,7 @@ function validateRow(
     errors.push(`Numero de serie duplicado dentro del Excel: ${record.serialNumber}.`);
   }
 
-  if (record.civ && (duplicateLookup.civs.get(record.civ) ?? 0) > 1) {
+  if (record.civ && isStrongCivValue(record.civ) && (duplicateLookup.civs.get(record.civ) ?? 0) > 1) {
     errors.push(`CIV duplicado dentro del Excel: ${record.civ}.`);
   }
 
@@ -635,7 +650,7 @@ function validateRow(
     errors.push(`Numero de motor duplicado dentro del Excel: ${record.engineNumber}.`);
   }
 
-  if (record.plates && duplicateLookup.existingPlates.has(record.plates)) {
+  if (record.plates && isStrongPlateValue(record.plates) && duplicateLookup.existingPlates.has(record.plates)) {
     errors.push(`Las placas ya existen en una captura activa: ${record.plates}.`);
   }
 
@@ -651,7 +666,7 @@ function validateRow(
     errors.push(`El numero de motor ya existe en una captura activa: ${record.engineNumber}.`);
   }
 
-  if (record.civ && duplicateLookup.existingCivs.has(record.civ)) {
+  if (record.civ && isStrongCivValue(record.civ) && duplicateLookup.existingCivs.has(record.civ)) {
     errors.push(`El CIV ya existe en una captura activa: ${record.civ}.`);
   }
 
@@ -722,6 +737,34 @@ function isVehicleRow(values: Record<string, string>) {
       normalizeText(values.MARCA) ||
       normalizeText(values['NO. DE SERIE']),
   );
+}
+
+function isImportableVehicleRow(record: NormalizedExcelImportRecord) {
+  return Boolean(
+    record.type ||
+      record.vehicleClass ||
+      record.serialNumber ||
+      record.patrolNumber ||
+      record.engineNumber !== 'SIN NUMERO',
+  );
+}
+
+function isStrongPlateValue(value: string) {
+  const normalized = normalizeCatalogValue(value);
+
+  if (!normalized) {
+    return false;
+  }
+
+  if (/^\d{1,4}$/u.test(normalized)) {
+    return false;
+  }
+
+  return normalized.length >= 5;
+}
+
+function isStrongCivValue(value: string) {
+  return /^ML\d{4,}$/u.test(normalizeCatalogValue(value));
 }
 
 function countValues(values: string[]) {
