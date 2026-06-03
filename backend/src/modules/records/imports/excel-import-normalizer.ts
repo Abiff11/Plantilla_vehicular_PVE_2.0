@@ -151,12 +151,31 @@ function resolveMainPlates(values: ExcelImportRecordValues) {
 
 function normalizePlateValue(value: string, compact: boolean) {
   const normalized = normalizeUpper(value);
+  const normalizedWithoutDiacritics = stripDiacritics(normalized);
 
-  if (NO_PLATE_PLACEHOLDERS.has(stripDiacritics(normalized))) {
+  if (NO_PLATE_PLACEHOLDERS.has(normalizedWithoutDiacritics)) {
     return '';
   }
 
-  return compact ? normalized.replace(/[\s-]+/gu, '') : normalized;
+  const compacted = normalizedWithoutDiacritics.replace(/[\s-]+/gu, '');
+
+  if (!isValidPlateCandidate(compacted)) {
+    return '';
+  }
+
+  return compact ? compacted : normalizedWithoutDiacritics;
+}
+
+function isValidPlateCandidate(value: string) {
+  if (!value) {
+    return false;
+  }
+
+  if (/^\d+$/u.test(value)) {
+    return false;
+  }
+
+  return /[A-Z]/u.test(value) && value.length >= 5;
 }
 
 function normalizeEngineNumber(value: string) {
