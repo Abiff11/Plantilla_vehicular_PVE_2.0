@@ -63,7 +63,21 @@ const NO_ENGINE_PLACEHOLDERS = new Set([
   'SIN NÚMERO',
   'HECHO EN MEXICO',
   'HECHO EN MÉXICO',
+  'HECHO EN USA',
+  'HECHO EN U.S.A',
+  'HECHO EN U.S.A.',
+  'HECHO EN EUA',
   'IMPORTADO',
+]);
+
+const NO_SERIAL_PLACEHOLDERS = new Set([
+  ...EMPTY_PLACEHOLDERS,
+  'S/N',
+  'SN',
+  'S.N.',
+  'SIN SERIE',
+  'SIN NUMERO',
+  'SIN NÚMERO',
 ]);
 
 export function normalizeExcelImportRecord(
@@ -93,9 +107,9 @@ export function normalizeExcelImportRecord(
     cylinders: normalizeNumericText(values['CIL.']),
     fuelCapacityLiters: normalizeNumericText(values['CAP.LTS']),
     engineNumber: normalizeEngineNumber(values['NO. DE MOTOR']),
-    serialNumber: normalizeCode(values['NO. DE SERIE']),
+    serialNumber: normalizeSerialNumber(values['NO. DE SERIE']),
     adscription: normalizeCatalogText(values.ADSCRIPCION),
-    custodian: normalizePersonName(values.RESGUARDANTE),
+    custodian: normalizeCustodianName(values.RESGUARDANTE),
     patrolNumber: normalizeCode(values['NO. PATRULLA']),
     color: normalizeCatalogText(values['COLOR DE LA UNIDAD']),
     physicalStatus,
@@ -153,6 +167,16 @@ function normalizeEngineNumber(value: string) {
   }
 
   return normalized;
+}
+
+function normalizeSerialNumber(value: string) {
+  const normalized = normalizeUpper(value);
+
+  if (NO_SERIAL_PLACEHOLDERS.has(stripDiacritics(normalized))) {
+    return 'SIN NUMERO';
+  }
+
+  return normalizeCode(normalized);
 }
 
 function normalizeVehicleClass(value: string) {
@@ -261,8 +285,9 @@ function normalizeCatalogText(value: string) {
     .replace(/\s+/gu, ' ');
 }
 
-function normalizePersonName(value: string) {
-  return normalizeUpper(value).replace(/\s+/gu, ' ');
+function normalizeCustodianName(value: string) {
+  const normalized = normalizeUpper(value).replace(/\s+/gu, ' ');
+  return normalized || 'SIN RESGUARDANTE';
 }
 
 function normalizeText(value: string) {
