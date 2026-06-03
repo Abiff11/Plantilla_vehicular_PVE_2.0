@@ -55,11 +55,15 @@ const NO_ENGINE_PLACEHOLDERS = new Set([
   ...EMPTY_PLACEHOLDERS,
   'S/M',
   'SM',
+  'S/N',
+  'SN',
+  'S.N.',
   'SIN MOTOR',
   'SIN NUMERO',
   'SIN NÚMERO',
   'HECHO EN MEXICO',
   'HECHO EN MÉXICO',
+  'IMPORTADO',
 ]);
 
 export function normalizeExcelImportRecord(
