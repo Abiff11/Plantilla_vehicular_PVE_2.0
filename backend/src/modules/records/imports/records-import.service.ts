@@ -550,13 +550,13 @@ export class RecordsImportService {
       .filter((value) => value && isStrongPlateValue(value));
     const serialNumbers = rows
       .map((row) => row.normalized.serialNumber)
-      .filter((value) => value && !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value)));
+      .filter((value) => value && !isGenericIdentifierValue(value));
     const civs = rows
       .map((row) => row.normalized.civ)
       .filter((value) => value && isStrongCivValue(value));
     const engineNumbers = rows
       .map((row) => row.normalized.engineNumber)
-      .filter((value) => value && !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value)));
+      .filter((value) => value && !isGenericIdentifierValue(value));
     const where = [
       ...(plates.length > 0 ? [{ plates: In(plates) }] : []),
       ...(serialNumbers.length > 0 ? [{ serialNumber: In(serialNumbers) }] : []),
@@ -574,12 +574,12 @@ export class RecordsImportService {
       existingSerialNumbers: new Set(
         existingRecords
           .map((record) => record.serialNumber)
-          .filter((value) => Boolean(value) && !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value))),
+          .filter((value) => Boolean(value) && !isGenericIdentifierValue(value)),
       ),
       existingEngineNumbers: new Set(
         existingRecords
           .map((record) => record.engineNumber)
-          .filter((value) => Boolean(value) && !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value))),
+          .filter((value) => Boolean(value) && !isGenericIdentifierValue(value)),
       ),
       existingCivs: new Set(existingRecords.map((record) => record.civ).filter(isStrongCivValue)),
     };
@@ -592,13 +592,13 @@ export class RecordsImportService {
       for (const entry of CATALOG_FIELD_MAP) {
         const value = row.normalized[entry.field];
 
-        if (!value || !entry.required) {
+        if (!value) {
           continue;
         }
 
         const catalogValues = catalogLookup.get(entry.catalogCode) ?? new Set<string>();
 
-        if (!catalogValues.has(normalizeCatalogValue(String(value)))) {
+        if (entry.required && !catalogValues.has(normalizeCatalogValue(String(value)))) {
           const values = pending.get(entry.catalogCode) ?? new Set<string>();
           values.add(String(value));
           pending.set(entry.catalogCode, values);
@@ -633,7 +633,7 @@ function validateRow(
   for (const entry of CATALOG_FIELD_MAP) {
     const value = record[entry.field];
 
-    if (!value && !entry.required) {
+    if (!value) {
       continue;
     }
 
@@ -650,7 +650,7 @@ function validateRow(
 
   if (
     record.serialNumber &&
-    !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(record.serialNumber)) &&
+    !isGenericIdentifierValue(record.serialNumber) &&
     (duplicateLookup.serialNumbers.get(record.serialNumber) ?? 0) > 1
   ) {
     errors.push(`Numero de serie duplicado dentro del Excel: ${record.serialNumber}.`);
@@ -662,7 +662,7 @@ function validateRow(
 
   if (
     record.engineNumber &&
-    !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(record.engineNumber)) &&
+    !isGenericIdentifierValue(record.engineNumber) &&
     (duplicateLookup.engineNumbers.get(record.engineNumber) ?? 0) > 1
   ) {
     errors.push(`Numero de motor duplicado dentro del Excel: ${record.engineNumber}.`);
@@ -674,7 +674,7 @@ function validateRow(
 
   if (
     record.serialNumber &&
-    !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(record.serialNumber)) &&
+    !isGenericIdentifierValue(record.serialNumber) &&
     duplicateLookup.existingSerialNumbers.has(record.serialNumber)
   ) {
     errors.push(`El numero de serie ya existe en una captura activa: ${record.serialNumber}.`);
@@ -682,7 +682,7 @@ function validateRow(
 
   if (
     record.engineNumber &&
-    !GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(record.engineNumber)) &&
+    !isGenericIdentifierValue(record.engineNumber) &&
     duplicateLookup.existingEngineNumbers.has(record.engineNumber)
   ) {
     errors.push(`El numero de motor ya existe en una captura activa: ${record.engineNumber}.`);
@@ -762,13 +762,22 @@ function isVehicleRow(values: Record<string, string>) {
 }
 
 function isImportableVehicleRow(record: NormalizedExcelImportRecord) {
-  return Boolean(
-    record.type ||
-      record.vehicleClass ||
-      record.serialNumber ||
-      record.patrolNumber ||
-      record.engineNumber !== 'SIN NUMERO',
+  const hasVehicleStructure = Boolean(
+    record.type || record.useType || record.vehicleClass || record.model,
   );
+  const hasUsableIdentifier = Boolean(
+    isStrongPlateValue(record.plates) ||
+      !isGenericIdentifierValue(record.serialNumber) ||
+      isStrongCivValue(record.civ) ||
+      record.patrolNumber ||
+      !isGenericIdentifierValue(record.engineNumber),
+  );
+
+  return hasVehicleStructure && hasUsableIdentifier;
+}
+
+function isGenericIdentifierValue(value: string) {
+  return GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value));
 }
 
 function isStrongPlateValue(value: string) {
