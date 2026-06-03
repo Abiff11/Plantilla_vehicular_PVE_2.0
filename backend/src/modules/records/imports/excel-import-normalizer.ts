@@ -94,10 +94,10 @@ export function normalizeExcelImportRecord(
 
   return {
     civ: normalizeCode(values.CIV),
-    previousPlates: normalizePlateValue(values['PLACAS ANTERIORES'], false),
-    plates2024: normalizePlateValue(values['PLACAS 2024'], false),
-    plates2025: normalizePlateValue(values['PLACAS 2025'], false),
-    plates2026: normalizePlateValue(values['PLACAS 2026'], false),
+    previousPlates: normalizeExcelSourceText(values['PLACAS ANTERIORES']),
+    plates2024: normalizeExcelSourceText(values['PLACAS 2024']),
+    plates2025: normalizeExcelSourceText(values['PLACAS 2025']),
+    plates2026: normalizeExcelSourceText(values['PLACAS 2026']),
     plates: resolveMainPlates(values),
     brand: normalizeCatalogText(values.MARCA),
     type: normalizeCatalogText(values.TIPO),
@@ -139,7 +139,7 @@ function resolveMainPlates(values: ExcelImportRecordValues) {
   ];
 
   for (const candidate of candidates) {
-    const normalized = normalizePlateValue(candidate, true);
+    const normalized = normalizePlateForCurrentValue(candidate);
 
     if (normalized) {
       return normalized;
@@ -149,24 +149,23 @@ function resolveMainPlates(values: ExcelImportRecordValues) {
   return '';
 }
 
-function normalizePlateValue(value: string, compact: boolean) {
-  const normalized = normalizeUpper(value);
-  const normalizedWithoutDiacritics = stripDiacritics(normalized);
+function normalizePlateForCurrentValue(value: string) {
+  const normalized = stripDiacritics(normalizeUpper(value));
 
-  if (NO_PLATE_PLACEHOLDERS.has(normalizedWithoutDiacritics)) {
+  if (NO_PLATE_PLACEHOLDERS.has(normalized)) {
     return '';
   }
 
-  const compacted = normalizedWithoutDiacritics.replace(/[\s-]+/gu, '');
+  const compacted = normalized.replace(/[\s-]+/gu, '');
 
-  if (!isValidPlateCandidate(compacted)) {
+  if (!isValidCurrentPlateCandidate(compacted)) {
     return '';
   }
 
-  return compact ? compacted : normalizedWithoutDiacritics;
+  return compacted;
 }
 
-function isValidPlateCandidate(value: string) {
+function isValidCurrentPlateCandidate(value: string) {
   if (!value) {
     return false;
   }
@@ -302,6 +301,10 @@ function normalizeCatalogText(value: string) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/gu, '')
     .replace(/\s+/gu, ' ');
+}
+
+function normalizeExcelSourceText(value: string) {
+  return normalizeUpper(value).replace(/\s+/gu, ' ');
 }
 
 function normalizeCustodianName(value: string) {
