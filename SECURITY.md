@@ -13,7 +13,7 @@ Plantilla_vehicular_PVE_2.0/
 │   ├── migrate.sh
 │   └── rollback.sh
 ├── nginx/
-│   └── plantilla-vehicular.conf
+│   └── app.conf
 └── SECURITY.md
 ```
 
@@ -21,22 +21,24 @@ Plantilla_vehicular_PVE_2.0/
 
 El servidor controla:
 
-- Docker networks
-- Nginx principal
-- PostgreSQL central
-- secretos reales `.env`
-- backups
-- firewall
-- seguridad SSH
+- Docker networks `intranet_proxy` e `intranet_db`.
+- Nginx principal.
+- PostgreSQL central.
+- Secretos reales `.env`.
+- Secretos DB en `/opt/intranet/infra/security/plantilla_vehicular.db.env`.
+- Backups.
+- Firewall.
+- Seguridad SSH.
 
 Este repositorio controla:
 
-- Dockerfile backend/frontend
-- `docker-compose.service.yml`
-- `.env.example`
-- migraciones
-- healthcheck
-- scripts propios
+- Dockerfile backend/frontend.
+- `docker-compose.service.yml`.
+- `.env.example` sin secretos.
+- Migraciones propias.
+- Healthcheck.
+- Scripts propios.
+- Fragmento `nginx/app.conf`.
 
 ## Docker
 
@@ -46,14 +48,16 @@ Este repositorio controla:
 - El repositorio no crea redes de infraestructura.
 - `intranet_proxy` y `intranet_db` se declaran como redes externas.
 - Ningun servicio de este repositorio publica puertos al host.
+- No se usa `latest` como tag por defecto en las imagenes productivas del compose.
 
 ## Variables de entorno
 
 - No versionar archivos `.env` reales.
-- Usar `.env.example` como contrato.
+- Usar solo `.env.example` raiz como contrato del repo.
 - En produccion, `NODE_ENV` debe ser `production`.
-- En produccion, CORS debe declarar dominios HTTPS reales.
+- En produccion, `FRONTEND_ORIGINS` debe quedar limitado a `http://100.118.154.7` o a origenes HTTPS explicitamente aprobados.
 - Las variables criticas se validan al arrancar el backend.
+- La contraseña real de base de datos debe venir de `/opt/intranet/infra/security/plantilla_vehicular.db.env`.
 
 ## Headers HTTP
 
@@ -72,6 +76,7 @@ Backend, frontend y Nginx central aplican headers defensivos:
 - Desarrollo permite origenes locales.
 - Produccion exige origenes explicitos.
 - Produccion no debe aceptar `localhost`.
+- Para el servidor VPN actual, el origen permitido es `http://100.118.154.7`.
 
 ## Rate limit
 
@@ -88,8 +93,9 @@ La ventana se controla con `RATE_LIMIT_WINDOW_MS`.
 
 ## Healthcheck
 
-- Backend: `GET /api/health`
-- Frontend: `GET /robots.txt`
+- Backend interno: `GET /api/health`.
+- Ruta VPN por Nginx central: `GET /plantilla-vehicular/api/health`.
+- Frontend interno: `GET /robots.txt`.
 
 ## Migraciones
 
