@@ -18,45 +18,10 @@ type UploadedExcelFile = { originalname: string; mimetype: string; buffer: Buffe
 type AuthUser = { sub: string; role: Role; regionId: string | null; delegationId: string | null };
 type ImportRow = { sourceRowNumber: number; sourceSection: string; values: Record<string, string>; normalized: NormalizedExcelImportRecord; errors: string[] };
 type CatalogLookup = Map<string, Set<string>>;
-type DuplicateLookup = {
-  plates: Map<string, number>;
-  serialNumbers: Map<string, number>;
-  engineNumbers: Map<string, number>;
-  civs: Map<string, number>;
-  existingPlates: Set<string>;
-  existingSerialNumbers: Set<string>;
-  existingEngineNumbers: Set<string>;
-  existingCivs: Set<string>;
-};
+type DuplicateLookup = { plates: Map<string, number>; serialNumbers: Map<string, number>; engineNumbers: Map<string, number>; civs: Map<string, number>; existingPlates: Set<string>; existingSerialNumbers: Set<string>; existingEngineNumbers: Set<string>; existingCivs: Set<string> };
+type DelegationResolver = { resolve: (record: NormalizedExcelImportRecord) => DelegationEntity };
 
-const EXPECTED_HEADERS = [
-  'N°',
-  'CIV',
-  'PLACAS ANTERIORES',
-  'PLACAS 2024',
-  'PLACAS 2025',
-  'PLACAS 2026',
-  'MARCA',
-  'TIPO',
-  'USO',
-  'TIPO DE VEHICULO',
-  'MOD.',
-  'CIL.',
-  'CAP.LTS',
-  'NO. DE MOTOR',
-  'NO. DE SERIE',
-  'REGION',
-  'DELEGACION',
-  'RESGUARDANTE',
-  'NO. PATRULLA',
-  'COLOR DE LA UNIDAD',
-  'ESTADO FISICO',
-  'ESTATUS',
-  'ANOTACION GENERAL',
-  'OBSERVACION',
-  'UBICACION REAL',
-] as const;
-
+const EXPECTED_HEADERS = ['N°', 'CIV', 'PLACAS ANTERIORES', 'PLACAS 2024', 'PLACAS 2025', 'PLACAS 2026', 'MARCA', 'TIPO', 'USO', 'TIPO DE VEHICULO', 'MOD.', 'CIL.', 'CAP.LTS', 'NO. DE MOTOR', 'NO. DE SERIE', 'REGION', 'DELEGACION', 'RESGUARDANTE', 'NO. PATRULLA', 'COLOR DE LA UNIDAD', 'ESTADO FISICO', 'ESTATUS', 'ANOTACION GENERAL', 'OBSERVACION', 'UBICACION REAL'] as const;
 const CATALOG_FIELD_MAP: Array<{ field: keyof NormalizedExcelImportRecord; catalogCode: string; required: boolean }> = [
   { field: 'useType', catalogCode: 'vehicle_use', required: true },
   { field: 'vehicleClass', catalogCode: 'vehicle_class', required: true },
@@ -66,9 +31,10 @@ const CATALOG_FIELD_MAP: Array<{ field: keyof NormalizedExcelImportRecord; catal
   { field: 'assetClassification', catalogCode: 'asset_classification', required: false },
   { field: 'sourceSection', catalogCode: 'excel_section', required: false },
 ];
-
 const GENERIC_IDENTIFIER_VALUES = new Set(['SIN NUMERO', 'SIN NÚMERO', 'N/A', 'NA', 'HECHO EN MEXICO', 'HECHO EN MÉXICO', 'HECHO EN USA', 'HECHO EN U.S.A', 'HECHO EN U.S.A.', 'HECHO EN EUA', 'SIN MOTOR', 'S/M', 'SM', 'S/N', 'SN', 'S.N.', 'IMPORTADO']);
 const EXCEL_MIME_TYPES = new Set(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/octet-stream', 'application/zip', '']);
+const CENTER_OPERATIVE_KEYWORDS = ['PLAZA', 'OPERATIVO', 'PATRULLEROS', 'PERITOS', 'ALCOHOLIMETRO', 'BICI', 'LOGISTICA', 'POLICIA ESTATAL'];
+const CENTER_COORDINATION_KEYWORDS = ['DIRECCION GENERAL', 'UNIDAD ADMINISTRATIVA', 'RECURSOS HUMANOS', 'PROXIMIDAD SOCIAL', 'PROYECTOS', 'APOYO AL MANDO', 'COORDINACION'];
 
 @Injectable()
 export class RecordsImportService {
@@ -103,6 +69,7 @@ export class RecordsImportService {
     this.assertImportRole(authUser);
     const user = await this.resolveUser(authUser);
     const defaultDelegation = await this.resolveDefaultDelegation(authUser);
+    const delegationResolver = await this.buildDelegationResolver(defaultDelegation);
     const parsed = await this.parseImportRows(file);
     const catalogLookup = await this.buildCatalogLookup();
     const rows = await this.validateRows(parsed.rows, catalogLookup);
@@ -110,24 +77,20 @@ export class RecordsImportService {
     const hasBlockingErrors = summary.invalidRows > 0 || summary.pendingCatalogValues.length > 0;
     const batch = await this.createBatch(summary, user, hasBlockingErrors ? VehicleImportBatchStatus.Failed : VehicleImportBatchStatus.Imported, 0);
     await this.persistImportErrors(batch, rows);
-
     if (hasBlockingErrors) {
       await this.auditLogsService.register({ actorId: authUser.sub, action: 'VEHICLE_IMPORT_FAILED', entityType: 'vehicle_import_batch', entityId: batch.id, metadata: { fileName: file.originalname, sheetName: parsed.sheetName, invalidRows: summary.invalidRows, pendingCatalogValues: summary.pendingCatalogValues } });
       throw new BadRequestException({ message: 'La importacion tiene errores o valores pendientes de catalogo.', importBatchId: batch.id, invalidRows: summary.invalidRows, pendingCatalogValues: summary.pendingCatalogValues, errors: summary.errors.slice(0, 50) });
     }
-
-    const records = rows.map((row) => this.recordRepository.create({ ...row.normalized, importBatchId: batch.id, delegation: defaultDelegation, createdBy: user }));
+    const records = rows.map((row) => this.recordRepository.create({ ...row.normalized, importBatchId: batch.id, delegation: delegationResolver.resolve(row.normalized), createdBy: user }));
     const savedRecords = await this.recordRepository.save(records, { chunk: 50 });
     batch.importedRows = savedRecords.length;
     batch.finishedAt = new Date();
     await this.importBatchRepository.save(batch);
-    await this.auditLogsService.register({ actorId: authUser.sub, action: 'VEHICLE_IMPORT_COMMITTED', entityType: 'vehicle_import_batch', entityId: batch.id, metadata: { fileName: file.originalname, sheetName: parsed.sheetName, importedRows: savedRecords.length, delegationId: defaultDelegation.id, importBatchId: batch.id } });
+    await this.auditLogsService.register({ actorId: authUser.sub, action: 'VEHICLE_IMPORT_COMMITTED', entityType: 'vehicle_import_batch', entityId: batch.id, metadata: { fileName: file.originalname, sheetName: parsed.sheetName, importedRows: savedRecords.length, importBatchId: batch.id } });
     return { importBatchId: batch.id, fileName: file.originalname, sheetName: parsed.sheetName, importedRows: savedRecords.length };
   }
 
-  findImportBatches() {
-    return this.importBatchRepository.find({ relations: { createdBy: true }, order: { createdAt: 'DESC' }, take: 100 });
-  }
+  findImportBatches() { return this.importBatchRepository.find({ relations: { createdBy: true }, order: { createdAt: 'DESC' }, take: 100 }); }
 
   async findImportErrors(batchId: string) {
     const batch = await this.importBatchRepository.findOne({ where: { id: batchId } });
@@ -149,6 +112,30 @@ export class RecordsImportService {
     const firstDelegation = await this.delegationRepository.findOne({ where: {}, relations: { region: true }, order: { sortOrder: 'ASC' } });
     if (!firstDelegation) throw new BadRequestException('No existe una delegacion disponible para asociar la importacion.');
     return firstDelegation;
+  }
+
+  private async buildDelegationResolver(defaultDelegation: DelegationEntity): Promise<DelegationResolver> {
+    const delegations = await this.delegationRepository.find({ relations: { region: true }, order: { sortOrder: 'ASC' } });
+    const exact = new Map<string, DelegationEntity>();
+    for (const delegation of delegations) {
+      exact.set(normalizeLocationValue(delegation.name), delegation);
+      exact.set(stripDelegationNoise(delegation.name), delegation);
+    }
+    return {
+      resolve: (record) => {
+        const candidates = [record.delegationName, record.adscription, record.realLocation, record.sourceSection, record.regionName].map(normalizeLocationValue).filter(Boolean);
+        for (const candidate of candidates) {
+          const clean = stripDelegationNoise(candidate);
+          const match = exact.get(candidate) ?? exact.get(clean);
+          if (match) return match;
+        }
+        const joined = candidates.join(' ');
+        const center = resolveCenterDelegation(joined, delegations);
+        if (center) return center;
+        const scored = delegations.map((delegation) => ({ delegation, score: scoreDelegationMatch(joined, delegation) })).sort((left, right) => right.score - left.score)[0];
+        return scored && scored.score >= 2 ? scored.delegation : defaultDelegation;
+      },
+    };
   }
 
   private async createBatch(summary: ReturnType<RecordsImportService['buildImportSummary']>, user: UserEntity, status: VehicleImportBatchStatus, importedRows: number) {
@@ -191,7 +178,6 @@ export class RecordsImportService {
     headers.forEach((header, index) => { if (header) columnMap.set(header, index); });
     const rows: ImportRow[] = [];
     let currentSection = '';
-
     for (let index = headerIndex + 1; index < sheet.rows.length; index += 1) {
       const row = sheet.rows[index];
       const values = this.mapRowValues(row, columnMap);
@@ -220,13 +206,7 @@ export class RecordsImportService {
     const lookup: CatalogLookup = new Map();
     for (const group of groups) {
       const values = new Set<string>();
-      for (const item of group.items ?? []) {
-        if (item.isActive) {
-          values.add(normalizeCatalogValue(item.label));
-          values.add(normalizeCatalogValue(item.normalizedValue));
-          values.add(normalizeCatalogValue(item.code));
-        }
-      }
+      for (const item of group.items ?? []) if (item.isActive) { values.add(normalizeCatalogValue(item.label)); values.add(normalizeCatalogValue(item.normalizedValue)); values.add(normalizeCatalogValue(item.code)); }
       lookup.set(group.code, values);
     }
     for (const alias of aliases) {
@@ -257,16 +237,14 @@ export class RecordsImportService {
 
   private findPendingCatalogValues(rows: ImportRow[], catalogLookup: CatalogLookup) {
     const pending = new Map<string, Set<string>>();
-    for (const row of rows) {
-      for (const entry of CATALOG_FIELD_MAP) {
-        const value = row.normalized[entry.field];
-        if (!value) continue;
-        const catalogValues = catalogLookup.get(entry.catalogCode) ?? new Set<string>();
-        if (entry.required && !catalogValues.has(normalizeCatalogValue(String(value)))) {
-          const values = pending.get(entry.catalogCode) ?? new Set<string>();
-          values.add(String(value));
-          pending.set(entry.catalogCode, values);
-        }
+    for (const row of rows) for (const entry of CATALOG_FIELD_MAP) {
+      const value = row.normalized[entry.field];
+      if (!value) continue;
+      const catalogValues = catalogLookup.get(entry.catalogCode) ?? new Set<string>();
+      if (entry.required && !catalogValues.has(normalizeCatalogValue(String(value)))) {
+        const values = pending.get(entry.catalogCode) ?? new Set<string>();
+        values.add(String(value));
+        pending.set(entry.catalogCode, values);
       }
     }
     return Array.from(pending.entries()).map(([catalogCode, values]) => ({ catalogCode, values: Array.from(values).sort((left, right) => left.localeCompare(right)) }));
@@ -294,69 +272,60 @@ function validateRow(record: NormalizedExcelImportRecord, catalogLookup: Catalog
   return errors;
 }
 
-function resolveErrorColumnName(message: string) {
-  return message.match(/catalogo ([^:]+):/iu)?.[1] ?? message.match(/Campo obligatorio vacio: ([^.]+)\./iu)?.[1] ?? '';
+function resolveCenterDelegation(joined: string, delegations: DelegationEntity[]) {
+  if (CENTER_COORDINATION_KEYWORDS.some((keyword) => joined.includes(keyword))) return findDelegationByName(delegations, 'COORDINACION');
+  if (CENTER_OPERATIVE_KEYWORDS.some((keyword) => joined.includes(keyword))) return findDelegationByName(delegations, 'JEFE OPERATIVO');
+  return undefined;
 }
 
-function resolveErrorRawValue(message: string, row: ImportRow) {
-  const catalogMatch = message.match(/catalogo ([^:]+): (.+)\./iu);
-  if (catalogMatch) return catalogMatch[2];
-  const requiredMatch = message.match(/Campo obligatorio vacio: ([^.]+)\./iu);
-  return requiredMatch ? String(row.normalized[requiredMatch[1] as keyof NormalizedExcelImportRecord] ?? '') : '';
+function findDelegationByName(delegations: DelegationEntity[], name: string) {
+  const normalized = normalizeLocationValue(name);
+  return delegations.find((delegation) => normalizeLocationValue(delegation.name) === normalized);
 }
 
-function resolveErrorType(message: string) {
-  if (message.includes('duplicad') || message.includes('ya existe')) return 'DUPLICATE';
-  if (message.includes('catalogo')) return 'CATALOG';
-  return 'VALIDATION';
+function scoreDelegationMatch(joined: string, delegation: DelegationEntity) {
+  const delegationName = normalizeLocationValue(delegation.name);
+  const regionName = normalizeLocationValue(delegation.region?.name ?? '');
+  const delegationTokens = new Set(stripDelegationNoise(delegationName).split(' ').filter((token) => token.length > 2));
+  const joinedTokens = new Set(stripDelegationNoise(joined).split(' ').filter((token) => token.length > 2));
+  let score = regionName && joined.includes(regionName) ? 2 : 0;
+  for (const token of delegationTokens) if (joinedTokens.has(token)) score += 3;
+  if (delegationName.includes('MA. LOMBARDO') && joined.includes('MARIA LOMBARDO')) score += 8;
+  if (delegationName.includes('CIUDAD IXTEPEC') && (joined.includes('CD IXTEPEC') || joined.includes('CD. IXTEPEC'))) score += 8;
+  if (delegationName.includes('MIAHUATLAN') && joined.includes('MIAHUATLAN')) score += 8;
+  if (delegationName.includes('S.P. Y S.P. TEPOSCOLULA') && joined.includes('TEPOSCOLULA')) score += 8;
+  if (delegationName.includes('PUTLA') && joined.includes('PUTLA')) score += 8;
+  if (delegationName.includes('TEOTITLAN') && joined.includes('TEOTITLAN')) score += 8;
+  if (delegationName.includes('CUICATLAN') && joined.includes('CUICATLAN')) score += 8;
+  if (delegationName.includes('HUAUTLA') && joined.includes('HUAUTLA')) score += 8;
+  if (delegationName.includes('ACATLAN') && joined.includes('ACATLAN')) score += 8;
+  if (delegationName.includes('JALAPA') && joined.includes('JALAPA')) score += 8;
+  return score;
 }
 
-function detectSection(values: Record<string, string>, row: string[]) {
-  const civ = normalizeText(values.CIV);
-  const brand = normalizeText(values.MARCA);
-  const serialNumber = normalizeText(values['NO. DE SERIE']);
-  const joined = row.map(normalizeText).filter(Boolean).join(' ');
-  return !civ && !brand && !serialNumber && joined.length > 0 ? normalizeCatalogValue(joined) : '';
+function stripDelegationNoise(value: string) {
+  return normalizeLocationValue(value)
+    .replace(/\bDELEGACION\b/gu, ' ')
+    .replace(/\bREGIONAL\b/gu, ' ')
+    .replace(/\bREGION\b/gu, ' ')
+    .replace(/\bPOLICIA\b/gu, ' ')
+    .replace(/\bVIAL\b/gu, ' ')
+    .replace(/\bDE\b|\bDEL\b|\bLA\b|\bEL\b/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
 }
 
-function isVehicleRow(values: Record<string, string>) {
-  return Boolean(normalizeText(values.CIV) || normalizeText(values['PLACAS 2026']) || normalizeText(values.MARCA) || normalizeText(values['NO. DE SERIE']));
-}
-
-function isImportableVehicleRow(record: NormalizedExcelImportRecord) {
-  const hasVehicleStructure = Boolean(record.type || record.useType || record.vehicleClass || record.model);
-  const hasIdentity = Boolean(record.plates || record.serialNumber || record.civ || record.engineNumber);
-  return hasVehicleStructure && hasIdentity;
-}
-
-function countValues(values: string[]) {
-  const count = new Map<string, number>();
-  for (const value of values) count.set(value, (count.get(value) ?? 0) + 1);
-  return count;
-}
-
-function isStrongPlateValue(value: string | null | undefined): value is string {
-  const normalized = normalizeCatalogValue(value ?? '');
-  return Boolean(normalized && !['S/P', 'SP', 'SIN PLACA', 'SIN PLACAS'].includes(normalized));
-}
-
-function isStrongCivValue(value: string | null | undefined): value is string {
-  const normalized = normalizeCatalogValue(value ?? '');
-  return Boolean(normalized && normalized !== 'S/C' && normalized !== 'SC');
-}
-
-function isGenericIdentifierValue(value: string | null | undefined) {
-  return GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value ?? ''));
-}
-
-function normalizeHeader(value: string) {
-  return normalizeCatalogValue(value).replace(/\s+/gu, ' ');
-}
-
-function normalizeCatalogValue(value: string) {
-  return normalizeText(value).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/gu, '').replace(/\s+/gu, ' ').trim();
-}
-
-function normalizeText(value: string) {
-  return String(value ?? '').trim().replace(/\s+/gu, ' ');
-}
+function resolveErrorColumnName(message: string) { return message.match(/catalogo ([^:]+):/iu)?.[1] ?? message.match(/Campo obligatorio vacio: ([^.]+)\./iu)?.[1] ?? ''; }
+function resolveErrorRawValue(message: string, row: ImportRow) { const catalogMatch = message.match(/catalogo ([^:]+): (.+)\./iu); if (catalogMatch) return catalogMatch[2]; const requiredMatch = message.match(/Campo obligatorio vacio: ([^.]+)\./iu); return requiredMatch ? String(row.normalized[requiredMatch[1] as keyof NormalizedExcelImportRecord] ?? '') : ''; }
+function resolveErrorType(message: string) { if (message.includes('duplicad') || message.includes('ya existe')) return 'DUPLICATE'; if (message.includes('catalogo')) return 'CATALOG'; return 'VALIDATION'; }
+function detectSection(values: Record<string, string>, row: string[]) { const civ = normalizeText(values.CIV); const brand = normalizeText(values.MARCA); const serialNumber = normalizeText(values['NO. DE SERIE']); const joined = row.map(normalizeText).filter(Boolean).join(' '); return !civ && !brand && !serialNumber && joined.length > 0 && !/^\d+$/u.test(joined) ? normalizeCatalogValue(joined) : ''; }
+function isVehicleRow(values: Record<string, string>) { return Boolean(normalizeText(values.CIV) || normalizeText(values['PLACAS 2026']) || normalizeText(values.MARCA) || normalizeText(values['NO. DE SERIE'])); }
+function isImportableVehicleRow(record: NormalizedExcelImportRecord) { const hasVehicleStructure = Boolean(record.type || record.useType || record.vehicleClass || record.model); const hasIdentity = Boolean(record.plates || record.serialNumber || record.civ || record.engineNumber); return hasVehicleStructure && hasIdentity; }
+function countValues(values: string[]) { const count = new Map<string, number>(); for (const value of values) count.set(value, (count.get(value) ?? 0) + 1); return count; }
+function isStrongPlateValue(value: string | null | undefined): value is string { const normalized = normalizeCatalogValue(value ?? ''); return Boolean(normalized && !['S/P', 'SP', 'SIN PLACA', 'SIN PLACAS'].includes(normalized)); }
+function isStrongCivValue(value: string | null | undefined): value is string { const normalized = normalizeCatalogValue(value ?? ''); return /[A-Z]/u.test(normalized) && normalized.length >= 4; }
+function isGenericIdentifierValue(value: string | null | undefined) { return GENERIC_IDENTIFIER_VALUES.has(normalizeCatalogValue(value ?? '')); }
+function normalizeHeader(value: string) { return normalizeCatalogValue(value).replace(/\s+/gu, ' '); }
+function normalizeLocationValue(value: string) { return normalizeCatalogValue(value).replace(/[.]/gu, '').replace(/\s+/gu, ' ').trim(); }
+function normalizeCatalogValue(value: string) { return normalizeText(value).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/gu, '').replace(/\s+/gu, ' ').trim(); }
+function normalizeText(value: string) { return String(value ?? '').trim().replace(/\s+/gu, ' '); }
