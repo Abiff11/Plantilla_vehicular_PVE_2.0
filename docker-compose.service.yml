@@ -6,10 +6,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ${BACKEND_IMAGE:-plantilla-vehicular-backend:latest}
+    image: ${BACKEND_IMAGE:-plantilla-vehicular-backend:local}
     restart: unless-stopped
     env_file:
       - .env
+      - /opt/intranet/infra/security/plantilla_vehicular.db.env
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -39,9 +40,11 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/plantilla-vehicular/}
+        VITE_API_URL: ${VITE_API_URL:-/plantilla-vehicular/api}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:-/}
-    image: ${FRONTEND_IMAGE:-plantilla-vehicular-frontend:latest}
+        VITE_SOCKET_PATH: ${VITE_SOCKET_PATH:-/plantilla-vehicular/socket.io}
+    image: ${FRONTEND_IMAGE:-plantilla-vehicular-frontend:local}
     restart: unless-stopped
     depends_on:
       backend:
