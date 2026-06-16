@@ -13,5 +13,19 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 "${COMPOSE[@]}" up -d postgres
+
+for attempt in {1..30}; do
+  if "${COMPOSE[@]}" exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1; then
+    break
+  fi
+
+  if [[ "$attempt" -eq 30 ]]; then
+    echo "ERROR: PostgreSQL is not ready after waiting." >&2
+    exit 1
+  fi
+
+  sleep 2
+done
+
 "${COMPOSE[@]}" run --rm --no-deps backend npm run migration:show:prod
 "${COMPOSE[@]}" run --rm --no-deps backend npm run migration:run:prod
