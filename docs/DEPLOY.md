@@ -4,8 +4,32 @@
 
 - Docker 24+
 - Docker Compose v2
-- Nginx central en el servidor
-- PostgreSQL por contenedor incluido o servicio compatible
+- Nginx central ya conectado a `intranet_proxy`
+- PostgreSQL central ya conectado a `intranet_db`
+- Redes Docker creadas previamente por el servidor:
+  - `intranet_proxy`
+  - `intranet_db`
+
+## Regla de infraestructura
+
+El servidor controla:
+
+- Docker networks
+- Nginx principal
+- PostgreSQL central
+- secretos reales `.env`
+- backups
+- firewall
+- seguridad SSH
+
+Este repositorio controla:
+
+- Dockerfile backend/frontend
+- `docker-compose.service.yml`
+- `.env.example`
+- migraciones
+- healthcheck
+- scripts propios
 
 ## Estructura productiva
 
@@ -13,7 +37,7 @@
 Plantilla_vehicular_PVE_2.0/
 ├── Dockerfile
 ├── Dockerfile.frontend
-├── docker-compose.prod.yml
+├── docker-compose.service.yml
 ├── .env.example
 ├── scripts/
 │   ├── deploy.sh
@@ -24,43 +48,42 @@ Plantilla_vehicular_PVE_2.0/
 └── SECURITY.md
 ```
 
-## Puertos
+## Puertos y redes
 
-| Servicio | Puerto interno | Publicado al host | Nota |
+| Servicio | Puerto interno | Puerto publicado | Redes |
 |---|---:|---:|---|
-| Backend | `3101` | No | Solo red interna Docker |
-| Frontend | `8080` | `127.0.0.1:8087` | Entrada para Nginx central |
-| PostgreSQL | `5432` | No | Solo red interna Docker |
+| Backend | `3101` | No | `intranet_proxy`, `intranet_db` |
+| Frontend | `8080` | No | `intranet_proxy` |
+| PostgreSQL | `5432` | No lo maneja este repo | `intranet_db` |
 
 Flujo esperado:
 
 ```txt
-Internet / Cloudflare -> Nginx central -> 127.0.0.1:8087 -> frontend -> backend:3101
+Internet / Cloudflare -> Nginx central -> intranet_proxy -> plantilla_vehicular_frontend:8080 -> backend:3101
 ```
 
 ## Primer despliegue
 
 ```bash
 cp .env.example .env
-# Editar .env con valores reales
+# Editar .env con valores reales del servidor
 chmod +x scripts/*.sh
 bash scripts/deploy.sh
 ```
 
 El deploy hace:
 
-1. Valida `docker-compose.prod.yml`.
+1. Valida `docker-compose.service.yml`.
 2. Construye imagenes.
-3. Levanta PostgreSQL.
-4. Ejecuta migraciones.
-5. Levanta backend y frontend.
+3. Ejecuta migraciones contra PostgreSQL central.
+4. Levanta backend y frontend.
 
 ## Variables obligatorias en produccion
 
 | Variable | Uso |
 |---|---|
 | `NODE_ENV=production` | Activa validacion estricta |
-| `DATABASE_HOST` | Host PostgreSQL |
+| `DATABASE_HOST` | Host PostgreSQL central |
 | `DATABASE_PORT` | Puerto PostgreSQL |
 | `DATABASE_NAME` | Base de datos |
 | `DATABASE_USER` | Usuario DB |
@@ -92,28 +115,30 @@ Reglas:
 
 ## Healthcheck
 
-Backend:
+Desde la red Docker:
 
 ```bash
-curl http://127.0.0.1:8087/api/health
+docker exec plantilla_vehicular_backend wget -qO- http://127.0.0.1:3101/api/health
+docker exec plantilla_vehicular_frontend wget -qO- http://127.0.0.1:8080/robots.txt
 ```
 
-Frontend:
+Desde Nginx central o dominio:
 
 ```bash
-curl http://127.0.0.1:8087/robots.txt
+curl -i https://plantilla.sisoaxaca.com/api/health
+curl -I https://plantilla.sisoaxaca.com/favicon.ico
 ```
 
 ## Logs
 
 ```bash
-docker compose --env-file .env -f docker-compose.prod.yml logs -f backend
-docker compose --env-file .env -f docker-compose.prod.yml logs -f frontend
+docker compose --env-file .env -f docker-compose.service.yml logs -f backend
+docker compose --env-file .env -f docker-compose.service.yml logs -f frontend
 ```
 
 ## Nginx central
 
-Copiar o enlazar la configuracion:
+Copiar o enlazar la configuracion en el servidor donde vive el Nginx principal:
 
 ```bash
 sudo cp nginx/plantilla-vehicular.conf /etc/nginx/conf.d/plantilla-vehicular.conf
@@ -127,18 +152,18 @@ Antes de usarla, ajustar:
 server_name plantilla.sisoaxaca.com;
 ```
 
-Si cambias `FRONTEND_PORT`, tambien ajusta el upstream:
+El upstream debe apuntar al frontend dentro de `intranet_proxy`:
 
 ```nginx
-server 127.0.0.1:8087;
+server plantilla_vehicular_frontend:8080;
 ```
 
 ## Validacion rapida post-deploy
 
 ```bash
-docker compose --env-file .env -f docker-compose.prod.yml ps
-curl -I http://127.0.0.1:8087/
-curl -i http://127.0.0.1:8087/api/health
+docker compose --env-file .env -f docker-compose.service.yml ps
+curl -i https://plantilla.sisoaxaca.com/api/health
+curl -I https://plantilla.sisoaxaca.com/favicon.ico
 ```
 
 Headers esperados:
@@ -171,15 +196,12 @@ npm install
 npm run dev
 ```
 
-## Detener stack productivo
+## Detener servicio
 
 ```bash
-docker compose --env-file .env -f docker-compose.prod.yml down
+docker compose --env-file .env -f docker-compose.service.yml down
 ```
 
-## Backup basico antes de cambios grandes
+## Backup
 
-```bash
-docker compose --env-file .env -f docker-compose.prod.yml exec -T postgres \
-  pg_dump -U "$DATABASE_USER" "$DATABASE_NAME" > "backup_$(date +%Y%m%d_%H%M%S).sql"
-```
+El backup lo controla el servidor central de PostgreSQL, no este repositorio.
