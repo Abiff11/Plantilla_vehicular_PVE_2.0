@@ -2,6 +2,10 @@ import Swal from "sweetalert2";
 import { api } from "../../lib/api";
 import { formatUserName } from "../../lib/format-user-name";
 import { resolveConfiguredNetworkUrl } from "../../lib/resolve-network-url";
+import {
+  resolveVehicleDisplayPlate,
+  resolveVehiclePlateSourceLabel,
+} from "../../lib/vehicle-plates";
 import type {
   Region,
   VehicleEditEvent,
@@ -119,7 +123,6 @@ function resolvePhotoUrl(photo: VehiclePhoto) {
     }
 
     if (publicUrl.startsWith("/uploads/")) {
-      // Legacy/local files may no longer exist after stateless redeploys.
       return joinUrl(API_BASE_URL, publicUrl);
     }
 
@@ -171,7 +174,7 @@ export function getRecordActivitySummary(record: VehicleRecord) {
 
   if (record.latestEdit) {
     parts.push(
-      `Editado el ${new Date(edit.latestEdit?.editedAt ?? record.latestEdit.editedAt).toLocaleDateString()}`,
+      `Editado el ${new Date(record.latestEdit.editedAt).toLocaleDateString()}`,
     );
   }
 
@@ -186,15 +189,19 @@ export async function openRecordDetails(
   record: VehicleRecord,
   options: OpenRecordDetailsOptions = {},
 ): Promise<RecordDetailsAction> {
+  const displayPlates = resolveVehicleDisplayPlate(record);
+  const plateSource = resolveVehiclePlateSourceLabel(record);
   const canEdit = options.canEdit === true && record.recordState === "CURRENT";
   const vehicleSummarySection = `
     <div class="activity-item vehicle-detail-summary">
       <div class="activity-item-head">
         <strong>Datos del vehículo</strong>
-        <span>${escapeHtml(record.plates || record.plates2026 || "-")}</span>
+        <span>${escapeHtml(displayPlates)}</span>
       </div>
       <div class="vehicle-detail-grid">
-        ${renderVehicleDetailField("Placas", record.plates)}
+        ${renderVehicleDetailField("Placa más reciente", displayPlates)}
+        ${renderVehicleDetailField("Origen de placa", plateSource)}
+        ${renderVehicleDetailField("Placas capturadas", record.plates)}
         ${renderVehicleDetailField("CIV", record.civ)}
         ${renderVehicleDetailField("Placas anteriores", record.previousPlates)}
         ${renderVehicleDetailField("Placas 2024", record.plates2024)}
@@ -254,7 +261,7 @@ export async function openRecordDetails(
       : '<div class="activity-item"><span>Sin fotos cargadas.</span></div>';
 
   const result = await Swal.fire({
-    title: `Historial de ${escapeHtml(record.plates || record.plates2026 || "S/P")}`,
+    title: `Historial de ${escapeHtml(displayPlates)}`,
     width: 900,
     confirmButtonText: "Cerrar",
     showDenyButton: canEdit,
@@ -352,7 +359,7 @@ export async function openTransferDialog(params: {
   const targetConfirmation = await Swal.fire({
     icon: "question",
     title: "Trasladar vehiculo",
-    text: `Selecciona la nueva delegacion para ${params.record.plates}.`,
+    text: `Selecciona la nueva delegacion para ${resolveVehicleDisplayPlate(params.record)}.`,
     input: "select",
     inputOptions: delegationOptions,
     inputPlaceholder: "Selecciona una delegacion",
