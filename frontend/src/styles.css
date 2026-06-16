@@ -2210,6 +2210,74 @@ tbody tr:hover {
   font-size: 18px;
 }
 
+.vehicle-edit-modal {
+  width: min(1120px, 96vw);
+  max-width: 1120px;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.vehicle-edit-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.vehicle-edit-header h3 {
+  margin: 4px 0 8px;
+  font-size: 24px;
+}
+
+.vehicle-edit-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.vehicle-edit-header-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.vehicle-edit-section {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--surface-alt);
+}
+
+.vehicle-edit-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.vehicle-edit-section-head h4 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.vehicle-edit-section-head span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.vehicle-edit-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vehicle-edit-actions {
+  padding-top: 4px;
+}
+
 .user-selection ul {
   list-style: none;
   margin: 0 0 16px 0;

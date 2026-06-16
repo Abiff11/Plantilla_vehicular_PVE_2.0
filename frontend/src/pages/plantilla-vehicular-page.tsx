@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { GroupedRecords } from "../components/grouped-records";
 import { LoadingSpinner } from "../components/loading-spinner";
+<<<<<<< HEAD
+=======
+import { VehicleEditModal } from "../components/vehicle-edit-modal";
+>>>>>>> 6c9dfbe (fixes varios)
 import { api } from "../lib/api";
 import { socket } from "../lib/socket";
 import { useAuth } from "../modules/auth/auth-context";
@@ -9,11 +13,15 @@ import {
   openRecordDetails,
   openTransferDialog,
 } from "../modules/records/record-activity";
+<<<<<<< HEAD
 import { openRecordEditDialog } from "../modules/records/record-edit-dialog";
+=======
+>>>>>>> 6c9dfbe (fixes varios)
 import type {
   GroupedRegionRecords,
   RecordFieldCatalogMap,
   Region,
+  VehicleEditPayload,
   VehicleRecord,
 } from "../types";
 
@@ -95,6 +103,7 @@ export function PlantillaVehicularPage() {
     );
   }, [catalogRegions, selectedRegionId]);
 
+<<<<<<< HEAD
   const editRecord = async (record: VehicleRecord) => {
     if (!session || !fieldCatalogs) {
       return;
@@ -108,6 +117,8 @@ export function PlantillaVehicularPage() {
     });
   };
 
+=======
+>>>>>>> 6c9dfbe (fixes varios)
   const transferRecord = async (record: VehicleRecord) => {
     if (!session) {
       return;
@@ -141,6 +152,48 @@ export function PlantillaVehicularPage() {
     }
   };
 
+<<<<<<< HEAD
+=======
+  const updateRecord = async (recordId: string, values: VehicleEditPayload) => {
+    if (!session) {
+      return;
+    }
+
+    const confirmation = await Swal.fire({
+      icon: "question",
+      title: "Confirmar edición",
+      text: "Se guardarán los cambios y quedarán registrados en bitácora.",
+      showCancelButton: true,
+      confirmButtonText: "Guardar cambios",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirmation.isConfirmed) {
+      return;
+    }
+
+    try {
+      await api.updateRecord(recordId, values, session.accessToken);
+      await loadOverview();
+      setEditingRecord(null);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Vehículo actualizado",
+        text: "Los cambios se guardaron correctamente.",
+        confirmButtonText: "Entendido",
+      });
+    } catch (requestError) {
+      await Swal.fire({
+        icon: "error",
+        title: "No se pudo actualizar el vehículo",
+        text: (requestError as Error).message,
+        confirmButtonText: "Entendido",
+      });
+    }
+  };
+
+>>>>>>> 6c9dfbe (fixes varios)
   const openDetails = async (record: VehicleRecord) => {
     const action = await openRecordDetails(record, {
       canEdit: record.recordState === "CURRENT",
@@ -200,6 +253,7 @@ export function PlantillaVehicularPage() {
   }
 
   return (
+<<<<<<< HEAD
     <GroupedRecords
       regions={regions}
       fieldCatalogs={fieldCatalogs}
@@ -226,6 +280,32 @@ export function PlantillaVehicularPage() {
               Trasladar
             </button>
             {isSuperAdmin ? (
+=======
+    <>
+      {editingRecord && (
+        <VehicleEditModal
+          record={editingRecord}
+          fieldCatalogs={fieldCatalogs}
+          onCancel={() => setEditingRecord(null)}
+          onSubmit={async (values) => {
+            await updateRecord(editingRecord.id, values);
+            setEditingRecord(null);
+          }}
+        />
+      )}
+
+      <GroupedRecords
+        regions={regions}
+        fieldCatalogs={fieldCatalogs}
+        eyebrow="Vista general vehicular"
+        title="Operación vehicular general"
+        description="Consulta la plantilla vehicular registrada por región y delegación."
+        vehicleClassAfterDate
+        onRecordSelect={(record) => void openDetails(record)}
+        renderRecordActions={(record) =>
+          record.recordState === "CURRENT" ? (
+            <>
+>>>>>>> 6c9dfbe (fixes varios)
               <button
                 className="inline-button"
                 type="button"

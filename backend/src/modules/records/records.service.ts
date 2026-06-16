@@ -44,8 +44,18 @@ const catalogValidatedFields = [
   "assetClassification",
 ] as const;
 type CatalogValidatedField = (typeof catalogValidatedFields)[number];
+type CatalogValidatedValues = Pick<
+  EditableRecordValues,
+  CatalogValidatedField
+>;
+type DuplicateCheckValues = Pick<
+  EditableRecordValues,
+  "plates" | "engineNumber" | "serialNumber"
+> & {
+  civ?: string;
+};
 
-function validateCatalogFields(values: NormalizedRecordValues): string | null {
+function validateCatalogFields(values: CatalogValidatedValues): string | null {
   for (const field of catalogValidatedFields) {
     const value = values[field];
 
@@ -73,6 +83,46 @@ function validateCatalogFields(values: NormalizedRecordValues): string | null {
 
 function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, " ");
+}
+
+function normalizeUpper(value: string) {
+  return normalizeText(value).toUpperCase();
+}
+
+function stripDiacritics(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/gu, "").trim();
+}
+
+function normalizePlateSourceValue(value: string) {
+  const normalized = stripDiacritics(normalizeUpper(value));
+
+  if (!normalized || ["", "-", "N/A", "NA", "S/P", "SP", "SINPLACA", "SINPLACAS"].includes(normalized)) {
+    return "";
+  }
+
+  const compacted = normalized.replace(/[\s-]+/gu, "");
+
+  if (!compacted || /^\d+$/u.test(compacted) || !/[A-Z]/u.test(compacted) || compacted.length < 5) {
+    return "";
+  }
+
+  return compacted;
+}
+
+function resolveMainPlates(values: {
+  plates: string;
+  previousPlates: string;
+  plates2024: string;
+  plates2025: string;
+  plates2026: string;
+}) {
+  return (
+    normalizePlateSourceValue(values.plates2026) ||
+    normalizePlateSourceValue(values.plates2025) ||
+    normalizePlateSourceValue(values.plates2024) ||
+    normalizePlateSourceValue(values.previousPlates) ||
+    normalizePlateSourceValue(values.plates)
+  );
 }
 
 function calculateNetActive(
@@ -111,23 +161,56 @@ const reportableMovementActions = [
 
 const editableRecordFields = [
   "plates",
+  "civ",
+  "previousPlates",
+  "plates2024",
+  "plates2025",
+  "plates2026",
   "brand",
   "type",
   "useType",
   "vehicleClass",
   "model",
+  "cylinders",
+  "fuelCapacityLiters",
   "engineNumber",
   "serialNumber",
   "custodian",
   "patrolNumber",
+  "color",
+  "adscription",
+  "realLocation",
   "physicalStatus",
   "status",
+  "rawCirculationStatus",
   "assetClassification",
+  "rawAssetClassification",
+  "sourceSection",
+  "sourceRowNumber",
   "observation",
 ] as const;
 
 type EditableRecordField = (typeof editableRecordFields)[number];
-type NormalizedRecordValues = Pick<RecordEntity, EditableRecordField>;
+type EditableRecordValues = Pick<RecordEntity, EditableRecordField>;
+type BaseRecordValues = Pick<
+  RecordEntity,
+  | "plates"
+  | "brand"
+  | "type"
+  | "useType"
+  | "vehicleClass"
+  | "model"
+  | "engineNumber"
+  | "serialNumber"
+  | "custodian"
+  | "patrolNumber"
+  | "physicalStatus"
+  | "status"
+  | "assetClassification"
+  | "observation"
+> & {
+  rawAssetClassification?: string;
+};
 type ScopedRecordFilters = {
   scopeDelegationIds: string[];
   dateFrom?: string;
@@ -235,7 +318,7 @@ export class RecordsService {
     this.ensureEnlaceDelegationAccess(liveAuthUser, delegation.id);
 
     const normalizedDto = {
-      ...this.normalizeRecordValues(dto),
+      ...this.normalizeBaseRecordValues(dto),
       delegationId: dto.delegationId,
     };
 
@@ -311,7 +394,7 @@ export class RecordsService {
     this.ensureRecordEditAccess(record, liveAuthUser);
 
     const before = this.pickRecordValues(record);
-    const normalizedValues = this.normalizeRecordValues(
+    const normalizedValues = this.normalizeEditableRecordValues(
       this.mergeDefinedRecordValues(before, dto),
     );
     const changedFields = editableRecordFields.filter(
@@ -864,13 +947,13 @@ export class RecordsService {
 
       if (!allowedStatusValues.has(record.status)) {
         customStatusDescriptions.push(
-          `PLACAS: ${record.plates} | TIPO: ${record.vehicleClass} | DELEGACIÓN: ${record.delegation.name} | OFICIAL: ${record.createdBy.firstName} ${record.createdBy.lastName} | ESTATUS CAPTURADO EN OTRO: ${record.status}`,
+          `PLACAS: ${resolveMainPlates(record) || record.plates || '-'} | TIPO: ${record.vehicleClass} | DELEGACIÓN: ${record.delegation.name} | OFICIAL: ${record.createdBy.firstName} ${record.createdBy.lastName} | ESTATUS CAPTURADO EN OTRO: ${record.status}`,
         );
       }
 
       if (record.observation.trim().length > 0) {
         capturedObservations.push(
-          `PLACAS: ${record.plates} | TIPO: ${record.vehicleClass} | DELEGACIÓN: ${record.delegation.name} | OFICIAL: ${record.createdBy.firstName} ${record.createdBy.lastName} | OBSERVACIÓN: ${record.observation}`,
+          `PLACAS: ${resolveMainPlates(record) || record.plates || '-'} | TIPO: ${record.vehicleClass} | DELEGACIÓN: ${record.delegation.name} | OFICIAL: ${record.createdBy.firstName} ${record.createdBy.lastName} | OBSERVACIÓN: ${record.observation}`,
         );
       }
     }
@@ -1055,7 +1138,7 @@ export class RecordsService {
       metadata: {
         deletedByRole: authUser.role,
         deletedByUserId: authUser.sub,
-        plates: record.plates,
+        plates: resolveMainPlates(record) || record.plates || '-',
         delegationId: record.delegation.id,
         regionId: record.delegation.region.id,
         createdById: record.createdBy?.id ?? null,
@@ -1256,10 +1339,10 @@ export class RecordsService {
   }
 
   private async ensureNoDuplicateRecords(
-    values: NormalizedRecordValues,
+    values: DuplicateCheckValues,
     excludeId?: string,
   ) {
-    const uniqueFields = ["plates", "engineNumber", "serialNumber"] as const;
+    const uniqueFields = ["plates", "civ", "engineNumber", "serialNumber"] as const;
     const conflicts: string[] = [];
 
     for (const field of uniqueFields) {
@@ -1284,6 +1367,8 @@ export class RecordsService {
         const fieldLabel =
           field === "plates"
             ? "Las placas"
+            : field === "civ"
+              ? "El CIV"
             : field === "engineNumber"
               ? "El numero de motor"
               : "El numero de serie";
@@ -1351,63 +1436,131 @@ export class RecordsService {
     );
   }
 
-  private normalizeRecordValues(
-    values: NormalizedRecordValues,
-  ): NormalizedRecordValues {
+  private normalizeBaseRecordValues(
+    values: BaseRecordValues,
+  ): BaseRecordValues {
     return {
-      plates: normalizeText(values.plates).toUpperCase(),
-      brand: normalizeText(values.brand).toUpperCase(),
-      type: normalizeText(values.type).toUpperCase(),
-      useType: normalizeText(values.useType).toUpperCase(),
-      vehicleClass: normalizeText(values.vehicleClass).toUpperCase(),
-      model: normalizeText(values.model).toUpperCase(),
-      engineNumber: normalizeText(values.engineNumber).toUpperCase(),
-      serialNumber: normalizeText(values.serialNumber).toUpperCase(),
-      custodian: normalizeText(values.custodian).toUpperCase(),
-      patrolNumber: normalizeText(values.patrolNumber).toUpperCase(),
-      physicalStatus: normalizeText(values.physicalStatus).toUpperCase(),
-      status: normalizeText(values.status).toUpperCase(),
-      assetClassification: normalizeText(
-        values.assetClassification,
-      ).toUpperCase(),
+      plates: normalizePlateSourceValue(values.plates),
+      brand: normalizeUpper(values.brand),
+      type: normalizeUpper(values.type),
+      useType: normalizeUpper(values.useType),
+      vehicleClass: normalizeUpper(values.vehicleClass),
+      model: normalizeUpper(values.model),
+      engineNumber: normalizeUpper(values.engineNumber),
+      serialNumber: normalizeUpper(values.serialNumber),
+      custodian: normalizeUpper(values.custodian),
+      patrolNumber: normalizeUpper(values.patrolNumber),
+      physicalStatus: normalizeUpper(values.physicalStatus),
+      status: normalizeUpper(values.status),
+      assetClassification: normalizeUpper(values.assetClassification),
+      rawAssetClassification: normalizeUpper(values.rawAssetClassification ?? ""),
       observation: normalizeText(values.observation),
     };
   }
 
-  private pickRecordValues(record: RecordEntity): NormalizedRecordValues {
+  private normalizeEditableRecordValues(
+    values: EditableRecordValues,
+  ): EditableRecordValues {
+    const normalizedPlateFields = {
+      plates: normalizePlateSourceValue(values.plates),
+      previousPlates: normalizePlateSourceValue(values.previousPlates),
+      plates2024: normalizePlateSourceValue(values.plates2024),
+      plates2025: normalizePlateSourceValue(values.plates2025),
+      plates2026: normalizePlateSourceValue(values.plates2026),
+    };
+
+    return {
+      ...values,
+      ...normalizedPlateFields,
+      plates: resolveMainPlates({
+        plates: normalizedPlateFields.plates,
+        previousPlates: normalizedPlateFields.previousPlates,
+        plates2024: normalizedPlateFields.plates2024,
+        plates2025: normalizedPlateFields.plates2025,
+        plates2026: normalizedPlateFields.plates2026,
+      }),
+      civ: normalizeUpper(values.civ).replace(/\s+/g, ""),
+      brand: normalizeUpper(values.brand),
+      type: normalizeUpper(values.type),
+      useType: normalizeUpper(values.useType),
+      vehicleClass: normalizeUpper(values.vehicleClass),
+      model: normalizeUpper(values.model),
+      cylinders: normalizeUpper(values.cylinders),
+      fuelCapacityLiters: normalizeUpper(values.fuelCapacityLiters),
+      engineNumber: normalizeUpper(values.engineNumber),
+      serialNumber: normalizeUpper(values.serialNumber),
+      custodian: normalizeUpper(values.custodian),
+      patrolNumber: normalizeUpper(values.patrolNumber),
+      color: normalizeUpper(values.color),
+      adscription: normalizeUpper(values.adscription),
+      realLocation: normalizeUpper(values.realLocation),
+      physicalStatus: normalizeUpper(values.physicalStatus),
+      status: normalizeUpper(values.status),
+      rawCirculationStatus: normalizeUpper(values.rawCirculationStatus),
+      assetClassification: normalizeUpper(values.assetClassification),
+      rawAssetClassification: normalizeUpper(values.rawAssetClassification),
+      sourceSection: normalizeUpper(values.sourceSection),
+      sourceRowNumber:
+        values.sourceRowNumber === null
+          ? null
+          : Number.isFinite(values.sourceRowNumber)
+            ? values.sourceRowNumber
+            : null,
+      observation: normalizeText(values.observation),
+    };
+  }
+
+  private pickRecordValues(record: RecordEntity): EditableRecordValues {
     return {
       plates: record.plates,
+      civ: record.civ,
+      previousPlates: record.previousPlates,
+      plates2024: record.plates2024,
+      plates2025: record.plates2025,
+      plates2026: record.plates2026,
       brand: record.brand,
       type: record.type,
       useType: record.useType,
       vehicleClass: record.vehicleClass,
       model: record.model,
+      cylinders: record.cylinders,
+      fuelCapacityLiters: record.fuelCapacityLiters,
       engineNumber: record.engineNumber,
       serialNumber: record.serialNumber,
       custodian: record.custodian,
       patrolNumber: record.patrolNumber,
+      color: record.color,
+      adscription: record.adscription,
+      realLocation: record.realLocation,
       physicalStatus: record.physicalStatus,
       status: record.status,
+      rawCirculationStatus: record.rawCirculationStatus,
       assetClassification: record.assetClassification,
+      rawAssetClassification: record.rawAssetClassification,
+      sourceSection: record.sourceSection,
+      sourceRowNumber: record.sourceRowNumber,
       observation: record.observation,
     };
   }
 
   private mergeDefinedRecordValues(
-    currentValues: NormalizedRecordValues,
+    currentValues: EditableRecordValues,
     dto: UpdateRecordDto,
-  ): NormalizedRecordValues {
-    const mergedValues: NormalizedRecordValues = { ...currentValues };
+  ): EditableRecordValues {
+    const mergedValues = { ...currentValues } as Record<
+      EditableRecordField,
+      EditableRecordValues[EditableRecordField]
+    >;
 
     for (const fieldName of editableRecordFields) {
       const nextValue = dto[fieldName];
 
       if (nextValue !== undefined) {
-        mergedValues[fieldName] = nextValue;
+        mergedValues[fieldName] = nextValue as EditableRecordValues[EditableRecordField];
       }
     }
 
-    return mergedValues;
+    return mergedValues as EditableRecordValues;
   }
 
   private async findDelegationIdsByRegion(regionId: string) {

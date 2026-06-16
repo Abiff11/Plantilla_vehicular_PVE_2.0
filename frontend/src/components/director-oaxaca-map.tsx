@@ -3,6 +3,7 @@ import L from 'leaflet';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { EmptyState } from './empty-state';
 import { api } from '../lib/api';
+import { resolveVehicleDisplayPlate } from '../lib/vehicle-plates';
 import { getDelegationLatLng, OAXACA_MAP_BOUNDS } from '../modules/director-general/oaxaca-map-layout';
 import { openRecordDetails } from '../modules/records/record-activity';
 import type { DirectorOverview, VehicleRecord } from '../types';
@@ -308,7 +309,7 @@ export function DirectorOaxacaMap({
                                       void openRecordDetails(record);
                                     }}
                                   >
-                                    <strong>{record.plates}</strong>
+                                    <strong>{resolveVehicleDisplayPlate(record)}</strong>
                                     <span>{record.vehicleClass} · {record.status}</span>
                                     <small>{record.brand} {record.type} · {record.custodian}</small>
                                     <small>Ver detalle</small>

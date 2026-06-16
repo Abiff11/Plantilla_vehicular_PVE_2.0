@@ -7,6 +7,7 @@ import type {
   RecordFormValues,
   Region,
   User,
+  VehicleEditPayload,
   VehicleRecord,
   VehicleRosterReport,
 } from '../../types';
@@ -113,7 +114,7 @@ export function useEnlaceData() {
     }
   };
 
-  const updateRecord = async (recordId: string, values: RecordFormValues) => {
+  const updateRecord = async (recordId: string, values: VehicleEditPayload) => {
     if (!session) {
       return;
     }

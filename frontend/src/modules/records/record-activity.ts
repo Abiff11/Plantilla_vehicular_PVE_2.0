@@ -1,10 +1,10 @@
-import Swal from "sweetalert2";
+﻿import Swal from "sweetalert2";
 import { api } from "../../lib/api";
 import { formatUserName } from "../../lib/format-user-name";
 import { resolveConfiguredNetworkUrl } from "../../lib/resolve-network-url";
 import {
   resolveVehicleDisplayPlate,
-  resolveVehiclePlateSourceLabel,
+  resolveVehiclePlateDisplayLabel,
 } from "../../lib/vehicle-plates";
 import type {
   Region,
@@ -190,7 +190,7 @@ export async function openRecordDetails(
   options: OpenRecordDetailsOptions = {},
 ): Promise<RecordDetailsAction> {
   const displayPlates = resolveVehicleDisplayPlate(record);
-  const plateSource = resolveVehiclePlateSourceLabel(record);
+  const plateLabel = resolveVehiclePlateDisplayLabel(record);
   const canEdit = options.canEdit === true && record.recordState === "CURRENT";
   const vehicleSummarySection = `
     <div class="activity-item vehicle-detail-summary">
@@ -200,7 +200,7 @@ export async function openRecordDetails(
       </div>
       <div class="vehicle-detail-grid">
         ${renderVehicleDetailField("Placa más reciente", displayPlates)}
-        ${renderVehicleDetailField("Origen de placa", plateSource)}
+        ${renderVehicleDetailField("Placa resuelta", plateLabel)}
         ${renderVehicleDetailField("Placas capturadas", record.plates)}
         ${renderVehicleDetailField("CIV", record.civ)}
         ${renderVehicleDetailField("Placas anteriores", record.previousPlates)}
@@ -225,6 +225,7 @@ export async function openRecordDetails(
         ${renderVehicleDetailField("Estatus sistema", record.status)}
         ${renderVehicleDetailField("Estatus Excel", record.rawCirculationStatus)}
         ${renderVehicleDetailField("Clasificación del bien", record.assetClassification)}
+        ${renderVehicleDetailField("Anotación general", record.rawAssetClassification)}
         ${renderVehicleDetailField("Delegación actual", record.delegation.name)}
         ${renderVehicleDetailField("Sección Excel", record.sourceSection)}
         ${renderVehicleDetailField("Fila Excel", record.sourceRowNumber)}
@@ -263,6 +264,7 @@ export async function openRecordDetails(
   const result = await Swal.fire({
     title: `Historial de ${escapeHtml(displayPlates)}`,
     width: 900,
+<<<<<<< HEAD
     confirmButtonText: canEdit ? (options.editButtonText ?? "Editar vehículo") : "Cerrar",
     showCancelButton: canEdit,
     cancelButtonText: "Cerrar",
@@ -271,6 +273,12 @@ export async function openRecordDetails(
       popup: "vehicle-detail-popup",
       confirmButton: canEdit ? "vehicle-detail-edit-primary" : undefined,
     },
+=======
+    confirmButtonText: canEdit ? options.editButtonText ?? "Editar vehículo" : "Cerrar",
+    showDenyButton: canEdit,
+    denyButtonText: "Cerrar",
+    showCancelButton: false,
+>>>>>>> 6c9dfbe (fixes varios)
     html: `
       <div class="activity-list">
         ${vehicleSummarySection}
@@ -280,12 +288,12 @@ export async function openRecordDetails(
             <strong>Estado actual</strong>
             <span>${escapeHtml(
               record.recordState === "CURRENT"
-                ? "Vigente en la delegacion"
+                ? "Vigente en la delegación"
                 : "Trasladado",
             )}</span>
           </div>
-          <p>Delegacion visible: ${escapeHtml(record.viewDelegation.name)}</p>
-          <span>Delegacion actual: ${escapeHtml(record.delegation.name)}</span>
+          <p>Delegación visible: ${escapeHtml(record.viewDelegation.name)}</p>
+          <span>Delegación actual: ${escapeHtml(record.delegation.name)}</span>
         </div>
 
         ${photosSection}
@@ -331,7 +339,7 @@ export async function openRecordDetails(
 
           void Swal.fire({
             imageUrl: photoUrl,
-            imageAlt: photoName ?? "Foto del vehiculo",
+            imageAlt: photoName ?? "Foto del vehículo",
             showConfirmButton: false,
             showCloseButton: true,
             width: "90%",
@@ -363,15 +371,15 @@ export async function openTransferDialog(params: {
 
   const targetConfirmation = await Swal.fire({
     icon: "question",
-    title: "Trasladar vehiculo",
-    text: `Selecciona la nueva delegacion para ${resolveVehicleDisplayPlate(params.record)}.`,
+    title: "Trasladar vehículo",
+    text: `Selecciona la nueva delegación para ${resolveVehicleDisplayPlate(params.record)}.`,
     input: "select",
     inputOptions: delegationOptions,
-    inputPlaceholder: "Selecciona una delegacion",
+    inputPlaceholder: "Selecciona una delegación",
     showCancelButton: true,
     confirmButtonText: "Continuar",
     cancelButtonText: "Cancelar",
-    inputValidator: (value) => (!value ? "Selecciona una delegacion." : null),
+    inputValidator: (value) => (!value ? "Selecciona una delegación." : null),
   });
 
   if (
@@ -410,3 +418,6 @@ export async function openTransferDialog(params: {
 
   return true;
 }
+
+
+

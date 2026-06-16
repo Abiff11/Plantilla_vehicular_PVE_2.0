@@ -43,7 +43,7 @@ function assertBaseNormalization() {
 
   assert.equal(record.civ, 'CIV-001');
   assert.equal(record.plates, 'PVE2026');
-  assert.equal(record.plates2026, 'PVE-2026');
+  assert.equal(record.plates2026, 'PVE2026');
   assert.equal(record.vehicleClass, 'GRUA');
   assert.equal(record.model, '2024');
   assert.equal(record.cylinders, '4');
@@ -53,6 +53,7 @@ function assertBaseNormalization() {
   assert.equal(record.status, 'ACTIVO');
   assert.equal(record.rawCirculationStatus, 'CIRCULANDO');
   assert.equal(record.assetClassification, 'PATRIMONIAL');
+  assert.equal(record.rawAssetClassification, 'PATRIMONIAL 2025');
   assert.equal(record.sourceSection, 'DELEGACION REGIONAL PLAZA');
 }
 
@@ -60,11 +61,11 @@ function assertPlateFallback() {
   const record = normalize({
     'PLACAS 2026': 'S/P',
     'PLACAS 2025': '',
-    'PLACAS 2024': 'ABC 123',
-    'PLACAS ANTERIORES': 'OLD 999',
+    'PLACAS 2024': 'RW5609C',
+    'PLACAS ANTERIORES': '1619',
   });
 
-  assert.equal(record.plates, 'ABC123');
+  assert.equal(record.plates, 'RW5609C');
 }
 
 function assertPhysicalStatusNormalization() {

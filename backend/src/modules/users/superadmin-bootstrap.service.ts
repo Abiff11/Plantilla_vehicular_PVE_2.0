@@ -1,11 +1,10 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { Role } from 'src/common/enums/role.enum';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UserEntity } from './entities/user.entity';
-import { UsersService } from './users.service';
 
 const PASSWORD_POLICY_REGEX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^\w\s]).{8,}$/;
 
@@ -15,7 +14,6 @@ export class SuperadminBootstrapService implements OnApplicationBootstrap {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
   ) {}
@@ -59,17 +57,19 @@ export class SuperadminBootstrapService implements OnApplicationBootstrap {
       return;
     }
 
-    const dto: CreateUserDto = {
-      firstName: superadminFirstName,
-      lastName: superadminLastName,
-      grade: superadminGrade,
-      phone: superadminPhone,
-      email: superadminEmail,
-      password: superadminPassword,
-      role: Role.SuperAdmin,
-    };
+    const passwordHash = await bcrypt.hash(superadminPassword, 10);
 
-    await this.usersService.create(dto);
+    await this.userRepository.save(
+      this.userRepository.create({
+        firstName: superadminFirstName,
+        lastName: superadminLastName,
+        grade: superadminGrade,
+        phone: superadminPhone,
+        email: superadminEmail,
+        passwordHash,
+        role: Role.SuperAdmin,
+      }),
+    );
 
     this.logger.log(`Initial superadmin created for ${superadminEmail}.`);
   }

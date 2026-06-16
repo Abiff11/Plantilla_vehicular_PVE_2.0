@@ -26,6 +26,7 @@ export type NormalizedExcelImportRecord = {
   status: string;
   rawCirculationStatus: string;
   assetClassification: string;
+  rawAssetClassification: string;
   observation: string;
   realLocation: string;
   sourceSection: string;
@@ -77,7 +78,8 @@ export function normalizeExcelImportRecord(values: ExcelImportRecordValues, sour
     status: deriveSystemStatus(rawCirculationStatus),
     rawCirculationStatus,
     assetClassification,
-    observation: buildObservation(baseObservation, [rawPhysicalStatus && rawPhysicalStatus !== physicalStatus ? `Estado fisico Excel: ${rawPhysicalStatus}` : '', rawAssetClassification && rawAssetClassification !== assetClassification ? `Anotacion general Excel: ${rawAssetClassification}` : '']),
+    rawAssetClassification,
+    observation: buildObservation(baseObservation, [rawPhysicalStatus && rawPhysicalStatus !== physicalStatus ? `Estado fisico Excel: ${rawPhysicalStatus}` : '']),
     realLocation: normalizeCatalogText(values['UBICACION REAL']),
     sourceSection: normalizeCatalogText(sourceSection),
     sourceRowNumber,

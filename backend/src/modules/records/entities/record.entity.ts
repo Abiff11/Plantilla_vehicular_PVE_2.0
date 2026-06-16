@@ -81,6 +81,9 @@ export class RecordEntity extends BaseEntity {
   @Column()
   assetClassification!: string;
 
+  @Column({ default: '' })
+  rawAssetClassification!: string;
+
   @Column({ type: 'text', default: '' })
   observation!: string;
 

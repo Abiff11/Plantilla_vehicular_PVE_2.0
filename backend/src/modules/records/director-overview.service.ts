@@ -22,6 +22,12 @@ function buildEmptyStatusBreakdown() {
   return Object.fromEntries(DIRECTOR_STATUSES.map((status) => [status, 0])) as Record<string, number>;
 }
 
+function resolveDisplayPlate(
+  record: Pick<RecordEntity, 'plates' | 'previousPlates' | 'plates2024' | 'plates2025' | 'plates2026'>,
+) {
+  return record.plates2026 || record.plates2025 || record.plates2024 || record.previousPlates || record.plates || '-';
+}
+
 @Injectable()
 export class DirectorOverviewService {
   constructor(
@@ -131,13 +137,13 @@ export class DirectorOverviewService {
 
       if (record.status && !allowedStatusValues.has(record.status)) {
         customStatusDescriptions.push(
-          `PLACAS: ${record.plates || '-'} | TIPO: ${vehicleClass} | DELEGACIÓN: ${delegation.name} | OFICIAL: ${actorName} | ESTATUS CAPTURADO EN OTRO: ${record.status}`,
+          `PLACAS: ${resolveDisplayPlate(record)} | TIPO: ${vehicleClass} | DELEGACIÓN: ${delegation.name} | OFICIAL: ${actorName} | ESTATUS CAPTURADO EN OTRO: ${record.status}`,
         );
       }
 
       if (record.observation?.trim()) {
         observations.push(
-          `PLACAS: ${record.plates || '-'} | TIPO: ${vehicleClass} | DELEGACIÓN: ${delegation.name} | OFICIAL: ${actorName} | OBSERVACIÓN: ${record.observation}`,
+          `PLACAS: ${resolveDisplayPlate(record)} | TIPO: ${vehicleClass} | DELEGACIÓN: ${delegation.name} | OFICIAL: ${actorName} | OBSERVACIÓN: ${record.observation}`,
         );
       }
     }

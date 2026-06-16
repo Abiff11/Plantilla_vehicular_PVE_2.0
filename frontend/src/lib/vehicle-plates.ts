@@ -59,14 +59,7 @@ export function resolveVehicleDisplayPlate(record: VehicleRecord) {
   return "S/P";
 }
 
-export function resolveVehiclePlateSourceLabel(record: VehicleRecord) {
-  const candidates: Array<[string, unknown]> = [
-    ["Placas 2026", record.plates2026],
-    ["Placas 2025", record.plates2025],
-    ["Placas 2024", record.plates2024],
-    ["Placas anteriores", record.previousPlates],
-    ["Placas capturadas", record.plates],
-  ];
-
-  return candidates.find(([, value]) => isValidVehiclePlate(value))?.[0] ?? "Sin placas";
+export function resolveVehiclePlateDisplayLabel(record: VehicleRecord) {
+  const displayPlate = resolveVehicleDisplayPlate(record);
+  return displayPlate === "S/P" ? "Sin placas" : displayPlate;
 }

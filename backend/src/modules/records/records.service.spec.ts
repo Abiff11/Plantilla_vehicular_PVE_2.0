@@ -15,6 +15,7 @@ type NormalizedRecordValues = {
   physicalStatus: string;
   status: string;
   assetClassification: string;
+  rawAssetClassification: string;
   observation: string;
 };
 
@@ -41,6 +42,7 @@ function makeEmptyRecord(overrides: Partial<NormalizedRecordValues> = {}): Norma
     plates: '', engineNumber: '', serialNumber: '', brand: '', type: '',
     useType: '', vehicleClass: '', model: '', custodian: '', patrolNumber: '',
     physicalStatus: '', status: '', assetClassification: '', observation: '',
+    rawAssetClassification: '',
     ...overrides,
   };
 }

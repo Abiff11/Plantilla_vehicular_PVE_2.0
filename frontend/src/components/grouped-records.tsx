@@ -6,7 +6,7 @@ import {
 } from '../lib/vehicle-status';
 import {
   resolveVehicleDisplayPlate,
-  resolveVehiclePlateSourceLabel,
+  resolveVehiclePlateDisplayLabel,
 } from '../lib/vehicle-plates';
 import { getRecordActivitySummary } from '../modules/records/record-activity';
 import type { GroupedRegionRecords, RecordFieldCatalogMap, VehicleRecord } from '../types';
@@ -71,8 +71,8 @@ function matchesCatalogFilter(
 function resolveImportMetadata(record: VehicleRecord) {
   const parts = [
     record.civ ? `CIV ${record.civ}` : '',
-    resolveVehiclePlateSourceLabel(record) !== 'Sin placas'
-      ? resolveVehiclePlateSourceLabel(record)
+    resolveVehiclePlateDisplayLabel(record) !== 'Sin placas'
+      ? resolveVehiclePlateDisplayLabel(record)
       : '',
     record.color ? `Color ${record.color}` : '',
     record.sourceSection ? `Sección ${record.sourceSection}` : '',

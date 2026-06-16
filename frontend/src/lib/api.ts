@@ -11,6 +11,7 @@ import {
   RegionRosterReportOverviewRow,
   RecordFieldCatalogMap,
   RecordFormValues,
+  VehicleEditPayload,
   RosterReportOverviewRow,
   UpdateUserPayload,
   User,
@@ -243,14 +244,18 @@ export const api = {
 
     return requestWithFormData<VehicleRecord>('/records', formData, token);
   },
+<<<<<<< HEAD
   updateRecord(recordId: string, values: VehicleRecordUpdateValues | RecordFormValues, token: string) {
     const recordValues: VehicleRecordUpdateValues = { ...values };
     delete (recordValues as Partial<RecordFormValues>).delegationId;
     delete recordValues.importBatchId;
 
+=======
+  updateRecord(recordId: string, values: VehicleEditPayload, token: string) {
+>>>>>>> 6c9dfbe (fixes varios)
     return request<VehicleRecord>(`/records/${recordId}`, {
       method: 'PATCH',
-      body: JSON.stringify(recordValues),
+      body: JSON.stringify(values),
     }, token);
   },
   transferRecord(recordId: string, delegationId: string, reason: string, token: string) {

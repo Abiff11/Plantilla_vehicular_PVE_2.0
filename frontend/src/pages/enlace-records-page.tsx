@@ -1,11 +1,19 @@
+<<<<<<< HEAD
+=======
+import { useState } from 'react';
+>>>>>>> 6c9dfbe (fixes varios)
 import { EmptyState } from '../components/empty-state';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { PageIntro } from '../components/page-intro';
 import { StatsGrid } from '../components/stats-grid';
+import { VehicleEditModal } from '../components/vehicle-edit-modal';
 import { resolveVehicleDisplayPlate } from '../lib/vehicle-plates';
 import { resolveVehiclePhysicalStatusTone, resolveVehicleStatusTone } from '../lib/vehicle-status';
 import { getRecordActivitySummary, openRecordDetails } from '../modules/records/record-activity';
+<<<<<<< HEAD
 import { openRecordEditDialog } from '../modules/records/record-edit-dialog';
+=======
+>>>>>>> 6c9dfbe (fixes varios)
 import { useEnlaceData } from '../modules/records/use-enlace-data';
 import type { VehicleRecord } from '../types';
 
@@ -22,6 +30,7 @@ export function EnlaceRecordsPage() {
     refresh,
   } = useEnlaceData();
 
+<<<<<<< HEAD
   const editRecord = async (record: VehicleRecord) => {
     if (!session || !fieldCatalogs) {
       return;
@@ -35,6 +44,8 @@ export function EnlaceRecordsPage() {
     });
   };
 
+=======
+>>>>>>> 6c9dfbe (fixes varios)
   const handleRecordDetails = async (record: VehicleRecord) => {
     const action = await openRecordDetails(record, {
       canEdit: record.recordState === 'CURRENT',
@@ -87,6 +98,21 @@ export function EnlaceRecordsPage() {
         />
       </section>
 
+<<<<<<< HEAD
+=======
+      {editingRecord && fieldCatalogs && (
+        <VehicleEditModal
+          record={editingRecord}
+          fieldCatalogs={fieldCatalogs}
+          onCancel={() => setEditingRecord(null)}
+          onSubmit={async (values) => {
+            await updateRecord(editingRecord.id, values);
+            setEditingRecord(null);
+          }}
+        />
+      )}
+
+>>>>>>> 6c9dfbe (fixes varios)
       <section className="panel">
         <div className="panel-header">
           <div>

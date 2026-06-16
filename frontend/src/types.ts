@@ -76,6 +76,41 @@ export type RecordFormValues = {
   observation: string;
 };
 
+export type VehicleEditFormValues = {
+  plates: string;
+  civ: string;
+  previousPlates: string;
+  plates2024: string;
+  plates2025: string;
+  plates2026: string;
+  brand: string;
+  type: string;
+  useType: string;
+  vehicleClass: string;
+  model: string;
+  cylinders: string;
+  fuelCapacityLiters: string;
+  engineNumber: string;
+  serialNumber: string;
+  custodian: string;
+  patrolNumber: string;
+  color: string;
+  adscription: string;
+  realLocation: string;
+  physicalStatus: string;
+  status: string;
+  rawCirculationStatus: string;
+  assetClassification: string;
+  rawAssetClassification: string;
+  sourceSection: string;
+  sourceRowNumber: number | null;
+  observation: string;
+};
+
+export type VehicleEditPayload = Partial<VehicleEditFormValues> & {
+  plates?: string;
+};
+
 export type ImportedVehicleFields = {
   civ: string;
   previousPlates: string;
@@ -87,6 +122,7 @@ export type ImportedVehicleFields = {
   adscription: string;
   color: string;
   rawCirculationStatus: string;
+  rawAssetClassification: string;
   realLocation: string;
   sourceSection: string;
   sourceRowNumber: number | null;
