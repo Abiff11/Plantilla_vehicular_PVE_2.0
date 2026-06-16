@@ -1,9 +1,35 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateRecordDto {
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(40)
+  civ?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  previousPlates?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  plates2024?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  plates2025?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  plates2026?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
   plates?: string;
 
   @IsOptional()
@@ -33,6 +59,16 @@ export class UpdateRecordDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(30)
+  cylinders?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  fuelCapacityLiters?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(80)
   engineNumber?: string;
 
@@ -40,6 +76,21 @@ export class UpdateRecordDto {
   @IsString()
   @MaxLength(80)
   serialNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  regionName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  delegationName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  adscription?: string;
 
   @IsOptional()
   @IsString()
@@ -54,6 +105,11 @@ export class UpdateRecordDto {
   @IsOptional()
   @IsString()
   @MaxLength(80)
+  color?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
   physicalStatus?: string;
 
   @IsOptional()
@@ -64,10 +120,30 @@ export class UpdateRecordDto {
   @IsOptional()
   @IsString()
   @MaxLength(80)
+  rawCirculationStatus?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
   assetClassification?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(1000)
   observation?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  realLocation?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  sourceSection?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sourceRowNumber?: number | null;
 }
