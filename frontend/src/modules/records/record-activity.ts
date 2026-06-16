@@ -1,4 +1,4 @@
-﻿import Swal from "sweetalert2";
+import Swal from "sweetalert2";
 import { api } from "../../lib/api";
 import { formatUserName } from "../../lib/format-user-name";
 import { resolveConfiguredNetworkUrl } from "../../lib/resolve-network-url";
@@ -9,6 +9,13 @@ import type {
   VehicleRecord,
   VehicleTransferEvent,
 } from "../../types";
+
+export type RecordDetailsAction = "closed" | "edit";
+
+type OpenRecordDetailsOptions = {
+  canEdit?: boolean;
+  editButtonText?: string;
+};
 
 function resolveApiBaseUrl() {
   const configuredUrl = resolveConfiguredNetworkUrl(
@@ -164,7 +171,7 @@ export function getRecordActivitySummary(record: VehicleRecord) {
 
   if (record.latestEdit) {
     parts.push(
-      `Editado el ${new Date(record.latestEdit.editedAt).toLocaleDateString()}`,
+      `Editado el ${new Date(edit.latestEdit?.editedAt ?? record.latestEdit.editedAt).toLocaleDateString()}`,
     );
   }
 
@@ -175,7 +182,11 @@ export function getRecordActivitySummary(record: VehicleRecord) {
   return parts.length > 0 ? parts.join(" · ") : "Sin movimientos recientes";
 }
 
-export async function openRecordDetails(record: VehicleRecord) {
+export async function openRecordDetails(
+  record: VehicleRecord,
+  options: OpenRecordDetailsOptions = {},
+): Promise<RecordDetailsAction> {
+  const canEdit = options.canEdit === true && record.recordState === "CURRENT";
   const vehicleSummarySection = `
     <div class="activity-item vehicle-detail-summary">
       <div class="activity-item-head">
@@ -242,10 +253,12 @@ export async function openRecordDetails(record: VehicleRecord) {
       `
       : '<div class="activity-item"><span>Sin fotos cargadas.</span></div>';
 
-  await Swal.fire({
+  const result = await Swal.fire({
     title: `Historial de ${escapeHtml(record.plates || record.plates2026 || "S/P")}`,
     width: 900,
     confirmButtonText: "Cerrar",
+    showDenyButton: canEdit,
+    denyButtonText: options.editButtonText ?? "Editar vehículo",
     html: `
       <div class="activity-list">
         ${vehicleSummarySection}
@@ -315,6 +328,8 @@ export async function openRecordDetails(record: VehicleRecord) {
       });
     },
   });
+
+  return result.isDenied ? "edit" : "closed";
 }
 
 export async function openTransferDialog(params: {
