@@ -47,7 +47,7 @@ export class AlignCentroWorkCenters1780424000000 implements MigrationInterface {
         SELECT 1
         FROM "delegations" d
         WHERE d."regionId" = cr."id"
-          AND regexp_replace(replace(upper(trim(d."name")), '.', '', 'g'), '\\s+', ' ', 'g') = wc.match_name
+          AND regexp_replace(regexp_replace(upper(trim(d."name")), '[.]', '', 'g'), '\\s+', ' ', 'g') = wc.match_name
       )
     `);
 
@@ -82,16 +82,16 @@ export class AlignCentroWorkCenters1780424000000 implements MigrationInterface {
         FROM "delegations" d
         CROSS JOIN centro_region cr
         INNER JOIN work_centers wc
-          ON regexp_replace(replace(upper(trim(d."name")), '.', '', 'g'), '\\s+', ' ', 'g') = wc.match_name
+          ON regexp_replace(regexp_replace(upper(trim(d."name")), '[.]', '', 'g'), '\\s+', ' ', 'g') = wc.match_name
         WHERE d."regionId" = cr."id"
       ), record_work_center AS (
         SELECT r."id", td."id" AS "targetDelegationId"
         FROM "records" r
         INNER JOIN target_delegations td
           ON regexp_replace(
-            replace(
+            regexp_replace(
               upper(trim(coalesce(nullif(r."delegationName", ''), nullif(r."adscription", ''), ''))),
-              '.',
+              '[.]',
               '',
               'g'
             ),
