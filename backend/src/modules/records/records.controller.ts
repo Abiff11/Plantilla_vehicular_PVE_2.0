@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   Body,
   Controller,
@@ -23,6 +23,7 @@ import { CreateRecordDto } from "./dto/create-record.dto";
 import { SubmitRosterReportDto } from "./dto/submit-roster-report.dto";
 import { TransferRecordDto } from "./dto/transfer-record.dto";
 import { UpdateRecordDto } from "./dto/update-record.dto";
+import { RecordFullEditService } from "./record-full-edit.service";
 import { RecordsService } from "./records.service";
 
 type UploadedFile = {
@@ -98,7 +99,10 @@ type AuthUser = {
 @Controller("records")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RecordsController {
-  constructor(private readonly recordsService: RecordsService) {}
+  constructor(
+    private readonly recordsService: RecordsService,
+    private readonly recordFullEditService: RecordFullEditService,
+  ) {}
 
   @Post()
   @RequireRoles(Role.Enlace)
@@ -265,7 +269,7 @@ export class RecordsController {
     @Body() dto: UpdateRecordDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.recordsService.update(id, dto, user);
+    return this.recordFullEditService.update(id, dto, user);
   }
 
   @Post(":id/transfer")
