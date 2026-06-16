@@ -1,9 +1,10 @@
+import { resolveVehicleDisplayPlate } from "../../lib/vehicle-plates";
 import type { RecordFormValues, VehicleRecord } from "../../types";
 
 export function recordToFormValues(record: VehicleRecord): RecordFormValues {
   return {
     delegationId: record.delegation.id,
-    plates: record.plates,
+    plates: resolveVehicleDisplayPlate(record),
     brand: record.brand,
     type: record.type,
     useType: record.useType,
