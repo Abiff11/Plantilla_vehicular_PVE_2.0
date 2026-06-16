@@ -7,8 +7,8 @@ const NO_PLATE_VALUES = new Set([
   "NA",
   "S/P",
   "SP",
-  "SIN PLACA",
-  "SIN PLACAS",
+  "SINPLACA",
+  "SINPLACAS",
 ]);
 
 function normalizePlateValue(value: unknown) {
