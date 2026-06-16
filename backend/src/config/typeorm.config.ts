@@ -19,6 +19,7 @@ import { VehiclePhotoEntity } from '../modules/records/entities/vehicle-photo.en
 import { VehicleRosterReportEntity } from '../modules/records/entities/vehicle-roster-report.entity';
 import { VehicleTransferEntity } from '../modules/records/entities/vehicle-transfer.entity';
 import { UserEntity } from '../modules/users/entities/user.entity';
+import { validateEnv } from './env.validation';
 
 const ENTITIES = [
   AuditLogEntity,
@@ -95,6 +96,7 @@ export function createTypeOrmOptions(
 ): DataSourceOptions {
   if (!configService) {
     loadEnvFile();
+    Object.assign(process.env, validateEnv(process.env));
   }
 
   const readValue = (key: string, fallback?: string): string | undefined => {
