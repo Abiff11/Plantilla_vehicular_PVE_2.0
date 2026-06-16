@@ -46,14 +46,18 @@ export function normalizeExcelImportRecord(values: ExcelImportRecordValues, sour
   const baseObservation = normalizeText(values.OBSERVACION);
   const regionName = normalizeCatalogText(values.REGION);
   const delegationName = normalizeCatalogText(values.DELEGACION);
+  const previousPlates = normalizePlateSourceValue(values['PLACAS ANTERIORES']);
+  const plates2024 = normalizePlateSourceValue(values['PLACAS 2024']);
+  const plates2025 = normalizePlateSourceValue(values['PLACAS 2025']);
+  const plates2026 = normalizePlateSourceValue(values['PLACAS 2026']);
 
   return {
     civ: normalizeCode(values.CIV),
-    previousPlates: normalizeExcelSourceText(values['PLACAS ANTERIORES']),
-    plates2024: normalizeExcelSourceText(values['PLACAS 2024']),
-    plates2025: normalizeExcelSourceText(values['PLACAS 2025']),
-    plates2026: normalizeExcelSourceText(values['PLACAS 2026']),
-    plates: resolveMainPlates(values),
+    previousPlates,
+    plates2024,
+    plates2025,
+    plates2026,
+    plates: resolveMainPlates({ previousPlates, plates2024, plates2025, plates2026 }),
     brand: normalizeCatalogText(values.MARCA),
     type: normalizeCatalogText(values.TIPO),
     useType: normalizeCatalogText(values.USO),
@@ -80,15 +84,16 @@ export function normalizeExcelImportRecord(values: ExcelImportRecordValues, sour
   };
 }
 
-function resolveMainPlates(values: ExcelImportRecordValues) {
-  for (const candidate of [values['PLACAS 2026'], values['PLACAS 2025'], values['PLACAS 2024'], values['PLACAS ANTERIORES']]) {
-    const normalized = normalizePlateForCurrentValue(candidate);
-    if (normalized) return normalized;
-  }
-  return '';
+function resolveMainPlates(values: {
+  previousPlates: string;
+  plates2024: string;
+  plates2025: string;
+  plates2026: string;
+}) {
+  return values.plates2026 || values.plates2025 || values.plates2024 || values.previousPlates || '';
 }
 
-function normalizePlateForCurrentValue(value: string) {
+function normalizePlateSourceValue(value: string) {
   const normalized = stripDiacritics(normalizeUpper(value));
   if (NO_PLATE_PLACEHOLDERS.has(normalized)) return '';
   const compacted = normalized.replace(/[\s-]+/gu, '');
@@ -157,7 +162,6 @@ function normalizeModel(value: string) { return normalizeUpper(value).replace(/\
 function normalizeNumericText(value: string) { return normalizeUpper(value).replace(/,/gu, '.').replace(/\.0+$/u, ''); }
 function normalizeCode(value: string) { return normalizeUpper(value).replace(/\s+/gu, ''); }
 function normalizeCatalogText(value: string) { return stripDiacritics(normalizeUpper(value)).replace(/\s+/gu, ' '); }
-function normalizeExcelSourceText(value: string) { return normalizeUpper(value).replace(/\s+/gu, ' '); }
 function normalizeCustodianName(value: string) { return normalizeUpper(value).replace(/\s+/gu, ' ') || 'SIN RESGUARDANTE'; }
 function normalizeText(value: string) { return String(value ?? '').trim().replace(/\s+/gu, ' '); }
 function normalizeUpper(value: string) { return normalizeText(value).toUpperCase(); }
