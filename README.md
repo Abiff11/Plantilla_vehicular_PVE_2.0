@@ -7,24 +7,30 @@ Repositorio separado del monorepo de intranet, con historial Git propio.
 - `backend/`
 - `frontend/`
 - `docs/`
+- `scripts/`
+- `nginx/`
+- `Dockerfile`
+- `Dockerfile.frontend`
+- `docker-compose.prod.yml`
+- `.env.example`
+- `SECURITY.md`
 
 ## Despliegue en servidor / intranet
 
-Este repositorio no debe orquestar toda la infraestructura.
+Este repositorio contiene la configuracion minima necesaria para desplegar el sistema como servicio independiente detras del Nginx central.
 
-La orquestación principal debe vivir en el servidor o en el repositorio de intranet.
+La entrada publica recomendada es:
 
-Este repo solo expone las imágenes de la aplicación:
+```txt
+Cloudflare / Internet -> Nginx central -> 127.0.0.1:8087 -> frontend -> backend:3101
+```
 
-- `Dockerfile.backend`
-- `Dockerfile.frontend`
-
-## Build de imágenes
+## Build de imagenes
 
 Backend:
 
 ```bash
-docker build -f Dockerfile.backend -t plantilla-vehicular-backend .
+docker build -f Dockerfile -t plantilla-vehicular-backend .
 ```
 
 Frontend:
@@ -33,19 +39,30 @@ Frontend:
 docker build -f Dockerfile.frontend -t plantilla-vehicular-frontend .
 ```
 
+## Deploy productivo
+
+```bash
+cp .env.example .env
+# Edita .env con valores reales
+chmod +x scripts/*.sh
+bash scripts/deploy.sh
+```
+
 ## Variables de entorno
 
 Las credenciales reales no se versionan.
 
-- Usa `backend/.env.example` para backend.
-- Usa `frontend/.env.example` para frontend.
-- Crea tus archivos locales `.env` según el entorno.
+- Usa `.env.example` para Docker Compose productivo.
+- Usa `backend/.env.example` para backend aislado/local.
+- Usa `frontend/.env.example` para frontend aislado/local.
 
 ## Base de datos
 
-La aplicación usa PostgreSQL configurado por variables de entorno.
+La aplicacion usa PostgreSQL configurado por variables de entorno.
 
-En producción no deben versionarse credenciales ni secretos.
+- `synchronize` debe permanecer en `false`.
+- Las migraciones productivas se ejecutan con `bash scripts/migrate.sh`.
+- El rollback de una migracion se ejecuta con `bash scripts/rollback.sh`.
 
 ## Desarrollo local
 
@@ -68,7 +85,7 @@ npm run build
 npm run dev
 ```
 
-## Validación rápida
+## Validacion rapida
 
 ```bash
 cd backend
@@ -80,9 +97,9 @@ cd ../frontend
 npm run build
 ```
 
-## Documentación
+## Documentacion
 
-La documentación técnica y operativa vive en:
+La documentacion tecnica y operativa vive en:
 
 ```txt
 docs/
@@ -94,3 +111,4 @@ Documentos principales:
 - `docs/INSTRUCTIONS.md`
 - `docs/PROJECT_STRUCTURE.md`
 - `docs/expediente/`
+- `SECURITY.md`
