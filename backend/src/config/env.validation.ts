@@ -12,6 +12,8 @@ const PLACEHOLDER_VALUES = new Set([
   'postgres',
   'example',
   'example.com',
+  'no_subir_password_real',
+  'no_subir_secret_real_minimo_32_caracteres',
 ]);
 
 const REQUIRED_IN_PRODUCTION = [
@@ -62,6 +64,10 @@ function validateSecret(value: string, key: string, minimumLength: number): stri
   return value;
 }
 
+function isAllowedProductionHttpOrigin(origin: URL) {
+  return origin.protocol === 'http:' && origin.hostname === '100.118.154.7';
+}
+
 function validateOrigins(value: string, isProduction: boolean): string {
   const origins = value
     .split(',')
@@ -88,8 +94,16 @@ function validateOrigins(value: string, isProduction: boolean): string {
     const hostname = parsedOrigin.hostname.toLowerCase();
     const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
 
-    if (isProduction && (parsedOrigin.protocol !== 'https:' || isLocalhost)) {
-      throw new Error('FRONTEND_ORIGINS must use real HTTPS origins in production');
+    if (isProduction && isLocalhost) {
+      throw new Error('FRONTEND_ORIGINS cannot use localhost in production');
+    }
+
+    if (
+      isProduction &&
+      parsedOrigin.protocol !== 'https:' &&
+      !isAllowedProductionHttpOrigin(parsedOrigin)
+    ) {
+      throw new Error('FRONTEND_ORIGINS must use HTTPS or the approved VPN origin http://100.118.154.7 in production');
     }
   }
 
