@@ -1,28 +1,46 @@
-# Estructura del Proyecto
+# Estructura del proyecto
 
 ## Objetivo
 
-Mantener el repositorio ordenado, separando codigo de aplicacion, documentacion y configuracion de despliegue seguro.
+Mantener el repositorio ordenado para cargarse en el servidor como servicio Docker de intranet.
 
-## Regla principal
+## Raiz del repositorio
 
-La raiz del repositorio no debe contener codigo de negocio.
+La raiz queda reservada para contratos de despliegue, documentacion y carpetas principales:
 
-La raiz queda reservada para:
+```txt
+Dockerfile
+Dockerfile.frontend
+docker-compose.service.yml
+.env.example
+README.md
+SECURITY.md
+.gitignore
+backend/
+frontend/
+scripts/
+nginx/
+docs/
+.github/
+```
 
-- `README.md`
-- `.env.example`
-- `.gitignore`
-- `Dockerfile`
-- `Dockerfile.frontend`
-- `docker-compose.service.yml`
-- `SECURITY.md`
-- `.github/`
-- `docs/`
-- `backend/`
-- `frontend/`
-- `scripts/`
-- `nginx/`
+## Estructura minima de despliegue
+
+```txt
+Plantilla_vehicular_PVE_2.0/
+├── Dockerfile
+├── Dockerfile.frontend
+├── docker-compose.service.yml
+├── .env.example
+├── SECURITY.md
+├── README.md
+├── scripts/
+│   ├── deploy.sh
+│   ├── migrate.sh
+│   └── rollback.sh
+└── nginx/
+    └── app.conf
+```
 
 ## Backend
 
@@ -32,16 +50,7 @@ Ruta oficial:
 backend/
 ```
 
-Contenido esperado:
-
-- `src/`
-- `package.json`
-- `package-lock.json`
-- `tsconfig*.json`
-- `nest-cli.json`
-- `.env.example`
-
-La imagen productiva del backend se construye desde el `Dockerfile` de la raiz.
+Contiene la aplicacion NestJS, entidades, DTOs, migraciones, modulos y pruebas. La imagen productiva del backend se construye desde el `Dockerfile` de la raiz.
 
 ## Frontend
 
@@ -51,17 +60,7 @@ Ruta oficial:
 frontend/
 ```
 
-Contenido esperado:
-
-- `src/`
-- `public/` si aplica
-- `package.json`
-- `package-lock.json`
-- `vite.config.*`
-- `nginx.conf`
-- `.env.example`
-
-La imagen productiva del frontend se construye desde `Dockerfile.frontend`.
+Contiene la aplicacion React/Vite y su `nginx.conf` interno. La imagen productiva del frontend se construye desde `Dockerfile.frontend`.
 
 ## Scripts
 
@@ -71,7 +70,7 @@ Ruta oficial:
 scripts/
 ```
 
-Contenido esperado:
+Contenido obligatorio:
 
 - `deploy.sh`
 - `migrate.sh`
@@ -82,43 +81,24 @@ Contenido esperado:
 Ruta oficial:
 
 ```txt
-nginx/
+nginx/app.conf
 ```
 
-Contenido esperado:
-
-- `plantilla-vehicular.conf`
-
-Este archivo es la referencia para conectar el Nginx central del servidor con `plantilla_vehicular_frontend:8080` dentro de la red externa `intranet_proxy`.
-
-## Documentacion
-
-Ruta oficial:
-
-```txt
-docs/
-```
-
-El expediente funcional y tecnico vive en:
-
-```txt
-docs/expediente/
-```
+Este archivo es un fragmento por ruta para el Nginx central del servidor. No debe ser un `server` completo ni una configuracion por dominio.
 
 ## Docker y servidor
 
-- `docker-compose.service.yml` es la configuracion del servicio dentro de la intranet.
+- `docker-compose.service.yml` define solo servicios de este repo.
 - El repositorio no crea redes Docker propias de infraestructura.
 - `intranet_proxy` y `intranet_db` se declaran como redes externas.
-- El backend expone `3101` solo en Docker.
-- El frontend expone `8080` solo en Docker.
+- El backend usa `expose: 3101` y no publica puertos.
+- El frontend usa `expose: 8080` y no publica puertos.
 - PostgreSQL central lo controla el servidor, no este repositorio.
-- Ningun servicio de este repositorio publica puertos al host.
+- El host DB interno debe ser `postgres`.
 
 ## Variables de entorno
 
-- `.env.example` raiz: contrato para `docker-compose.service.yml`.
-- `backend/.env.example`: contrato del backend aislado.
-- `frontend/.env.example`: contrato del frontend aislado.
-
-Nunca se deben versionar archivos `.env` reales.
+- Solo `.env.example` raiz es contrato versionado.
+- `.env` real vive fuera de Git en el directorio del repo dentro del servidor.
+- Secretos DB viven en `/opt/intranet/infra/security/plantilla_vehicular.db.env`.
+- Nunca se deben versionar archivos `.env` reales.
