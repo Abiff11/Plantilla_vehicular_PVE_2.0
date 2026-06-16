@@ -263,9 +263,14 @@ export async function openRecordDetails(
   const result = await Swal.fire({
     title: `Historial de ${escapeHtml(displayPlates)}`,
     width: 900,
-    confirmButtonText: "Cerrar",
-    showDenyButton: canEdit,
-    denyButtonText: options.editButtonText ?? "Editar vehículo",
+    confirmButtonText: canEdit ? (options.editButtonText ?? "Editar vehículo") : "Cerrar",
+    showCancelButton: canEdit,
+    cancelButtonText: "Cerrar",
+    focusConfirm: false,
+    customClass: {
+      popup: "vehicle-detail-popup",
+      confirmButton: canEdit ? "vehicle-detail-edit-primary" : undefined,
+    },
     html: `
       <div class="activity-list">
         ${vehicleSummarySection}
@@ -336,7 +341,7 @@ export async function openRecordDetails(
     },
   });
 
-  return result.isDenied ? "edit" : "closed";
+  return canEdit && result.isConfirmed ? "edit" : "closed";
 }
 
 export async function openTransferDialog(params: {
