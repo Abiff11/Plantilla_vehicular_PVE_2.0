@@ -10,13 +10,20 @@ import { csrfMiddleware, httpLoggingMiddleware, rateLimitMiddleware, requestIdMi
 const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
+  'X-DNS-Prefetch-Control': 'off',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Resource-Policy': 'same-site',
+  'Origin-Agent-Cluster': '?1',
   'X-Permitted-Cross-Domain-Policies': 'none',
   'X-XSS-Protection': '0',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
   'Cache-Control': 'no-store',
 };
+
+function isProduction() {
+  return process.env.NODE_ENV === 'production';
+}
 
 function isLocalDevelopmentOrigin(origin: string) {
   try {
@@ -42,11 +49,15 @@ function buildCorsOriginChecker() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  const defaultOrigins = isProduction() ? [] : ['http://localhost:5173', 'http://127.0.0.1:5173'];
   const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
 
+  if (isProduction() && allowedOrigins.size === 0) {
+    throw new Error('FRONTEND_ORIGINS is required in production');
+  }
+
   return (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
-    if (!origin || allowedOrigins.has(origin) || isLocalDevelopmentOrigin(origin)) {
+    if (!origin || allowedOrigins.has(origin) || (!isProduction() && isLocalDevelopmentOrigin(origin))) {
       callback(null, true);
       return;
     }
@@ -97,6 +108,9 @@ async function bootstrap() {
   app.enableCors({
     origin: buildCorsOriginChecker(),
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-CSRF-Token', 'X-Requested-With'],
+    exposedHeaders: ['X-Request-Id', 'X-RateLimit-Policy', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   });
 
   app.setGlobalPrefix('api');
