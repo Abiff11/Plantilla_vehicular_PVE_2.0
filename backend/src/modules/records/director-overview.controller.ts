@@ -5,7 +5,7 @@ import { Role } from 'src/common/enums/role.enum';
 import { JwtAuthGuard } from 'src/modules/auth/jwt-auth.guard';
 import { DirectorOverviewService } from './director-overview.service';
 
-@Controller('records/director-safe')
+@Controller('records/director')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DirectorOverviewController {
   constructor(private readonly directorOverviewService: DirectorOverviewService) {}
