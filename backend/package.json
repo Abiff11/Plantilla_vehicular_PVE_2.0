@@ -19,7 +19,10 @@
     "migration:create": "node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:create",
     "migration:run": "node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:run -d src/data-source.ts",
     "migration:revert": "node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:revert -d src/data-source.ts",
-    "migration:show": "node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:show -d src/data-source.ts"
+    "migration:show": "node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:show -d src/data-source.ts",
+    "migration:run:prod": "node node_modules/typeorm/cli.js migration:run -d dist/data-source.js",
+    "migration:revert:prod": "node node_modules/typeorm/cli.js migration:revert -d dist/data-source.js",
+    "migration:show:prod": "node node_modules/typeorm/cli.js migration:show -d dist/data-source.js"
   },
   "engines": {
     "node": "20.x"
