@@ -52,6 +52,12 @@ export class RecordEntity extends BaseEntity {
   serialNumber!: string;
 
   @Column({ default: '' })
+  regionName!: string;
+
+  @Column({ default: '' })
+  delegationName!: string;
+
+  @Column({ default: '' })
   adscription!: string;
 
   @Column()
