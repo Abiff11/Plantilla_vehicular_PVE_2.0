@@ -93,6 +93,14 @@ export type ImportedVehicleFields = {
   importBatchId: string | null;
 };
 
+export type VehicleRecordUpdateValues = Partial<
+  Omit<RecordFormValues, 'delegationId'> &
+    ImportedVehicleFields & {
+      regionName: string;
+      delegationName: string;
+    }
+>;
+
 export type VehiclePhoto = {
   id: string;
   fileName: string;
@@ -111,6 +119,8 @@ export type VehicleRecord = RecordFormValues & ImportedVehicleFields & {
   createdAt: string;
   updatedAt: string;
   recordState: 'CURRENT' | 'TRANSFERRED_OUT';
+  regionName: string;
+  delegationName: string;
   delegation: {
     id: string;
     name: string;
@@ -298,59 +308,4 @@ export type DirectorOverview = {
       }[];
     }[];
   };
-};
-
-export type AuthResponse = {
-  accessToken: string;
-  csrfToken?: string;
-  user: User;
-};
-
-export type PaginatedMeta = {
-  page: number;
-  limit: number;
-  totalItems: number;
-  totalPages: number;
-};
-
-export type PaginatedResponse<T> = {
-  items: T[];
-  meta: PaginatedMeta;
-};
-
-export type Conversation = {
-  id: string;
-  title: string | null;
-  isGroup: boolean;
-  participants: User[];
-  lastMessageAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  unreadCount?: number;
-  lastMessage?: Message | null;
-};
-
-export type MessagePhoto = {
-  id: string;
-  fileName: string;
-  filePath: string;
-  objectKey: string;
-  publicUrl: string;
-  mimeType: string;
-  size: number;
-  storageProvider: 'local' | 'r2';
-  uploadedBy: User;
-  createdAt: string;
-};
-
-export type Message = {
-  id: string;
-  content: string;
-  isRead: boolean;
-  readAt: string | null;
-  sender: User;
-  conversation: Conversation;
-  photos: MessagePhoto[];
-  createdAt: string;
-  updatedAt: string;
 };
