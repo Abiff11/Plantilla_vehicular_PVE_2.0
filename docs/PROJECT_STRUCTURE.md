@@ -15,7 +15,7 @@ La raiz queda reservada para:
 - `.gitignore`
 - `Dockerfile`
 - `Dockerfile.frontend`
-- `docker-compose.prod.yml`
+- `docker-compose.service.yml`
 - `SECURITY.md`
 - `.github/`
 - `docs/`
@@ -89,7 +89,7 @@ Contenido esperado:
 
 - `plantilla-vehicular.conf`
 
-Este archivo es la referencia para conectar el Nginx central del servidor con el contenedor frontend publicado en `127.0.0.1:8087`.
+Este archivo es la referencia para conectar el Nginx central del servidor con `plantilla_vehicular_frontend:8080` dentro de la red externa `intranet_proxy`.
 
 ## Documentacion
 
@@ -107,14 +107,17 @@ docs/expediente/
 
 ## Docker y servidor
 
-- `docker-compose.prod.yml` es la configuracion productiva del repositorio.
-- El backend expone `3101` solo en red interna Docker.
-- El frontend expone `8080` internamente y publica `127.0.0.1:8087` por defecto.
-- PostgreSQL no publica `5432` al host.
+- `docker-compose.service.yml` es la configuracion del servicio dentro de la intranet.
+- El repositorio no crea redes Docker propias de infraestructura.
+- `intranet_proxy` y `intranet_db` se declaran como redes externas.
+- El backend expone `3101` solo en Docker.
+- El frontend expone `8080` solo en Docker.
+- PostgreSQL central lo controla el servidor, no este repositorio.
+- Ningun servicio de este repositorio publica puertos al host.
 
 ## Variables de entorno
 
-- `.env.example` raiz: contrato para `docker-compose.prod.yml`.
+- `.env.example` raiz: contrato para `docker-compose.service.yml`.
 - `backend/.env.example`: contrato del backend aislado.
 - `frontend/.env.example`: contrato del frontend aislado.
 
