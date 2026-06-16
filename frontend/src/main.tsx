@@ -9,9 +9,13 @@ import { AuthProvider } from './modules/auth/auth-context';
 import './styles.css';
 import './vehicle-edit.css';
 
-const basePath = (import.meta.env.VITE_BASE_PATH ?? '/')
-  .trim()
-  .replace(/\/$/, '') || '/';
+function normalizeBasePath(value: string | undefined) {
+  const rawValue = value?.trim() || '/';
+  const withLeadingSlash = rawValue.startsWith('/') ? rawValue : `/${rawValue}`;
+  return withLeadingSlash.replace(/\/$/, '') || '/';
+}
+
+const basePath = normalizeBasePath(import.meta.env.VITE_BASE_PATH);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
