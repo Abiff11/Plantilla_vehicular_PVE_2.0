@@ -58,6 +58,53 @@ export type CreateUserPayload = {
 
 export type UpdateUserPayload = Partial<CreateUserPayload>;
 
+export type AuthResponse = {
+  accessToken: string;
+  user: User;
+};
+
+export type PaginatedResponse<T> = {
+  items: T[];
+  meta: {
+    page: number;
+    limit: number;
+    totalItems: number;
+    totalPages: number;
+  };
+};
+
+export type Conversation = {
+  id: string;
+  title: string | null;
+  isGroup: boolean;
+  participants: User[];
+  lastMessage: Message | null;
+  lastMessageAt: string | null;
+  unreadCount?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type Message = {
+  id: string;
+  conversation: Pick<Conversation, 'id'>;
+  sender: User;
+  content: string;
+  photos: {
+    id: string;
+    fileName: string;
+    publicUrl: string;
+    filePath: string;
+    objectKey: string;
+    mimeType: string;
+    size: number;
+  }[];
+  isRead?: boolean;
+  readAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+};
+
 export type RecordFormValues = {
   delegationId: string;
   plates: string;

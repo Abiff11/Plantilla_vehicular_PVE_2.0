@@ -9,53 +9,28 @@ export class UpdateRecordDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @MaxLength(40)
   previousPlates?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @MaxLength(40)
   plates2024?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @MaxLength(40)
   plates2025?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @MaxLength(40)
   plates2026?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @MaxLength(40)
   plates?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  civ?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  previousPlates?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  plates2024?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  plates2025?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  plates2026?: string;
 
   @IsOptional()
   @IsString()
@@ -84,20 +59,12 @@ export class UpdateRecordDto {
 
   @IsOptional()
   @IsString()
-<<<<<<< HEAD
-  @MaxLength(30)
-=======
   @MaxLength(20)
->>>>>>> 6c9dfbe (fixes varios)
   cylinders?: string;
 
   @IsOptional()
   @IsString()
-<<<<<<< HEAD
-  @MaxLength(30)
-=======
   @MaxLength(20)
->>>>>>> 6c9dfbe (fixes varios)
   fuelCapacityLiters?: string;
 
   @IsOptional()
@@ -142,19 +109,11 @@ export class UpdateRecordDto {
 
   @IsOptional()
   @IsString()
-<<<<<<< HEAD
-=======
-  @MaxLength(160)
-  adscription?: string;
-
-  @IsOptional()
-  @IsString()
   @MaxLength(160)
   realLocation?: string;
 
   @IsOptional()
   @IsString()
->>>>>>> 6c9dfbe (fixes varios)
   @MaxLength(80)
   physicalStatus?: string;
 
@@ -171,18 +130,10 @@ export class UpdateRecordDto {
   @IsOptional()
   @IsString()
   @MaxLength(80)
-  rawCirculationStatus?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(80)
   assetClassification?: string;
 
   @IsOptional()
   @IsString()
-<<<<<<< HEAD
-  @MaxLength(1000)
-=======
   @MaxLength(120)
   rawAssetClassification?: string;
 
@@ -199,21 +150,5 @@ export class UpdateRecordDto {
   @IsOptional()
   @IsString()
   @MaxLength(500)
->>>>>>> 6c9dfbe (fixes varios)
   observation?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(160)
-  realLocation?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(160)
-  sourceSection?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  sourceRowNumber?: number | null;
 }

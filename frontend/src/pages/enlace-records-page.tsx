@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import { useState } from 'react';
->>>>>>> 6c9dfbe (fixes varios)
 import { EmptyState } from '../components/empty-state';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { PageIntro } from '../components/page-intro';
@@ -10,10 +7,6 @@ import { VehicleEditModal } from '../components/vehicle-edit-modal';
 import { resolveVehicleDisplayPlate } from '../lib/vehicle-plates';
 import { resolveVehiclePhysicalStatusTone, resolveVehicleStatusTone } from '../lib/vehicle-status';
 import { getRecordActivitySummary, openRecordDetails } from '../modules/records/record-activity';
-<<<<<<< HEAD
-import { openRecordEditDialog } from '../modules/records/record-edit-dialog';
-=======
->>>>>>> 6c9dfbe (fixes varios)
 import { useEnlaceData } from '../modules/records/use-enlace-data';
 import type { VehicleRecord } from '../types';
 
@@ -28,24 +21,10 @@ export function EnlaceRecordsPage() {
     transferRecord,
     submitRosterReport,
     refresh,
+    updateRecord,
   } = useEnlaceData();
+  const [editingRecord, setEditingRecord] = useState<VehicleRecord | null>(null);
 
-<<<<<<< HEAD
-  const editRecord = async (record: VehicleRecord) => {
-    if (!session || !fieldCatalogs) {
-      return;
-    }
-
-    await openRecordEditDialog({
-      record,
-      fieldCatalogs,
-      token: session.accessToken,
-      onUpdated: refresh,
-    });
-  };
-
-=======
->>>>>>> 6c9dfbe (fixes varios)
   const handleRecordDetails = async (record: VehicleRecord) => {
     const action = await openRecordDetails(record, {
       canEdit: record.recordState === 'CURRENT',
@@ -53,7 +32,7 @@ export function EnlaceRecordsPage() {
     });
 
     if (action === 'edit') {
-      await editRecord(record);
+      setEditingRecord(record);
     }
   };
 
@@ -76,10 +55,10 @@ export function EnlaceRecordsPage() {
 
         <StatsGrid
           items={[
-            { label: 'Delegacion asignada', value: session.user.delegation?.name ?? '-' },
-            { label: 'Vehiculos visibles', value: records.length },
+            { label: 'Delegación asignada', value: session.user.delegation?.name ?? '-' },
+            { label: 'Vehículos visibles', value: records.length },
             {
-              label: 'Ultima captura',
+              label: 'Última captura',
               value: latestRecord ? new Date(latestRecord.createdAt).toLocaleDateString() : '-',
               helper: latestRecord ? resolveVehicleDisplayPlate(latestRecord) : 'Sin registros',
             },
@@ -98,8 +77,6 @@ export function EnlaceRecordsPage() {
         />
       </section>
 
-<<<<<<< HEAD
-=======
       {editingRecord && fieldCatalogs && (
         <VehicleEditModal
           record={editingRecord}
@@ -108,11 +85,11 @@ export function EnlaceRecordsPage() {
           onSubmit={async (values) => {
             await updateRecord(editingRecord.id, values);
             setEditingRecord(null);
+            await refresh();
           }}
         />
       )}
 
->>>>>>> 6c9dfbe (fixes varios)
       <section className="panel">
         <div className="panel-header">
           <div>
@@ -130,7 +107,7 @@ export function EnlaceRecordsPage() {
         {records.length === 0 ? (
           <EmptyState
             title="No hay capturas para mostrar"
-            description="Usa el formulario para registrar el primer vehiculo de tu delegacion."
+            description="Usa el formulario para registrar el primer vehículo de tu delegación."
           />
         ) : (
           <div className="table-wrapper">
@@ -152,23 +129,29 @@ export function EnlaceRecordsPage() {
                     <td>
                       <div className="vehicle-main-cell">
                         <strong>{resolveVehicleDisplayPlate(record)}</strong>
-                        <span>{record.vehicleClass} · {record.useType}</span>
-                        <small>{record.brand} {record.type} · Modelo {record.model}</small>
+                        <span>
+                          {record.vehicleClass} · {record.useType}
+                        </span>
+                        <small>
+                          {record.brand} {record.type} · Modelo {record.model}
+                        </small>
                       </div>
                     </td>
                     <td>
                       <div className="vehicle-main-cell">
                         <strong>{record.custodian}</strong>
                         <span>{record.delegation.name}</span>
-                        {record.recordState === 'TRANSFERRED_OUT' && (
-                          <small>Registro trasladado</small>
-                        )}
+                        {record.recordState === 'TRANSFERRED_OUT' && <small>Registro trasladado</small>}
                       </div>
                     </td>
                     <td>
                       <div className="vehicle-main-cell">
-                        <span className={`record-chip ${resolveVehicleStatusTone(record.status)}`}>{record.status}</span>
-                        <span className={`record-chip ${resolveVehiclePhysicalStatusTone(record.physicalStatus)}`}>{record.physicalStatus}</span>
+                        <span className={`record-chip ${resolveVehicleStatusTone(record.status)}`}>
+                          {record.status}
+                        </span>
+                        <span className={`record-chip ${resolveVehiclePhysicalStatusTone(record.physicalStatus)}`}>
+                          {record.physicalStatus}
+                        </span>
                         <small>{record.assetClassification}</small>
                       </div>
                     </td>
@@ -177,12 +160,8 @@ export function EnlaceRecordsPage() {
                         {record.recordState === 'TRANSFERRED_OUT' && (
                           <span className="record-chip is-muted">Trasladado</span>
                         )}
-                        {record.latestEdit && (
-                          <span className="record-chip is-info">Editado</span>
-                        )}
-                        <span className="record-activity-text">
-                          {getRecordActivitySummary(record)}
-                        </span>
+                        {record.latestEdit && <span className="record-chip is-info">Editado</span>}
+                        <span className="record-activity-text">{getRecordActivitySummary(record)}</span>
                       </div>
                     </td>
                     <td>
@@ -192,7 +171,7 @@ export function EnlaceRecordsPage() {
                             <button
                               className="inline-button"
                               type="button"
-                              onClick={() => void editRecord(record)}
+                              onClick={() => setEditingRecord(record)}
                             >
                               Editar
                             </button>

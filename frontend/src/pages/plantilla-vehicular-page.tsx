@@ -1,41 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
-import Swal from "sweetalert2";
-import { GroupedRecords } from "../components/grouped-records";
-import { LoadingSpinner } from "../components/loading-spinner";
-<<<<<<< HEAD
-=======
-import { VehicleEditModal } from "../components/vehicle-edit-modal";
->>>>>>> 6c9dfbe (fixes varios)
-import { api } from "../lib/api";
-import { socket } from "../lib/socket";
-import { useAuth } from "../modules/auth/auth-context";
-import {
-  openRecordDetails,
-  openTransferDialog,
-} from "../modules/records/record-activity";
-<<<<<<< HEAD
-import { openRecordEditDialog } from "../modules/records/record-edit-dialog";
-=======
->>>>>>> 6c9dfbe (fixes varios)
+import { useEffect, useMemo, useState } from 'react';
+import Swal from 'sweetalert2';
+import { GroupedRecords } from '../components/grouped-records';
+import { LoadingSpinner } from '../components/loading-spinner';
+import { VehicleEditModal } from '../components/vehicle-edit-modal';
+import { api } from '../lib/api';
+import { socket } from '../lib/socket';
+import { useAuth } from '../modules/auth/auth-context';
+import { openRecordDetails, openTransferDialog } from '../modules/records/record-activity';
 import type {
   GroupedRegionRecords,
   RecordFieldCatalogMap,
   Region,
   VehicleEditPayload,
   VehicleRecord,
-} from "../types";
+} from '../types';
 
 export function PlantillaVehicularPage() {
   const { session } = useAuth();
-  const isSuperAdmin = session?.user.role === "superadmin";
+  const isSuperAdmin = session?.user.role === 'superadmin';
   const [regions, setRegions] = useState<GroupedRegionRecords[]>([]);
   const [catalogRegions, setCatalogRegions] = useState<Region[]>([]);
-  const [fieldCatalogs, setFieldCatalogs] =
-    useState<RecordFieldCatalogMap | null>(null);
-  const [selectedRegionId, setSelectedRegionId] = useState<string>("");
-  const [selectedDelegationId, setSelectedDelegationId] = useState<string>("");
-  const [dateFrom, setDateFrom] = useState<string>("");
-  const [dateTo, setDateTo] = useState<string>("");
+  const [fieldCatalogs, setFieldCatalogs] = useState<RecordFieldCatalogMap | null>(null);
+  const [selectedRegionId, setSelectedRegionId] = useState('');
+  const [selectedDelegationId, setSelectedDelegationId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [editingRecord, setEditingRecord] = useState<VehicleRecord | null>(null);
 
   const loadOverview = async () => {
     if (!session) {
@@ -59,11 +49,7 @@ export function PlantillaVehicularPage() {
     }
 
     const refresh = async () => {
-      const [
-        loadedRegions,
-        loadedFieldCatalogs,
-        loadedCatalogRegions,
-      ] = await Promise.all([
+      const [loadedRegions, loadedFieldCatalogs, loadedCatalogRegions] = await Promise.all([
         api.getPlantillaVehicularOverview(
           session.accessToken,
           selectedRegionId || undefined,
@@ -81,14 +67,14 @@ export function PlantillaVehicularPage() {
     };
 
     void refresh();
-    socket.on("records.created", refresh);
-    socket.on("records.changed", refresh);
-    socket.on("reports.submitted", refresh);
+    socket.on('records.created', refresh);
+    socket.on('records.changed', refresh);
+    socket.on('reports.submitted', refresh);
 
     return () => {
-      socket.off("records.created", refresh);
-      socket.off("records.changed", refresh);
-      socket.off("reports.submitted", refresh);
+      socket.off('records.created', refresh);
+      socket.off('records.changed', refresh);
+      socket.off('reports.submitted', refresh);
     };
   }, [dateFrom, dateTo, selectedDelegationId, selectedRegionId, session]);
 
@@ -97,28 +83,9 @@ export function PlantillaVehicularPage() {
       return catalogRegions.flatMap((region) => region.delegations);
     }
 
-    return (
-      catalogRegions.find((region) => region.id === selectedRegionId)
-        ?.delegations ?? []
-    );
+    return catalogRegions.find((region) => region.id === selectedRegionId)?.delegations ?? [];
   }, [catalogRegions, selectedRegionId]);
 
-<<<<<<< HEAD
-  const editRecord = async (record: VehicleRecord) => {
-    if (!session || !fieldCatalogs) {
-      return;
-    }
-
-    await openRecordEditDialog({
-      record,
-      fieldCatalogs,
-      token: session.accessToken,
-      onUpdated: loadOverview,
-    });
-  };
-
-=======
->>>>>>> 6c9dfbe (fixes varios)
   const transferRecord = async (record: VehicleRecord) => {
     if (!session) {
       return;
@@ -137,35 +104,33 @@ export function PlantillaVehicularPage() {
       }
 
       await Swal.fire({
-        icon: "success",
-        title: "Traslado registrado",
-        text: "El movimiento quedo registrado en la bitacora.",
-        confirmButtonText: "Entendido",
+        icon: 'success',
+        title: 'Traslado registrado',
+        text: 'El movimiento quedo registrado en la bitacora.',
+        confirmButtonText: 'Entendido',
       });
     } catch (requestError) {
       await Swal.fire({
-        icon: "error",
-        title: "No se pudo trasladar el vehiculo",
+        icon: 'error',
+        title: 'No se pudo trasladar el vehiculo',
         text: (requestError as Error).message,
-        confirmButtonText: "Entendido",
+        confirmButtonText: 'Entendido',
       });
     }
   };
 
-<<<<<<< HEAD
-=======
   const updateRecord = async (recordId: string, values: VehicleEditPayload) => {
     if (!session) {
       return;
     }
 
     const confirmation = await Swal.fire({
-      icon: "question",
-      title: "Confirmar edición",
-      text: "Se guardarán los cambios y quedarán registrados en bitácora.",
+      icon: 'question',
+      title: 'Confirmar edición',
+      text: 'Se guardarán los cambios y quedarán registrados en bitácora.',
       showCancelButton: true,
-      confirmButtonText: "Guardar cambios",
-      cancelButtonText: "Cancelar",
+      confirmButtonText: 'Guardar cambios',
+      cancelButtonText: 'Cancelar',
     });
 
     if (!confirmation.isConfirmed) {
@@ -178,30 +143,29 @@ export function PlantillaVehicularPage() {
       setEditingRecord(null);
 
       await Swal.fire({
-        icon: "success",
-        title: "Vehículo actualizado",
-        text: "Los cambios se guardaron correctamente.",
-        confirmButtonText: "Entendido",
+        icon: 'success',
+        title: 'Vehículo actualizado',
+        text: 'Los cambios se guardaron correctamente.',
+        confirmButtonText: 'Entendido',
       });
     } catch (requestError) {
       await Swal.fire({
-        icon: "error",
-        title: "No se pudo actualizar el vehículo",
+        icon: 'error',
+        title: 'No se pudo actualizar el vehículo',
         text: (requestError as Error).message,
-        confirmButtonText: "Entendido",
+        confirmButtonText: 'Entendido',
       });
     }
   };
 
->>>>>>> 6c9dfbe (fixes varios)
   const openDetails = async (record: VehicleRecord) => {
     const action = await openRecordDetails(record, {
-      canEdit: record.recordState === "CURRENT",
-      editButtonText: "Editar vehículo",
+      canEdit: record.recordState === 'CURRENT',
+      editButtonText: 'Editar vehículo',
     });
 
-    if (action === "edit") {
-      await editRecord(record);
+    if (action === 'edit') {
+      setEditingRecord(record);
     }
   };
 
@@ -211,13 +175,13 @@ export function PlantillaVehicularPage() {
     }
 
     const confirmation = await Swal.fire({
-      icon: "warning",
-      title: "Eliminar vehículo",
-      text: "Esta acción ocultará el registro de la plantilla vigente, pero conservará la trazabilidad en bitácora.",
+      icon: 'warning',
+      title: 'Eliminar vehículo',
+      text: 'Esta acción ocultará el registro de la plantilla vigente, pero conservará la trazabilidad en bitácora.',
       showCancelButton: true,
-      confirmButtonText: "Eliminar vehículo",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#b91c1c",
+      confirmButtonText: 'Eliminar vehículo',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#b91c1c',
     });
 
     if (!confirmation.isConfirmed) {
@@ -229,17 +193,17 @@ export function PlantillaVehicularPage() {
       await loadOverview();
 
       await Swal.fire({
-        icon: "success",
-        title: "Vehículo eliminado",
-        text: "El registro fue ocultado de la plantilla vigente.",
-        confirmButtonText: "Entendido",
+        icon: 'success',
+        title: 'Vehículo eliminado',
+        text: 'El registro fue ocultado de la plantilla vigente.',
+        confirmButtonText: 'Entendido',
       });
     } catch (requestError) {
       await Swal.fire({
-        icon: "error",
-        title: "No se pudo eliminar el vehículo",
+        icon: 'error',
+        title: 'No se pudo eliminar el vehículo',
         text: (requestError as Error).message,
-        confirmButtonText: "Entendido",
+        confirmButtonText: 'Entendido',
       });
     }
   };
@@ -253,34 +217,6 @@ export function PlantillaVehicularPage() {
   }
 
   return (
-<<<<<<< HEAD
-    <GroupedRecords
-      regions={regions}
-      fieldCatalogs={fieldCatalogs}
-      eyebrow="Vista general vehicular"
-      title="Operación vehicular general"
-      description="Consulta la plantilla vehicular registrada por región y delegación."
-      vehicleClassAfterDate
-      onRecordSelect={(record) => void openDetails(record)}
-      renderRecordActions={(record) =>
-        record.recordState === "CURRENT" ? (
-          <>
-            <button
-              className="inline-button"
-              type="button"
-              onClick={() => void editRecord(record)}
-            >
-              Editar
-            </button>
-            <button
-              className="inline-button"
-              type="button"
-              onClick={() => transferRecord(record)}
-            >
-              Trasladar
-            </button>
-            {isSuperAdmin ? (
-=======
     <>
       {editingRecord && (
         <VehicleEditModal
@@ -289,7 +225,6 @@ export function PlantillaVehicularPage() {
           onCancel={() => setEditingRecord(null)}
           onSubmit={async (values) => {
             await updateRecord(editingRecord.id, values);
-            setEditingRecord(null);
           }}
         />
       )}
@@ -303,98 +238,91 @@ export function PlantillaVehicularPage() {
         vehicleClassAfterDate
         onRecordSelect={(record) => void openDetails(record)}
         renderRecordActions={(record) =>
-          record.recordState === "CURRENT" ? (
+          record.recordState === 'CURRENT' ? (
             <>
->>>>>>> 6c9dfbe (fixes varios)
-              <button
-                className="inline-button"
-                type="button"
-                onClick={() => void deleteRecord(record)}
-              >
-                Eliminar
+              <button className="inline-button" type="button" onClick={() => setEditingRecord(record)}>
+                Editar
               </button>
-            ) : null}
-          </>
-        ) : null
-      }
-      headerFilters={
-        <section className="query-filter-panel">
-          <div className="query-filter-header">
-            <div>
-              <p className="eyebrow">Filtros de consulta</p>
-              <h3>Consulta general</h3>
-            </div>
+              <button className="inline-button" type="button" onClick={() => void transferRecord(record)}>
+                Trasladar
+              </button>
+              {isSuperAdmin ? (
+                <button className="inline-button" type="button" onClick={() => void deleteRecord(record)}>
+                  Eliminar
+                </button>
+              ) : null}
+            </>
+          ) : null
+        }
+        headerFilters={
+          <section className="query-filter-panel">
+            <div className="query-filter-header">
+              <div>
+                <p className="eyebrow">Filtros de consulta</p>
+                <h3>Consulta general</h3>
+              </div>
 
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => {
-                setSelectedRegionId("");
-                setSelectedDelegationId("");
-                setDateFrom("");
-                setDateTo("");
-              }}
-            >
-              Limpiar consulta
-            </button>
-          </div>
-
-          <div className="form-grid director-filter-grid query-filter-grid">
-            <label className="field">
-              <span>Region</span>
-              <select
-                value={selectedRegionId}
-                onChange={(event) => {
-                  setSelectedRegionId(event.target.value);
-                  setSelectedDelegationId("");
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setSelectedRegionId('');
+                  setSelectedDelegationId('');
+                  setDateFrom('');
+                  setDateTo('');
                 }}
               >
-                <option value="">Todas las regiones</option>
-                {catalogRegions.map((region) => (
-                  <option key={region.id} value={region.id}>
-                    {region.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                Limpiar consulta
+              </button>
+            </div>
 
-            <label className="field">
-              <span>Delegacion</span>
-              <select
-                value={selectedDelegationId}
-                onChange={(event) =>
-                  setSelectedDelegationId(event.target.value)
-                }
-              >
-                <option value="">Todas las delegaciones</option>
-                {availableDelegations.map((delegation) => (
-                  <option key={delegation.id} value={delegation.id}>
-                    {delegation.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="form-grid director-filter-grid query-filter-grid">
+              <label className="field">
+                <span>Región</span>
+                <select
+                  value={selectedRegionId}
+                  onChange={(event) => {
+                    setSelectedRegionId(event.target.value);
+                    setSelectedDelegationId('');
+                  }}
+                >
+                  <option value="">Todas las regiones</option>
+                  {catalogRegions.map((region) => (
+                    <option key={region.id} value={region.id}>
+                      {region.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="field">
-              <span>Desde</span>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(event) => setDateFrom(event.target.value)}
-              />
-            </label>
+              <label className="field">
+                <span>Delegación</span>
+                <select
+                  value={selectedDelegationId}
+                  onChange={(event) => setSelectedDelegationId(event.target.value)}
+                >
+                  <option value="">Todas las delegaciones</option>
+                  {availableDelegations.map((delegation) => (
+                    <option key={delegation.id} value={delegation.id}>
+                      {delegation.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="field">
-              <span>Hasta</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(event) => setDateTo(event.target.value)}
-              />
-            </label>
-          </div>
-        </section>
-      }
-    />
+              <label className="field">
+                <span>Desde</span>
+                <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+              </label>
+
+              <label className="field">
+                <span>Hasta</span>
+                <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+              </label>
+            </div>
+          </section>
+        }
+      />
+    </>
   );
 }

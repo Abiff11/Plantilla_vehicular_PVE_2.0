@@ -176,7 +176,7 @@ export class RecordFullEditService {
       }
 
       const catalogEntry = RECORD_FIELD_CATALOG[field];
-      const validValues = catalogEntry.options.map((option) => option.value);
+      const validValues: string[] = catalogEntry.options.map((option) => option.value);
 
       if (!validValues.includes(String(value))) {
         if (catalogEntry.allowsCustom) {

@@ -1106,6 +1106,50 @@ tbody tr:hover {
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
+.vehicle-detail-summary-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vehicle-detail-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.vehicle-detail-summary-top strong {
+  font-size: 18px;
+  color: var(--text);
+}
+
+.vehicle-detail-sections {
+  display: grid;
+  gap: 14px;
+}
+
+.vehicle-detail-section {
+  display: grid;
+  gap: 10px;
+}
+
+.vehicle-detail-section h5 {
+  margin: 0;
+  color: var(--slate-700);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .vehicle-detail-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1717,6 +1761,22 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
+  .vehicle-detail-summary-top,
+  .vehicle-edit-header,
+  .vehicle-edit-hero,
+  .vehicle-edit-section-head {
+    flex-direction: column;
+  }
+
+  .vehicle-edit-header-meta,
+  .vehicle-edit-hero-meta {
+    justify-content: flex-start;
+  }
+
+  .vehicle-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
   .vehicle-filter-header {
     flex-direction: column;
   }
@@ -1741,7 +1801,8 @@ tbody tr:hover {
 
   .panel,
   .hero-card,
-  .login-card {
+  .login-card,
+  .modal-content {
     padding: 14px;
   }
 
@@ -2211,8 +2272,8 @@ tbody tr:hover {
 }
 
 .vehicle-edit-modal {
-  width: min(1120px, 96vw);
-  max-width: 1120px;
+  width: min(1180px, 96vw);
+  max-width: 1180px;
   max-height: 92vh;
   overflow-y: auto;
 }
@@ -2236,6 +2297,39 @@ tbody tr:hover {
   font-size: 13px;
 }
 
+.vehicle-edit-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--blue-border);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 18rem),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.vehicle-edit-hero h4 {
+  margin: 2px 0 6px;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.vehicle-edit-hero p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  max-width: 72ch;
+}
+
+.vehicle-edit-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .vehicle-edit-header-meta {
   display: flex;
   gap: 8px;
@@ -2247,7 +2341,7 @@ tbody tr:hover {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;
-  background: var(--surface-alt);
+  background: #ffffff;
 }
 
 .vehicle-edit-section-head {
