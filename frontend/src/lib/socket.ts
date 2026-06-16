@@ -41,16 +41,38 @@ function resolveHealthUrl() {
   return `${protocol}//${hostname}:3101/api/health`;
 }
 
+function normalizeSocketPath(value: string | undefined) {
+  const configuredPath = value?.trim();
+
+  if (configuredPath) {
+    const withLeadingSlash = configuredPath.startsWith('/') ? configuredPath : `/${configuredPath}`;
+    return withLeadingSlash.replace(/\/$/, '');
+  }
+
+  const basePath = import.meta.env.VITE_BASE_PATH?.trim() || '/';
+  const normalizedBasePath = basePath.startsWith('/') ? basePath : `/${basePath}`;
+  const withoutTrailingSlash = normalizedBasePath.replace(/\/$/, '');
+  return `${withoutTrailingSlash || ''}/socket.io`;
+}
+
 function resolveSocketUrl() {
   const configuredSocketUrl = resolveConfiguredNetworkUrl(import.meta.env.VITE_SOCKET_URL, '/');
 
   if (configuredSocketUrl && configuredSocketUrl !== '/') {
+    if (configuredSocketUrl.startsWith('/')) {
+      return typeof window === 'undefined' ? configuredSocketUrl : window.location.origin;
+    }
+
     return configuredSocketUrl;
   }
 
   const apiBaseUrl = resolveApiBaseUrl();
 
   if (apiBaseUrl) {
+    if (apiBaseUrl.startsWith('/')) {
+      return typeof window === 'undefined' ? apiBaseUrl : window.location.origin;
+    }
+
     return apiBaseUrl;
   }
 
@@ -63,8 +85,10 @@ function resolveSocketUrl() {
 }
 
 const SOCKET_URL = resolveSocketUrl();
+const SOCKET_PATH = normalizeSocketPath(import.meta.env.VITE_SOCKET_PATH);
 const HEALTH_URL = resolveHealthUrl();
 export const socket = io(SOCKET_URL, {
+  path: SOCKET_PATH,
   autoConnect: false,
   reconnection: true,
   reconnectionAttempts: 10,
@@ -119,50 +143,23 @@ socket.on('disconnect', (reason) => {
   socketDebugLog('disconnect', { reason });
 });
 
-socket.on('connect_error', (error) => {
-  if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-    reconnectAttempts += 1;
-  }
-
+socket.on('connect_error', async (error) => {
   socketDebugLog('connect_error', {
     message: error.message,
-    attempts: reconnectAttempts,
+    attempt: reconnectAttempts + 1,
     url: SOCKET_URL,
+    path: SOCKET_PATH,
   });
-});
 
-export async function connectSocket() {
-  if (socket.connected) {
-    socketDebugLog('connect_skip_already_connected');
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     return;
   }
 
-  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    reconnectAttempts = 0;
-  }
+  reconnectAttempts += 1;
 
   const backendReachable = await canReachBackend();
 
-  if (!backendReachable) {
-    socketDebugLog('connect_skip_backend_unavailable', {
-      url: SOCKET_URL,
-      healthUrl: HEALTH_URL,
-    });
-    return;
+  if (backendReachable && !socket.connected) {
+    socket.connect();
   }
-
-  socketDebugLog('connect_attempt', { url: SOCKET_URL });
-  socket.connect();
-}
-
-export function disconnectSocket() {
-  reconnectAttempts = 0;
-  backendAvailabilityPromise = null;
-  socket.auth = {};
-  socketDebugLog('disconnect_manual');
-  socket.disconnect();
-}
-
-export function resetSocketReconnectAttempts() {
-  reconnectAttempts = 0;
-}
+});
