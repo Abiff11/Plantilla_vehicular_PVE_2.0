@@ -9,10 +9,14 @@ RUN npm ci
 
 COPY frontend ./
 
-ARG VITE_API_URL=/api
+ARG VITE_BASE_PATH=/plantilla-vehicular/
+ARG VITE_API_URL=/plantilla-vehicular/api
 ARG VITE_SOCKET_URL=/
+ARG VITE_SOCKET_PATH=/plantilla-vehicular/socket.io
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_SOCKET_URL=${VITE_SOCKET_URL}
+ENV VITE_SOCKET_PATH=${VITE_SOCKET_PATH}
 
 RUN npm run build
 
