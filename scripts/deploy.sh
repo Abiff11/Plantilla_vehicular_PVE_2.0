@@ -20,7 +20,7 @@ chmod 700 .volumes .volumes/backups 2>/dev/null || true
 "${COMPOSE[@]}" build --pull
 "${COMPOSE[@]}" up -d postgres
 
-./scripts/migrate.sh
+bash ./scripts/migrate.sh
 
 "${COMPOSE[@]}" up -d backend frontend
 "${COMPOSE[@]}" ps
