@@ -1,12 +1,14 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { PageIntro } from '../components/page-intro';
 import { RecordForm } from '../components/record-form';
 import { StatsGrid } from '../components/stats-grid';
-import { getRecordActivitySummary, openRecordDetails } from '../modules/records/record-activity';
-import { useEnlaceData } from '../modules/records/use-enlace-data';
+import { resolveVehicleDisplayPlate } from '../lib/vehicle-plates';
 import { resolveVehiclePhysicalStatusTone, resolveVehicleStatusTone } from '../lib/vehicle-status';
+import { getRecordActivitySummary, openRecordDetails } from '../modules/records/record-activity';
+import { recordToFormValues } from '../modules/records/record-form-values';
+import { useEnlaceData } from '../modules/records/use-enlace-data';
 import type { VehicleRecord } from '../types';
 
 export function EnlaceRecordsPage() {
@@ -25,28 +27,20 @@ export function EnlaceRecordsPage() {
   const [editingRecord, setEditingRecord] = useState<VehicleRecord | null>(null);
 
   const editingValues = useMemo(
-    () =>
-      editingRecord
-        ? {
-            delegationId: editingRecord.delegation.id,
-            plates: editingRecord.plates,
-            brand: editingRecord.brand,
-            type: editingRecord.type,
-            useType: editingRecord.useType,
-            vehicleClass: editingRecord.vehicleClass,
-            model: editingRecord.model,
-            engineNumber: editingRecord.engineNumber,
-            serialNumber: editingRecord.serialNumber,
-            custodian: editingRecord.custodian,
-            patrolNumber: editingRecord.patrolNumber,
-            physicalStatus: editingRecord.physicalStatus,
-            status: editingRecord.status,
-            assetClassification: editingRecord.assetClassification,
-            observation: editingRecord.observation,
-          }
-        : undefined,
+    () => (editingRecord ? recordToFormValues(editingRecord) : undefined),
     [editingRecord],
   );
+
+  const handleRecordDetails = async (record: VehicleRecord) => {
+    const action = await openRecordDetails(record, {
+      canEdit: record.recordState === 'CURRENT',
+      editButtonText: 'Editar vehículo',
+    });
+
+    if (action === 'edit') {
+      setEditingRecord(record);
+    }
+  };
 
   if (!session) {
     return null;
@@ -72,7 +66,7 @@ export function EnlaceRecordsPage() {
             {
               label: 'Ultima captura',
               value: latestRecord ? new Date(latestRecord.createdAt).toLocaleDateString() : '-',
-              helper: latestRecord ? latestRecord.plates : 'Sin registros',
+              helper: latestRecord ? resolveVehicleDisplayPlate(latestRecord) : 'Sin registros',
             },
             {
               label: 'Última validación',
@@ -141,7 +135,7 @@ export function EnlaceRecordsPage() {
                     <td>{new Date(record.createdAt).toLocaleString()}</td>
                     <td>
                       <div className="vehicle-main-cell">
-                        <strong>{record.plates}</strong>
+                        <strong>{resolveVehicleDisplayPlate(record)}</strong>
                         <span>{record.vehicleClass} · {record.useType}</span>
                         <small>{record.brand} {record.type} · Modelo {record.model}</small>
                       </div>
@@ -198,7 +192,7 @@ export function EnlaceRecordsPage() {
                         <button
                           className="inline-button"
                           type="button"
-                          onClick={() => void openRecordDetails(record)}
+                          onClick={() => void handleRecordDetails(record)}
                         >
                           Detalle
                         </button>
@@ -254,6 +248,3 @@ export function EnlaceRecordsPage() {
     </div>
   );
 }
-
-
-
