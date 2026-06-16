@@ -16,6 +16,8 @@ export type NormalizedExcelImportRecord = {
   fuelCapacityLiters: string;
   engineNumber: string;
   serialNumber: string;
+  regionName: string;
+  delegationName: string;
   adscription: string;
   custodian: string;
   patrolNumber: string;
@@ -30,67 +32,20 @@ export type NormalizedExcelImportRecord = {
   sourceRowNumber: number;
 };
 
-const EMPTY_PLACEHOLDERS = new Set([
-  '',
-  '-',
-  '—',
-  'N/A',
-  'NA',
-  'NINGUNO',
-  'NINGUNA',
-  'S/D',
-  'SD',
-]);
+const EMPTY_PLACEHOLDERS = new Set(['', '-', 'N/A', 'NA', 'NINGUNO', 'NINGUNA', 'S/D', 'SD']);
+const NO_PLATE_PLACEHOLDERS = new Set([...EMPTY_PLACEHOLDERS, 'S/P', 'SP', 'SIN PLACA', 'SIN PLACAS']);
+const NO_ENGINE_PLACEHOLDERS = new Set([...EMPTY_PLACEHOLDERS, 'S/M', 'SM', 'S/N', 'SN', 'SIN MOTOR', 'SIN NUMERO', 'HECHO EN MEXICO', 'HECHO EN USA', 'IMPORTADO']);
+const NO_SERIAL_PLACEHOLDERS = new Set([...EMPTY_PLACEHOLDERS, 'S/N', 'SN', 'SIN SERIE', 'SIN NUMERO']);
 
-const NO_PLATE_PLACEHOLDERS = new Set([
-  ...EMPTY_PLACEHOLDERS,
-  'S/P',
-  'SP',
-  'SIN PLACA',
-  'SIN PLACAS',
-  'SIN PLACA(S)',
-]);
-
-const NO_ENGINE_PLACEHOLDERS = new Set([
-  ...EMPTY_PLACEHOLDERS,
-  'S/M',
-  'SM',
-  'S/N',
-  'SN',
-  'S.N.',
-  'SIN MOTOR',
-  'SIN NUMERO',
-  'SIN NÚMERO',
-  'HECHO EN MEXICO',
-  'HECHO EN MÉXICO',
-  'HECHO EN USA',
-  'HECHO EN U.S.A',
-  'HECHO EN U.S.A.',
-  'HECHO EN EUA',
-  'IMPORTADO',
-]);
-
-const NO_SERIAL_PLACEHOLDERS = new Set([
-  ...EMPTY_PLACEHOLDERS,
-  'S/N',
-  'SN',
-  'S.N.',
-  'SIN SERIE',
-  'SIN NUMERO',
-  'SIN NÚMERO',
-]);
-
-export function normalizeExcelImportRecord(
-  values: ExcelImportRecordValues,
-  sourceSection: string,
-  sourceRowNumber: number,
-): NormalizedExcelImportRecord {
+export function normalizeExcelImportRecord(values: ExcelImportRecordValues, sourceSection: string, sourceRowNumber: number): NormalizedExcelImportRecord {
   const rawPhysicalStatus = normalizeCatalogText(values['ESTADO FISICO']);
   const physicalStatus = normalizePhysicalStatus(rawPhysicalStatus);
   const rawAssetClassification = normalizeCatalogText(values['ANOTACION GENERAL']);
   const assetClassification = normalizeAssetClassification(rawAssetClassification);
   const rawCirculationStatus = normalizeCirculationStatus(values.ESTATUS);
   const baseObservation = normalizeText(values.OBSERVACION);
+  const regionName = normalizeCatalogText(values.REGION);
+  const delegationName = normalizeCatalogText(values.DELEGACION);
 
   return {
     civ: normalizeCode(values.CIV),
@@ -108,7 +63,9 @@ export function normalizeExcelImportRecord(
     fuelCapacityLiters: normalizeNumericText(values['CAP.LTS']),
     engineNumber: normalizeEngineNumber(values['NO. DE MOTOR']),
     serialNumber: normalizeSerialNumber(values['NO. DE SERIE']),
-    adscription: normalizeCatalogText(values.ADSCRIPCION),
+    regionName,
+    delegationName,
+    adscription: delegationName || normalizeCatalogText(values.ADSCRIPCION),
     custodian: normalizeCustodianName(values.RESGUARDANTE),
     patrolNumber: normalizeCode(values['NO. PATRULLA']),
     color: normalizeCatalogText(values['COLOR DE LA UNIDAD']),
@@ -116,14 +73,7 @@ export function normalizeExcelImportRecord(
     status: deriveSystemStatus(rawCirculationStatus),
     rawCirculationStatus,
     assetClassification,
-    observation: buildObservation(baseObservation, [
-      rawPhysicalStatus && rawPhysicalStatus !== physicalStatus
-        ? `Estado fisico Excel: ${rawPhysicalStatus}`
-        : '',
-      rawAssetClassification && rawAssetClassification !== assetClassification
-        ? `Anotacion general Excel: ${rawAssetClassification}`
-        : '',
-    ]),
+    observation: buildObservation(baseObservation, [rawPhysicalStatus && rawPhysicalStatus !== physicalStatus ? `Estado fisico Excel: ${rawPhysicalStatus}` : '', rawAssetClassification && rawAssetClassification !== assetClassification ? `Anotacion general Excel: ${rawAssetClassification}` : '']),
     realLocation: normalizeCatalogText(values['UBICACION REAL']),
     sourceSection: normalizeCatalogText(sourceSection),
     sourceRowNumber,
@@ -131,130 +81,56 @@ export function normalizeExcelImportRecord(
 }
 
 function resolveMainPlates(values: ExcelImportRecordValues) {
-  const candidates = [
-    values['PLACAS 2026'],
-    values['PLACAS 2025'],
-    values['PLACAS 2024'],
-    values['PLACAS ANTERIORES'],
-  ];
-
-  for (const candidate of candidates) {
+  for (const candidate of [values['PLACAS 2026'], values['PLACAS 2025'], values['PLACAS 2024'], values['PLACAS ANTERIORES']]) {
     const normalized = normalizePlateForCurrentValue(candidate);
-
-    if (normalized) {
-      return normalized;
-    }
+    if (normalized) return normalized;
   }
-
   return '';
 }
 
 function normalizePlateForCurrentValue(value: string) {
   const normalized = stripDiacritics(normalizeUpper(value));
-
-  if (NO_PLATE_PLACEHOLDERS.has(normalized)) {
-    return '';
-  }
-
+  if (NO_PLATE_PLACEHOLDERS.has(normalized)) return '';
   const compacted = normalized.replace(/[\s-]+/gu, '');
-
-  if (!isValidCurrentPlateCandidate(compacted)) {
-    return '';
-  }
-
+  if (!compacted || /^\d+$/u.test(compacted) || !/[A-Z]/u.test(compacted) || compacted.length < 5) return '';
   return compacted;
-}
-
-function isValidCurrentPlateCandidate(value: string) {
-  if (!value) {
-    return false;
-  }
-
-  if (/^\d+$/u.test(value)) {
-    return false;
-  }
-
-  return /[A-Z]/u.test(value) && value.length >= 5;
 }
 
 function normalizeEngineNumber(value: string) {
   const normalized = normalizeUpper(value);
-
-  if (NO_ENGINE_PLACEHOLDERS.has(stripDiacritics(normalized))) {
-    return 'SIN NUMERO';
-  }
-
-  return normalized;
+  return NO_ENGINE_PLACEHOLDERS.has(stripDiacritics(normalized)) ? 'SIN NUMERO' : normalized;
 }
 
 function normalizeSerialNumber(value: string) {
   const normalized = normalizeUpper(value);
-
-  if (NO_SERIAL_PLACEHOLDERS.has(stripDiacritics(normalized))) {
-    return 'SIN NUMERO';
-  }
-
-  return normalizeCode(normalized);
+  return NO_SERIAL_PLACEHOLDERS.has(stripDiacritics(normalized)) ? 'SIN NUMERO' : normalizeCode(normalized);
 }
 
 function normalizeVehicleClass(value: string) {
   const normalized = normalizeCatalogText(value);
-
-  if (stripDiacritics(normalized) === 'GRUA') {
-    return 'GRUA';
-  }
-
-  return stripDiacritics(normalized);
+  return stripDiacritics(normalized) === 'GRUA' ? 'GRUA' : stripDiacritics(normalized);
 }
 
 function normalizePhysicalStatus(value: string) {
   const normalized = stripDiacritics(value);
-
-  if (normalized.startsWith('SINIESTRAD')) {
-    return 'MALO';
-  }
-
-  if (normalized.startsWith('BUEN')) {
-    return 'BUENO';
-  }
-
-  if (normalized.startsWith('REGULAR')) {
-    return 'REGULAR';
-  }
-
-  if (normalized.startsWith('MAL')) {
-    return 'MALO';
-  }
-
+  if (normalized.startsWith('SINIESTRAD')) return 'MALO';
+  if (normalized.startsWith('BUEN')) return 'BUENO';
+  if (normalized.startsWith('REGULAR')) return 'REGULAR';
+  if (normalized.startsWith('MAL')) return 'MALO';
   return normalized || 'MALO';
 }
 
 function normalizeAssetClassification(value: string) {
   const normalized = stripDiacritics(value);
-
-  if (!normalized) {
-    return 'OTRO';
-  }
-
-  if (normalized.includes('ARREND')) {
-    return 'ARRENDAMIENTO';
-  }
-
-  if (normalized.includes('PATRIMONIAL')) {
-    return 'PATRIMONIAL';
-  }
-
+  if (!normalized) return 'OTRO';
+  if (normalized.includes('ARREND')) return 'ARRENDAMIENTO';
+  if (normalized.includes('PATRIMONIAL')) return 'PATRIMONIAL';
   return 'OTRO';
 }
 
 function normalizeCirculationStatus(value: string) {
   const normalized = stripDiacritics(normalizeUpper(value));
-
-  if (!normalized || EMPTY_PLACEHOLDERS.has(normalized)) {
-    return 'SIN ESTATUS';
-  }
-
-  return normalized;
+  return !normalized || EMPTY_PLACEHOLDERS.has(normalized) ? 'SIN ESTATUS' : normalized;
 }
 
 function deriveSystemStatus(rawCirculationStatus: string) {
@@ -273,56 +149,16 @@ function deriveSystemStatus(rawCirculationStatus: string) {
 }
 
 function buildObservation(baseObservation: string, notes: string[]) {
-  const cleanNotes = notes.filter(Boolean);
-
-  if (cleanNotes.length === 0) {
-    return baseObservation;
-  }
-
-  const suffix = cleanNotes.map((note) => `[${note}]`).join(' ');
+  const suffix = notes.filter(Boolean).map((note) => `[${note}]`).join(' ');
   return [baseObservation, suffix].filter(Boolean).join(' ');
 }
 
-function normalizeModel(value: string) {
-  return normalizeUpper(value).replace(/\.0$/u, '');
-}
-
-function normalizeNumericText(value: string) {
-  const normalized = normalizeUpper(value).replace(/,/gu, '.');
-  return normalized.replace(/\.0+$/u, '');
-}
-
-function normalizeCode(value: string) {
-  return normalizeUpper(value).replace(/\s+/gu, '');
-}
-
-function normalizeCatalogText(value: string) {
-  return normalizeUpper(value)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/gu, '')
-    .replace(/\s+/gu, ' ');
-}
-
-function normalizeExcelSourceText(value: string) {
-  return normalizeUpper(value).replace(/\s+/gu, ' ');
-}
-
-function normalizeCustodianName(value: string) {
-  const normalized = normalizeUpper(value).replace(/\s+/gu, ' ');
-  return normalized || 'SIN RESGUARDANTE';
-}
-
-function normalizeText(value: string) {
-  return String(value ?? '').trim().replace(/\s+/gu, ' ');
-}
-
-function normalizeUpper(value: string) {
-  return normalizeText(value).toUpperCase();
-}
-
-function stripDiacritics(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/gu, '')
-    .trim();
-}
+function normalizeModel(value: string) { return normalizeUpper(value).replace(/\.0$/u, ''); }
+function normalizeNumericText(value: string) { return normalizeUpper(value).replace(/,/gu, '.').replace(/\.0+$/u, ''); }
+function normalizeCode(value: string) { return normalizeUpper(value).replace(/\s+/gu, ''); }
+function normalizeCatalogText(value: string) { return stripDiacritics(normalizeUpper(value)).replace(/\s+/gu, ' '); }
+function normalizeExcelSourceText(value: string) { return normalizeUpper(value).replace(/\s+/gu, ' '); }
+function normalizeCustodianName(value: string) { return normalizeUpper(value).replace(/\s+/gu, ' ') || 'SIN RESGUARDANTE'; }
+function normalizeText(value: string) { return String(value ?? '').trim().replace(/\s+/gu, ' '); }
+function normalizeUpper(value: string) { return normalizeText(value).toUpperCase(); }
+function stripDiacritics(value: string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/gu, '').trim(); }
