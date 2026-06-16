@@ -15,6 +15,7 @@ import {
   UpdateUserPayload,
   User,
   VehicleRecord,
+  VehicleRecordUpdateValues,
   VehicleRosterReport,
 } from '../types';
 import { resolveConfiguredNetworkUrl } from './resolve-network-url';
@@ -242,9 +243,10 @@ export const api = {
 
     return requestWithFormData<VehicleRecord>('/records', formData, token);
   },
-  updateRecord(recordId: string, values: RecordFormValues, token: string) {
-    const recordValues: Partial<RecordFormValues> = { ...values };
-    delete recordValues.delegationId;
+  updateRecord(recordId: string, values: VehicleRecordUpdateValues | RecordFormValues, token: string) {
+    const recordValues: VehicleRecordUpdateValues = { ...values };
+    delete (recordValues as Partial<RecordFormValues>).delegationId;
+    delete recordValues.importBatchId;
 
     return request<VehicleRecord>(`/records/${recordId}`, {
       method: 'PATCH',
@@ -284,7 +286,7 @@ export const api = {
     const params = new URLSearchParams();
 
     if (regionId) {
-      params.set('regionId', regionId);
+      params.set('regionId', String(regionId));
     }
 
     const query = params.toString();
@@ -296,7 +298,7 @@ export const api = {
     const params = new URLSearchParams();
 
     if (delegationId) {
-      params.set('delegationId', delegationId);
+      params.set('delegationId', String(delegationId));
     }
 
     const query = params.toString();
