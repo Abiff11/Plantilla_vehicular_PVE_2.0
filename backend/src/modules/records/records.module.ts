@@ -7,6 +7,8 @@ import { CatalogGroupEntity } from 'src/modules/catalog/entities/catalog-group.e
 import { CatalogItemEntity } from 'src/modules/catalog/entities/catalog-item.entity';
 import { DelegationEntity } from 'src/modules/catalog/entities/delegation.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
+import { DirectorOverviewController } from './director-overview.controller';
+import { DirectorOverviewService } from './director-overview.service';
 import { RecordEntity } from './entities/record.entity';
 import { VehicleImportBatchEntity } from './entities/vehicle-import-batch.entity';
 import { VehicleImportErrorEntity } from './entities/vehicle-import-error.entity';
@@ -38,7 +40,7 @@ import { StorageModule } from '../storage/storage.module';
     AuditLogsModule,
     StorageModule,
   ],
-  controllers: [RecordsController, RecordsImportController],
-  providers: [RecordsService, RecordsImportService],
+  controllers: [RecordsController, RecordsImportController, DirectorOverviewController],
+  providers: [RecordsService, RecordsImportService, DirectorOverviewService],
 })
 export class RecordsModule {}
