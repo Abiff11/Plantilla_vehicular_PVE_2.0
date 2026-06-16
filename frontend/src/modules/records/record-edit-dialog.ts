@@ -172,6 +172,7 @@ function renderSection(
 
 function readModalValues(): VehicleRecordUpdateValues {
   const values: VehicleRecordUpdateValues = {};
+  const mutableValues = values as Record<string, unknown>;
 
   for (const field of fields) {
     const element = document.getElementById(inputId(field.name)) as
@@ -189,7 +190,7 @@ function readModalValues(): VehicleRecordUpdateValues {
       continue;
     }
 
-    values[field.name] = element.value as never;
+    mutableValues[field.name] = element.value;
   }
 
   return values;
