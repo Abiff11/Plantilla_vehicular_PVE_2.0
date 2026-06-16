@@ -17,6 +17,7 @@ import { VehicleRosterReportEntity } from './entities/vehicle-roster-report.enti
 import { VehicleTransferEntity } from './entities/vehicle-transfer.entity';
 import { RecordsImportController } from './imports/records-import.controller';
 import { RecordsImportService } from './imports/records-import.service';
+import { RecordFullEditService } from './record-full-edit.service';
 import { RecordsController } from './records.controller';
 import { RecordsService } from './records.service';
 import { StorageModule } from '../storage/storage.module';
@@ -41,6 +42,11 @@ import { StorageModule } from '../storage/storage.module';
     StorageModule,
   ],
   controllers: [RecordsController, RecordsImportController, DirectorOverviewController],
-  providers: [RecordsService, RecordsImportService, DirectorOverviewService],
+  providers: [
+    RecordsService,
+    RecordFullEditService,
+    RecordsImportService,
+    DirectorOverviewService,
+  ],
 })
 export class RecordsModule {}
