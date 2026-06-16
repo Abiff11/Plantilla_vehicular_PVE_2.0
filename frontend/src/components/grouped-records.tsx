@@ -1,6 +1,13 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { resolveVehiclePhysicalStatusTone, resolveVehicleStatusTone } from '../lib/vehicle-status';
+import {
+  resolveVehiclePhysicalStatusTone,
+  resolveVehicleStatusTone,
+} from '../lib/vehicle-status';
+import {
+  resolveVehicleDisplayPlate,
+  resolveVehiclePlateSourceLabel,
+} from '../lib/vehicle-plates';
 import { getRecordActivitySummary } from '../modules/records/record-activity';
 import type { GroupedRegionRecords, RecordFieldCatalogMap, VehicleRecord } from '../types';
 import { EmptyState } from './empty-state';
@@ -61,14 +68,12 @@ function matchesCatalogFilter(
   return !standardValues.has(recordValue);
 }
 
-function resolveRecordDisplayPlates(record: VehicleRecord) {
-  return record.plates || record.plates2026 || record.plates2025 || record.plates2024 || record.previousPlates || 'S/P';
-}
-
 function resolveImportMetadata(record: VehicleRecord) {
   const parts = [
     record.civ ? `CIV ${record.civ}` : '',
-    record.plates2026 ? `P2026 ${record.plates2026}` : '',
+    resolveVehiclePlateSourceLabel(record) !== 'Sin placas'
+      ? resolveVehiclePlateSourceLabel(record)
+      : '',
     record.color ? `Color ${record.color}` : '',
     record.sourceSection ? `Sección ${record.sourceSection}` : '',
   ].filter(Boolean);
@@ -98,11 +103,13 @@ export function GroupedRecords({
           .map((delegation) => ({
             ...delegation,
             records: delegation.records.filter((record) => {
+              const displayPlate = resolveVehicleDisplayPlate(record);
               const matchesSearch =
                 !normalizedSearch ||
                 [
                   region.regionName,
                   delegation.delegationName,
+                  displayPlate,
                   record.plates,
                   record.previousPlates,
                   record.plates2024,
@@ -365,7 +372,7 @@ export function GroupedRecords({
                             <td>{new Date(record.createdAt).toLocaleString()}</td>
                             <td>
                               <div className="vehicle-main-cell">
-                                <strong>{resolveRecordDisplayPlates(record)}</strong>
+                                <strong>{resolveVehicleDisplayPlate(record)}</strong>
                                 <span>{record.vehicleClass} · {record.useType}</span>
                                 <small>{record.brand} {record.type} · Modelo {record.model}</small>
                                 {resolveImportMetadata(record) && <small>{resolveImportMetadata(record)}</small>}
