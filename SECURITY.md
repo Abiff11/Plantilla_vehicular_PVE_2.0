@@ -6,7 +6,7 @@
 Plantilla_vehicular_PVE_2.0/
 ├── Dockerfile
 ├── Dockerfile.frontend
-├── docker-compose.prod.yml
+├── docker-compose.service.yml
 ├── .env.example
 ├── scripts/
 │   ├── deploy.sh
@@ -17,13 +17,35 @@ Plantilla_vehicular_PVE_2.0/
 └── SECURITY.md
 ```
 
+## Responsabilidades
+
+El servidor controla:
+
+- Docker networks
+- Nginx principal
+- PostgreSQL central
+- secretos reales `.env`
+- backups
+- firewall
+- seguridad SSH
+
+Este repositorio controla:
+
+- Dockerfile backend/frontend
+- `docker-compose.service.yml`
+- `.env.example`
+- migraciones
+- healthcheck
+- scripts propios
+
 ## Docker
 
 - Backend con imagen multi-stage y usuario no-root.
 - Frontend con Nginx no-root.
 - Directorios de escritura limitados a volumenes o `tmpfs`.
-- Backend expuesto solo en la red interna Docker.
-- Frontend publicado por defecto en `127.0.0.1:8087` para Nginx central.
+- El repositorio no crea redes de infraestructura.
+- `intranet_proxy` y `intranet_db` se declaran como redes externas.
+- Ningun servicio de este repositorio publica puertos al host.
 
 ## Variables de entorno
 
@@ -79,13 +101,13 @@ bash scripts/migrate.sh
 bash scripts/rollback.sh
 ```
 
-## Puertos
+## Puertos y redes
 
-| Servicio | Interno | Publicado por defecto |
-|---|---:|---:|
-| Backend | `3101` | No publicado |
-| Frontend | `8080` | `127.0.0.1:8087` |
-| PostgreSQL | `5432` | No publicado |
+| Servicio | Interno | Publicado | Redes |
+|---|---:|---:|---|
+| Backend | `3101` | No | `intranet_proxy`, `intranet_db` |
+| Frontend | `8080` | No | `intranet_proxy` |
+| PostgreSQL | `5432` | No lo maneja este repo | `intranet_db` |
 
 ## Deploy
 
