@@ -1,13 +1,11 @@
-import { useMemo, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { PageIntro } from '../components/page-intro';
-import { RecordForm } from '../components/record-form';
 import { StatsGrid } from '../components/stats-grid';
 import { resolveVehicleDisplayPlate } from '../lib/vehicle-plates';
 import { resolveVehiclePhysicalStatusTone, resolveVehicleStatusTone } from '../lib/vehicle-status';
 import { getRecordActivitySummary, openRecordDetails } from '../modules/records/record-activity';
-import { recordToFormValues } from '../modules/records/record-form-values';
+import { openRecordEditDialog } from '../modules/records/record-edit-dialog';
 import { useEnlaceData } from '../modules/records/use-enlace-data';
 import type { VehicleRecord } from '../types';
 
@@ -18,18 +16,24 @@ export function EnlaceRecordsPage() {
     rosterReports,
     latestRecord,
     latestRosterReport,
-    availableDelegations,
     fieldCatalogs,
-    updateRecord,
     transferRecord,
     submitRosterReport,
+    refresh,
   } = useEnlaceData();
-  const [editingRecord, setEditingRecord] = useState<VehicleRecord | null>(null);
 
-  const editingValues = useMemo(
-    () => (editingRecord ? recordToFormValues(editingRecord) : undefined),
-    [editingRecord],
-  );
+  const editRecord = async (record: VehicleRecord) => {
+    if (!session || !fieldCatalogs) {
+      return;
+    }
+
+    await openRecordEditDialog({
+      record,
+      fieldCatalogs,
+      token: session.accessToken,
+      onUpdated: refresh,
+    });
+  };
 
   const handleRecordDetails = async (record: VehicleRecord) => {
     const action = await openRecordDetails(record, {
@@ -38,7 +42,7 @@ export function EnlaceRecordsPage() {
     });
 
     if (action === 'edit') {
-      setEditingRecord(record);
+      await editRecord(record);
     }
   };
 
@@ -82,20 +86,6 @@ export function EnlaceRecordsPage() {
           ]}
         />
       </section>
-
-      {editingRecord && fieldCatalogs && editingValues && (
-        <RecordForm
-          mode="edit"
-          delegations={availableDelegations}
-          fieldCatalogs={fieldCatalogs}
-          initialValues={editingValues}
-          onCancel={() => setEditingRecord(null)}
-          onSubmit={async (values) => {
-            await updateRecord(editingRecord.id, values);
-            setEditingRecord(null);
-          }}
-        />
-      )}
 
       <section className="panel">
         <div className="panel-header">
@@ -176,7 +166,7 @@ export function EnlaceRecordsPage() {
                             <button
                               className="inline-button"
                               type="button"
-                              onClick={() => setEditingRecord(record)}
+                              onClick={() => void editRecord(record)}
                             >
                               Editar
                             </button>
