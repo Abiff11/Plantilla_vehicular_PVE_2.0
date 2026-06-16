@@ -2,6 +2,7 @@ name: plantilla-vehicular
 
 services:
   backend:
+    container_name: plantilla_vehicular_backend
     build:
       context: .
       dockerfile: Dockerfile
@@ -33,6 +34,7 @@ services:
       - ALL
 
   frontend:
+    container_name: plantilla_vehicular_frontend
     build:
       context: .
       dockerfile: Dockerfile.frontend
