@@ -56,7 +56,9 @@ export class DirectorOverviewService {
     }
 
     const records = await query.getMany();
-    const allowedStatusValues = new Set(RECORD_FIELD_CATALOG.status.options.map((option) => option.value));
+    const allowedStatusValues = new Set<string>(
+      RECORD_FIELD_CATALOG.status.options.map((option) => option.value),
+    );
     const vehicleClassRows = new Map<string, { vehicleClass: string; totalUnits: number; totalActive: number; statusBreakdown: Record<string, number>; physicalStatusBreakdown: Record<string, number> }>();
     const delegationRows = new Map<string, { delegationId: string; delegationName: string; regionId: string; regionName: string; totalUnits: number; vehicleClasses: Map<string, { vehicleClass: string; totalUnits: number; statusBreakdown: Record<string, number> }> }>();
     const customStatusDescriptions: string[] = [];

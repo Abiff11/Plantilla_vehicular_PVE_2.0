@@ -9,6 +9,8 @@ export function DirectorGeneralMapPage() {
   const { session } = useAuth();
   const {
     overview,
+    error,
+    isLoading,
     selectedRegionId,
     setSelectedRegionId,
     selectedDelegationId,
@@ -26,7 +28,7 @@ export function DirectorGeneralMapPage() {
     return null;
   }
 
-  if (!overview) {
+  if (isLoading) {
     return (
       <section className="panel">
         <EmptyState
@@ -35,6 +37,21 @@ export function DirectorGeneralMapPage() {
         />
       </section>
     );
+  }
+
+  if (error) {
+    return (
+      <section className="panel">
+        <EmptyState
+          title="No se pudo cargar el mapa directivo"
+          description={error}
+        />
+      </section>
+    );
+  }
+
+  if (!overview) {
+    return null;
   }
 
   const { kpis, filters } = overview;

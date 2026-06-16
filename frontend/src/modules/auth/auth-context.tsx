@@ -49,7 +49,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       try {
         const user = await api.getCurrentUser(EMPTY_ACCESS_TOKEN);
         setSession({ accessToken: EMPTY_ACCESS_TOKEN, user });
-        connectSocket();
+        void connectSocket();
       } catch {
         setSession(null);
       } finally {
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const response = await api.login(email, password);
         setSession({ accessToken: EMPTY_ACCESS_TOKEN, user: response.user });
         resetSocketReconnectAttempts();
-        connectSocket();
+        void connectSocket();
       },
       logout() {
         setSession(null);

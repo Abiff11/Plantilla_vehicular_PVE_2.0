@@ -9,26 +9,32 @@ type UseDirectorGeneralOverviewParams = {
 
 export function useDirectorGeneralOverview({ accessToken }: UseDirectorGeneralOverviewParams) {
   const [overview, setOverview] = useState<DirectorOverview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedRegionId, setSelectedRegionId] = useState<string>('');
   const [selectedDelegationId, setSelectedDelegationId] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
   useEffect(() => {
-    if (!accessToken) {
-      setOverview(null);
-      return;
-    }
-
     const loadOverview = async () => {
-      const loaded = await api.getDirectorGeneralOverview(
-        accessToken,
-        selectedRegionId || undefined,
-        selectedDelegationId || undefined,
-        dateFrom || undefined,
-        dateTo || undefined,
-      );
-      setOverview(loaded);
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const loaded = await api.getDirectorGeneralOverview(
+          accessToken ?? '',
+          selectedRegionId || undefined,
+          selectedDelegationId || undefined,
+          dateFrom || undefined,
+          dateTo || undefined,
+        );
+        setOverview(loaded);
+      } catch (requestError) {
+        setError(requestError instanceof Error ? requestError.message : 'No se pudo cargar el tablero directivo.');
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     void loadOverview();
@@ -82,6 +88,8 @@ export function useDirectorGeneralOverview({ accessToken }: UseDirectorGeneralOv
 
   return {
     overview,
+    error,
+    isLoading,
     selectedRegionId,
     setSelectedRegionId,
     selectedDelegationId,

@@ -20,6 +20,8 @@ export function DirectorGeneralPage() {
   const { session } = useAuth();
   const {
     overview,
+    error,
+    isLoading,
     selectedRegionId,
     setSelectedRegionId,
     selectedDelegationId,
@@ -37,7 +39,7 @@ export function DirectorGeneralPage() {
     return null;
   }
 
-  if (!overview) {
+  if (isLoading) {
     return (
       <section className="panel">
         <EmptyState
@@ -46,6 +48,21 @@ export function DirectorGeneralPage() {
         />
       </section>
     );
+  }
+
+  if (error) {
+    return (
+      <section className="panel">
+        <EmptyState
+          title="No se pudo cargar el tablero directivo"
+          description={error}
+        />
+      </section>
+    );
+  }
+
+  if (!overview) {
+    return null;
   }
 
   const { kpis, table, filters } = overview;

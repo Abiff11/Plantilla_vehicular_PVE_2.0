@@ -26,6 +26,21 @@ function resolveApiBaseUrl() {
   return null;
 }
 
+function resolveHealthUrl() {
+  const configuredApiUrl = resolveConfiguredNetworkUrl(import.meta.env.VITE_API_URL, '/api');
+
+  if (configuredApiUrl) {
+    return `${configuredApiUrl}/health`;
+  }
+
+  if (typeof window === 'undefined') {
+    return 'http://localhost:3101/api/health';
+  }
+
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:3101/api/health`;
+}
+
 function resolveSocketUrl() {
   const configuredSocketUrl = resolveConfiguredNetworkUrl(import.meta.env.VITE_SOCKET_URL, '/');
 
@@ -48,6 +63,7 @@ function resolveSocketUrl() {
 }
 
 const SOCKET_URL = resolveSocketUrl();
+const HEALTH_URL = resolveHealthUrl();
 export const socket = io(SOCKET_URL, {
   autoConnect: false,
   reconnection: true,
@@ -60,6 +76,34 @@ export const socket = io(SOCKET_URL, {
 
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 3;
+let backendAvailabilityPromise: Promise<boolean> | null = null;
+
+async function canReachBackend() {
+  if (!backendAvailabilityPromise) {
+    backendAvailabilityPromise = (async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 1500);
+
+        try {
+          const response = await fetch(HEALTH_URL, {
+            method: 'GET',
+            cache: 'no-store',
+            signal: controller.signal,
+          });
+
+          return response.ok;
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+      } catch {
+        return false;
+      }
+    })();
+  }
+
+  return backendAvailabilityPromise;
+}
 
 socket.on('connect', () => {
   reconnectAttempts = 0;
@@ -87,7 +131,7 @@ socket.on('connect_error', (error) => {
   });
 });
 
-export function connectSocket() {
+export async function connectSocket() {
   if (socket.connected) {
     socketDebugLog('connect_skip_already_connected');
     return;
@@ -97,12 +141,23 @@ export function connectSocket() {
     reconnectAttempts = 0;
   }
 
+  const backendReachable = await canReachBackend();
+
+  if (!backendReachable) {
+    socketDebugLog('connect_skip_backend_unavailable', {
+      url: SOCKET_URL,
+      healthUrl: HEALTH_URL,
+    });
+    return;
+  }
+
   socketDebugLog('connect_attempt', { url: SOCKET_URL });
   socket.connect();
 }
 
 export function disconnectSocket() {
   reconnectAttempts = 0;
+  backendAvailabilityPromise = null;
   socket.auth = {};
   socketDebugLog('disconnect_manual');
   socket.disconnect();
