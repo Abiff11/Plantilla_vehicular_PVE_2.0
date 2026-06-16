@@ -11,19 +11,21 @@ Repositorio separado del monorepo de intranet, con historial Git propio.
 - `nginx/`
 - `Dockerfile`
 - `Dockerfile.frontend`
-- `docker-compose.prod.yml`
+- `docker-compose.service.yml`
 - `.env.example`
 - `SECURITY.md`
 
 ## Despliegue en servidor / intranet
 
-Este repositorio contiene la configuracion minima necesaria para desplegar el sistema como servicio independiente detras del Nginx central.
+Este repositorio contiene la configuracion minima necesaria para desplegar el sistema como servicio de la intranet.
 
 La entrada publica recomendada es:
 
 ```txt
-Cloudflare / Internet -> Nginx central -> 127.0.0.1:8087 -> frontend -> backend:3101
+Cloudflare / Internet -> Nginx central -> intranet_proxy -> plantilla_vehicular_frontend:8080 -> backend:3101
 ```
+
+El servidor controla Docker networks, Nginx principal, PostgreSQL central, secretos reales, backups y firewall. Este repositorio solo declara redes externas y no publica puertos.
 
 ## Build de imagenes
 
@@ -52,13 +54,13 @@ bash scripts/deploy.sh
 
 Las credenciales reales no se versionan.
 
-- Usa `.env.example` para Docker Compose productivo.
+- Usa `.env.example` para Docker Compose de servicio.
 - Usa `backend/.env.example` para backend aislado/local.
 - Usa `frontend/.env.example` para frontend aislado/local.
 
 ## Base de datos
 
-La aplicacion usa PostgreSQL configurado por variables de entorno.
+La aplicacion usa PostgreSQL central configurado por variables de entorno.
 
 - `synchronize` debe permanecer en `false`.
 - Las migraciones productivas se ejecutan con `bash scripts/migrate.sh`.
