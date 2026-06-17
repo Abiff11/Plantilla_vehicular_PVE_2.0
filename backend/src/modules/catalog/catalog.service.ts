@@ -314,8 +314,9 @@ export class CatalogService implements OnApplicationBootstrap {
   }
 
   private async findCatalogGroupByCodeOrFail(code: string) {
+    const candidates = buildCatalogCodeCandidates(code);
     const group = await this.catalogGroupRepository.findOne({
-      where: { code: normalizeCatalogCode(code) },
+      where: candidates.map((candidate) => ({ code: candidate })),
     });
 
     if (!group) {
@@ -556,5 +557,14 @@ function normalizeCatalogCode(value: string) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/gu, '')
     .replace(/[^A-Z0-9]+/gu, '_')
-    .replace(/^_+|_+$/gu, '');
+    .replace(/^_+|_+$/gu, '')
+    .toLowerCase();
+}
+
+function buildCatalogCodeCandidates(value: string) {
+  const normalized = normalizeCatalogCode(value);
+  const upper = normalized.toUpperCase();
+  const raw = value.trim();
+
+  return Array.from(new Set([raw, normalized, upper].filter(Boolean)));
 }

@@ -59,13 +59,23 @@ export function LoginPage() {
 
         <label className="field">
           <span>Correo</span>
-          <input value={email} onChange={(event) => setEmail(event.target.value)} />
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
         </label>
 
         <label className="field">
           <span>Contraseña</span>
           <input
+            id="password"
+            name="password"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />

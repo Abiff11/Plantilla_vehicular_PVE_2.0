@@ -1,11 +1,16 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { resolveVehicleDisplayPlate } from "../lib/vehicle-plates";
-import type { RecordFieldCatalog, RecordFieldCatalogMap, VehicleEditPayload, VehicleRecord } from "../types";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { resolveVehicleDisplayPlate } from '../lib/vehicle-plates';
+import type {
+  RecordFieldCatalog,
+  RecordFieldCatalogMap,
+  VehicleEditPayload,
+  VehicleRecord,
+} from '../types';
 
-const customCatalogFields = ["useType", "status", "assetClassification"] as const;
+const customCatalogFields = ['useType', 'status', 'assetClassification'] as const;
 
 const schema = z
   .object({
@@ -45,10 +50,10 @@ const schema = z
     for (const fieldName of customCatalogFields) {
       const customFieldName = `${fieldName}Custom` as const;
 
-      if (values[fieldName] === "OTRO" && !values[customFieldName]?.trim()) {
+      if (values[fieldName] === 'OTRO' && !values[customFieldName]?.trim()) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Captura el valor personalizado.",
+          message: 'Captura el valor personalizado.',
           path: [customFieldName],
         });
       }
@@ -65,7 +70,7 @@ type VehicleEditModalProps = {
 };
 
 function normalizeText(value: string) {
-  return value.trim().replace(/\s+/g, " ");
+  return value.trim().replace(/\s+/g, ' ');
 }
 
 function normalizeUpper(value: string) {
@@ -73,23 +78,29 @@ function normalizeUpper(value: string) {
 }
 
 function splitCatalogValue(value: string, catalog: RecordFieldCatalog) {
-  const exactValue = catalog.options.find((option) => option.value === value)?.value ?? "";
+  const exactValue = catalog.options.find((option) => option.value === value)?.value ?? '';
 
   if (exactValue) {
-    return { value: exactValue, customValue: "" };
+    return { value: exactValue, customValue: '' };
   }
 
   if (catalog.allowsCustom && value.trim()) {
-    return { value: "OTRO", customValue: value };
+    return { value: 'OTRO', customValue: value };
   }
 
-  return { value, customValue: "" };
+  return { value, customValue: '' };
 }
 
-function buildFormData(record: VehicleRecord, fieldCatalogs: RecordFieldCatalogMap): VehicleEditFormData {
+function buildFormData(
+  record: VehicleRecord,
+  fieldCatalogs: RecordFieldCatalogMap,
+): VehicleEditFormData {
   const useType = splitCatalogValue(record.useType, fieldCatalogs.useType);
   const status = splitCatalogValue(record.status, fieldCatalogs.status);
-  const assetClassification = splitCatalogValue(record.assetClassification, fieldCatalogs.assetClassification);
+  const assetClassification = splitCatalogValue(
+    record.assetClassification,
+    fieldCatalogs.assetClassification,
+  );
 
   return {
     plates: record.plates,
@@ -121,7 +132,7 @@ function buildFormData(record: VehicleRecord, fieldCatalogs: RecordFieldCatalogM
     assetClassificationCustom: assetClassification.customValue,
     rawAssetClassification: record.rawAssetClassification,
     sourceSection: record.sourceSection,
-    sourceRowNumber: record.sourceRowNumber?.toString() ?? "",
+    sourceRowNumber: record.sourceRowNumber?.toString() ?? '',
     observation: record.observation,
   };
 }
@@ -138,7 +149,7 @@ function buildPayload(values: VehicleEditFormData): VehicleEditPayload {
     plates2026: normalizeUpper(values.plates2026),
     brand: normalizeUpper(values.brand),
     type: normalizeUpper(values.type),
-    useType: normalizeUpper(values.useType === "OTRO" ? (values.useTypeCustom ?? "") : values.useType),
+    useType: normalizeUpper(values.useType === 'OTRO' ? values.useTypeCustom ?? '' : values.useType),
     vehicleClass: normalizeUpper(values.vehicleClass),
     model: normalizeUpper(values.model),
     cylinders: normalizeUpper(values.cylinders),
@@ -151,10 +162,12 @@ function buildPayload(values: VehicleEditFormData): VehicleEditPayload {
     adscription: normalizeUpper(values.adscription),
     realLocation: normalizeUpper(values.realLocation),
     physicalStatus: normalizeUpper(values.physicalStatus),
-    status: normalizeUpper(values.status === "OTRO" ? (values.statusCustom ?? "") : values.status),
+    status: normalizeUpper(values.status === 'OTRO' ? values.statusCustom ?? '' : values.status),
     rawCirculationStatus: normalizeUpper(values.rawCirculationStatus),
     assetClassification: normalizeUpper(
-      values.assetClassification === "OTRO" ? (values.assetClassificationCustom ?? "") : values.assetClassification,
+      values.assetClassification === 'OTRO'
+        ? values.assetClassificationCustom ?? ''
+        : values.assetClassification,
     ),
     rawAssetClassification: normalizeText(values.rawAssetClassification),
     sourceSection: normalizeUpper(values.sourceSection),
@@ -171,18 +184,22 @@ function CatalogField({
   selectedValue,
 }: {
   label: string;
-  fieldName: "useType" | "status" | "assetClassification";
+  fieldName: 'useType' | 'status' | 'assetClassification';
   catalog: RecordFieldCatalog;
-  register: ReturnType<typeof useForm<VehicleEditFormData>>["register"];
+  register: ReturnType<typeof useForm<VehicleEditFormData>>['register'];
   selectedValue: string;
 }) {
   const customFieldName =
-    fieldName === "useType" ? "useTypeCustom" : fieldName === "status" ? "statusCustom" : "assetClassificationCustom";
+    fieldName === 'useType'
+      ? 'useTypeCustom'
+      : fieldName === 'status'
+        ? 'statusCustom'
+        : 'assetClassificationCustom';
 
   return (
     <div className="field">
       <span>{label}</span>
-      <select {...register(fieldName)}>
+      <select id={fieldName} {...register(fieldName)}>
         <option value="">Selecciona una opción</option>
         {catalog.options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -190,15 +207,27 @@ function CatalogField({
           </option>
         ))}
       </select>
-      {catalog.allowsCustom && selectedValue === "OTRO" && (
-        <input placeholder={`Especifica ${label.toLowerCase()}`} {...register(customFieldName)} />
+      {catalog.allowsCustom && selectedValue === 'OTRO' && (
+        <input
+          id={customFieldName}
+          placeholder={`Especifica ${label.toLowerCase()}`}
+          {...register(customFieldName)}
+        />
       )}
     </div>
   );
 }
 
-export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: VehicleEditModalProps) {
-  const initialValues = useMemo(() => buildFormData(record, fieldCatalogs), [fieldCatalogs, record]);
+export function VehicleEditModal({
+  record,
+  fieldCatalogs,
+  onSubmit,
+  onCancel,
+}: VehicleEditModalProps) {
+  const initialValues = useMemo(
+    () => buildFormData(record, fieldCatalogs),
+    [fieldCatalogs, record],
+  );
   const {
     register,
     handleSubmit,
@@ -215,9 +244,9 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
   }, [initialValues, reset]);
 
   const plateLabel = resolveVehicleDisplayPlate(record);
-  const selectedUseType = watch("useType");
-  const selectedStatus = watch("status");
-  const selectedAssetClassification = watch("assetClassification");
+  const selectedUseType = watch('useType');
+  const selectedStatus = watch('status');
+  const selectedAssetClassification = watch('assetClassification');
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -231,8 +260,10 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
             </p>
           </div>
           <div className="vehicle-edit-header-meta">
-            <span className="record-chip is-info">{record.recordState === "CURRENT" ? "Vigente" : "Trasladado"}</span>
-            <span className="record-chip">{record.importBatchId ? "Importado" : "Manual"}</span>
+            <span className="record-chip is-info">
+              {record.recordState === 'CURRENT' ? 'Vigente' : 'Trasladado'}
+            </span>
+            <span className="record-chip">{record.importBatchId ? 'Importado' : 'Manual'}</span>
           </div>
         </div>
 
@@ -249,8 +280,10 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
               <p>Actualiza solo los campos que vienen del Excel y los metadatos de control.</p>
             </div>
             <div className="vehicle-edit-hero-meta">
-              <span className="record-chip is-info">{record.recordState === "CURRENT" ? "Vigente" : "Trasladado"}</span>
-              <span className="record-chip">{record.importBatchId ? "Importado" : "Manual"}</span>
+              <span className="record-chip is-info">
+                {record.recordState === 'CURRENT' ? 'Vigente' : 'Trasladado'}
+              </span>
+              <span className="record-chip">{record.importBatchId ? 'Importado' : 'Manual'}</span>
             </div>
           </section>
 
@@ -262,23 +295,23 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
             <div className="form-grid vehicle-edit-grid">
               <label className="field">
                 <span>CIV</span>
-                <input {...register("civ")} />
+                <input id="civ" {...register('civ')} />
               </label>
               <label className="field">
                 <span>Placas anteriores</span>
-                <input {...register("previousPlates")} />
+                <input id="previousPlates" {...register('previousPlates')} />
               </label>
               <label className="field">
                 <span>Placas 2024</span>
-                <input {...register("plates2024")} />
+                <input id="plates2024" {...register('plates2024')} />
               </label>
               <label className="field">
                 <span>Placas 2025</span>
-                <input {...register("plates2025")} />
+                <input id="plates2025" {...register('plates2025')} />
               </label>
               <label className="field">
                 <span>Placas 2026</span>
-                <input {...register("plates2026")} />
+                <input id="plates2026" {...register('plates2026')} />
               </label>
             </div>
           </section>
@@ -290,11 +323,11 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
             <div className="form-grid vehicle-edit-grid">
               <label className="field">
                 <span>Marca</span>
-                <input {...register("brand")} />
+                <input id="brand" {...register('brand')} />
               </label>
               <label className="field">
                 <span>Tipo</span>
-                <input {...register("type")} />
+                <input id="type" {...register('type')} />
               </label>
               <CatalogField
                 label={fieldCatalogs.useType.label}
@@ -305,7 +338,7 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
               />
               <label className="field">
                 <span>Clase de vehículo</span>
-                <select {...register("vehicleClass")}>
+                <select id="vehicleClass" {...register('vehicleClass')}>
                   <option value="">Selecciona una opción</option>
                   {fieldCatalogs.vehicleClass.options.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -316,27 +349,27 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
               </label>
               <label className="field">
                 <span>Modelo</span>
-                <input {...register("model")} />
+                <input id="model" {...register('model')} />
               </label>
               <label className="field">
                 <span>Cilindros</span>
-                <input {...register("cylinders")} />
+                <input id="cylinders" {...register('cylinders')} />
               </label>
               <label className="field">
                 <span>Capacidad litros</span>
-                <input {...register("fuelCapacityLiters")} />
+                <input id="fuelCapacityLiters" {...register('fuelCapacityLiters')} />
               </label>
               <label className="field">
                 <span>No. de motor</span>
-                <input {...register("engineNumber")} />
+                <input id="engineNumber" {...register('engineNumber')} />
               </label>
               <label className="field">
                 <span>No. de serie</span>
-                <input {...register("serialNumber")} />
+                <input id="serialNumber" {...register('serialNumber')} />
               </label>
               <label className="field">
                 <span>Color</span>
-                <input {...register("color")} />
+                <input id="color" {...register('color')} />
               </label>
             </div>
           </section>
@@ -348,23 +381,28 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
             <div className="form-grid vehicle-edit-grid">
               <label className="field">
                 <span>Resguardante</span>
-                <input {...register("custodian")} />
+                <input id="custodian" {...register('custodian')} />
               </label>
               <label className="field">
                 <span>No. patrulla</span>
-                <input {...register("patrolNumber")} />
+                <input id="patrolNumber" {...register('patrolNumber')} />
               </label>
               <label className="field">
                 <span>Adscripción</span>
-                <input {...register("adscription")} />
+                <input id="adscription" {...register('adscription')} />
               </label>
               <label className="field">
                 <span>Ubicación real</span>
-                <input {...register("realLocation")} />
+                <input id="realLocation" {...register('realLocation')} />
               </label>
               <label className="field field-full">
                 <span>Delegación actual</span>
-                <input value={record.delegation.name} readOnly />
+                <input
+                  id="delegationName"
+                 
+                  value={record.delegation.name}
+                  readOnly
+                />
               </label>
             </div>
           </section>
@@ -376,7 +414,7 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
             <div className="form-grid vehicle-edit-grid">
               <label className="field">
                 <span>Estado físico</span>
-                <select {...register("physicalStatus")}>
+                <select id="physicalStatus" {...register('physicalStatus')}>
                   <option value="">Selecciona una opción</option>
                   {fieldCatalogs.physicalStatus.options.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -394,11 +432,19 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
               />
               <label className="field">
                 <span>Estatus Excel</span>
-                <input {...register("rawCirculationStatus")} />
+                <input
+                  id="rawCirculationStatus"
+                 
+                  {...register('rawCirculationStatus')}
+                />
               </label>
               <label className="field">
                 <span>Anotación general</span>
-                <input {...register("rawAssetClassification")} />
+                <input
+                  id="rawAssetClassification"
+                 
+                  {...register('rawAssetClassification')}
+                />
               </label>
               <CatalogField
                 label={fieldCatalogs.assetClassification.label}
@@ -409,7 +455,7 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
               />
               <label className="field field-full">
                 <span>Observación</span>
-                <textarea rows={4} {...register("observation")} />
+                <textarea id="observation" rows={4} {...register('observation')} />
               </label>
             </div>
           </section>
@@ -421,15 +467,26 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
             <div className="form-grid vehicle-edit-grid">
               <label className="field">
                 <span>Sección Excel</span>
-                <input {...register("sourceSection")} />
+                <input id="sourceSection" {...register('sourceSection')} />
               </label>
               <label className="field">
                 <span>Fila Excel</span>
-                <input type="number" inputMode="numeric" {...register("sourceRowNumber")} />
+                <input
+                  id="sourceRowNumber"
+                 
+                  type="number"
+                  inputMode="numeric"
+                  {...register('sourceRowNumber')}
+                />
               </label>
               <label className="field">
                 <span>Lote importación</span>
-                <input value={record.importBatchId ?? "-"} readOnly />
+                <input
+                  id="importBatchId"
+                 
+                  value={record.importBatchId ?? '-'}
+                  readOnly
+                />
               </label>
             </div>
           </section>
@@ -439,7 +496,7 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
               Cancelar
             </button>
             <button className="primary-button" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Guardando..." : "Guardar cambios"}
+              {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
         </form>
@@ -447,3 +504,4 @@ export function VehicleEditModal({ record, fieldCatalogs, onSubmit, onCancel }: 
     </div>
   );
 }
+

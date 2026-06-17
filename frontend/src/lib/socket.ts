@@ -91,6 +91,7 @@ function resolveSocketUrl() {
 const SOCKET_URL = resolveSocketUrl();
 const SOCKET_PATH = normalizeSocketPath(import.meta.env.VITE_SOCKET_PATH);
 const HEALTH_URL = resolveHealthUrl();
+const SOCKET_TRANSPORTS = import.meta.env.DEV ? ['polling'] : ['websocket', 'polling'];
 export const socket = io(SOCKET_URL, {
   path: SOCKET_PATH,
   autoConnect: false,
@@ -98,7 +99,7 @@ export const socket = io(SOCKET_URL, {
   reconnectionAttempts: 10,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
-  transports: ['websocket', 'polling'],
+  transports: SOCKET_TRANSPORTS,
   withCredentials: true,
 });
 

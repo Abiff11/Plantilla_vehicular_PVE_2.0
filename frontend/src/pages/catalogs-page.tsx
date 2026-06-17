@@ -1,24 +1,55 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useAuth } from '../modules/auth/auth-context';
 import { catalogApi } from '../modules/catalogs/catalog-api';
 import type { CatalogGroup, CatalogItem } from '../modules/catalogs/catalog-types';
-import { useAuth } from '../modules/auth/auth-context';
 
-const EMPTY_GROUP_FORM = {
-  code: '',
-  name: '',
-  description: '',
+type CatalogKey =
+  | 'vehicle_use'
+  | 'vehicle_class'
+  | 'physical_status'
+  | 'circulation_status'
+  | 'system_status'
+  | 'vehicle_brand'
+  | 'vehicle_type'
+  | 'vehicle_color'
+  | 'asset_classification'
+  | 'adscription'
+  | 'real_location'
+  | 'excel_section';
+
+type CatalogConfig = {
+  key: CatalogKey;
+  label: string;
+  description: string;
 };
 
-const EMPTY_ITEM_FORM = {
+const CATALOG_CONFIGS: CatalogConfig[] = [
+  { key: 'vehicle_use', label: 'Uso vehicular', description: 'Usos operativos detectados en la plantilla.' },
+  { key: 'vehicle_class', label: 'Tipo de vehiculo', description: 'Clases vehiculares del archivo Excel.' },
+  { key: 'physical_status', label: 'Estado fisico', description: 'Condicion de la unidad normalizada.' },
+  { key: 'circulation_status', label: 'Estatus de circulacion', description: 'Valor original de la columna estatus.' },
+  { key: 'system_status', label: 'Estatus del sistema', description: 'Valor interno para reportes y dashboard.' },
+  { key: 'vehicle_brand', label: 'Marca vehicular', description: 'Marcas detectadas o creadas manualmente.' },
+  { key: 'vehicle_type', label: 'Tipo / modelo comercial', description: 'Tipo comercial de la unidad.' },
+  { key: 'vehicle_color', label: 'Color de unidad', description: 'Colores detectados en la plantilla.' },
+  { key: 'asset_classification', label: 'Clasificacion del bien', description: 'Clasificacion patrimonial o administrativa.' },
+  { key: 'adscription', label: 'Adscripcion', description: 'Adscripciones detectadas desde Excel.' },
+  { key: 'real_location', label: 'Ubicacion real', description: 'Ubicaciones reales detectadas desde Excel.' },
+  { key: 'excel_section', label: 'Seccion Excel', description: 'Agrupadores operativos de la plantilla.' },
+];
+
+type CatalogFormState = {
+  code: string;
+  label: string;
+  normalizedValue: string;
+  isActive: boolean;
+};
+
+const emptyForm: CatalogFormState = {
   code: '',
   label: '',
   normalizedValue: '',
-};
-
-const EMPTY_ALIAS_FORM = {
-  itemId: '',
-  rawValue: '',
-  source: 'excel',
+  isActive: true,
 };
 
 function normalizeSearch(value: string) {
@@ -29,63 +60,59 @@ function normalizeSearch(value: string) {
     .trim();
 }
 
+function getItemSummary(item: CatalogItem) {
+  return [item.code, item.label, item.normalizedValue]
+    .filter(Boolean)
+    .join(' - ');
+}
+
 function getAliasesLabel(item: CatalogItem) {
-  if (!item.aliases || item.aliases.length === 0) {
+  const aliases = item.aliases ?? [];
+  if (aliases.length === 0) {
     return 'Sin alias';
   }
 
-  return item.aliases.map((alias) => alias.rawValue).join(', ');
+  return aliases.map((alias) => alias.rawValue).join(', ');
 }
 
 export function CatalogsPage() {
   const { session } = useAuth();
   const token = session?.accessToken ?? '';
   const [groups, setGroups] = useState<CatalogGroup[]>([]);
-  const [selectedGroupCode, setSelectedGroupCode] = useState<string>('');
-  const [selectedItemId, setSelectedItemId] = useState<string>('');
-  const [items, setItems] = useState<CatalogItem[]>([]);
-  const [groupSearch, setGroupSearch] = useState('');
-  const [itemSearch, setItemSearch] = useState('');
-  const [isLoadingGroups, setIsLoadingGroups] = useState(true);
-  const [isLoadingItems, setIsLoadingItems] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [groupForm, setGroupForm] = useState(EMPTY_GROUP_FORM);
-  const [itemForm, setItemForm] = useState(EMPTY_ITEM_FORM);
-  const [aliasForm, setAliasForm] = useState(EMPTY_ALIAS_FORM);
+  const [selectedGroupCode, setSelectedGroupCode] = useState<CatalogKey>('vehicle_use');
+  const [selectedItemId, setSelectedItemId] = useState('');
+  const [form, setForm] = useState<CatalogFormState>(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const currentConfig = useMemo(
+    () => CATALOG_CONFIGS.find((item) => item.key === selectedGroupCode) ?? CATALOG_CONFIGS[0],
+    [selectedGroupCode],
+  );
 
   const selectedGroup = useMemo(
     () => groups.find((group) => group.code === selectedGroupCode) ?? null,
     [groups, selectedGroupCode],
   );
 
+  const rows = selectedGroup?.items ?? [];
+
   const selectedItem = useMemo(
-    () => items.find((item) => item.id === selectedItemId) ?? null,
-    [items, selectedItemId],
+    () => rows.find((item) => item.id === selectedItemId) ?? null,
+    [rows, selectedItemId],
   );
 
-  const filteredGroups = useMemo(() => {
-    const search = normalizeSearch(groupSearch);
-
-    if (!search) {
-      return groups;
+  const filteredRows = useMemo(() => {
+    const query = normalizeSearch(search);
+    if (!query) {
+      return rows;
     }
 
-    return groups.filter((group) =>
-      [group.code, group.name, group.description]
-        .map(normalizeSearch)
-        .some((value) => value.includes(search)),
-    );
-  }, [groupSearch, groups]);
-
-  const filteredItems = useMemo(() => {
-    const search = normalizeSearch(itemSearch);
-
-    if (!search) {
-      return items;
-    }
-
-    return items.filter((item) =>
+    return rows.filter((item) =>
       [
         item.code,
         item.label,
@@ -94,504 +121,323 @@ export function CatalogsPage() {
         item.isActive ? 'activo' : 'inactivo',
       ]
         .map(normalizeSearch)
-        .some((value) => value.includes(search)),
+        .some((value) => value.includes(query)),
     );
-  }, [itemSearch, items]);
+  }, [rows, search]);
 
-  const activeItems = items.filter((item) => item.isActive).length;
-  const inactiveItems = items.length - activeItems;
-  const totalAliases = items.reduce((total, item) => total + (item.aliases?.length ?? 0), 0);
+  const activeRows = rows.filter((item) => item.isActive).length;
 
   useEffect(() => {
-    const loadGroups = async () => {
-      setIsLoadingGroups(true);
-      setError(null);
+    const load = async () => {
+      setLoading(true);
+      setError('');
 
       try {
         const loadedGroups = await catalogApi.getGroups(token);
         setGroups(loadedGroups);
-        setSelectedGroupCode((current) => current || loadedGroups[0]?.code || '');
+        setSelectedGroupCode((current) => {
+          if (loadedGroups.some((group) => group.code === current)) {
+            return current;
+          }
+
+          const available = CATALOG_CONFIGS.find((config) =>
+            loadedGroups.some((group) => group.code === config.key),
+          );
+          return (available?.key ?? loadedGroups[0]?.code ?? 'vehicle_use') as CatalogKey;
+        });
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar los catálogos.');
+        setGroups([]);
+        setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar los catalogos.');
       } finally {
-        setIsLoadingGroups(false);
+        setLoading(false);
       }
     };
 
-    void loadGroups();
+    void load();
   }, [token]);
 
   useEffect(() => {
     if (!selectedGroupCode) {
-      setItems([]);
       setSelectedItemId('');
       return;
     }
 
-    const loadItems = async () => {
-      setIsLoadingItems(true);
-      setError(null);
+    if (!rows.length) {
+      setSelectedItemId('');
+      return;
+    }
 
-      try {
-        const loadedItems = await catalogApi.getItems(selectedGroupCode, token);
-        setItems(loadedItems);
-        setSelectedItemId((current) => {
-          if (current && loadedItems.some((item) => item.id === current)) {
-            return current;
-          }
-
-          return loadedItems[0]?.id ?? '';
-        });
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar los valores del catálogo.');
-      } finally {
-        setIsLoadingItems(false);
+    setSelectedItemId((current) => {
+      if (current && rows.some((item) => item.id === current)) {
+        return current;
       }
-    };
 
-    void loadItems();
-  }, [selectedGroupCode, token]);
+      return rows[0]?.id ?? '';
+    });
+  }, [rows, selectedGroupCode]);
+
+  function clearForm() {
+    setForm(emptyForm);
+    setEditingId(null);
+  }
+
+  function handleSelectGroup(groupCode: string) {
+    setSelectedGroupCode(groupCode as CatalogKey);
+    setSearch('');
+    setSelectedItemId('');
+    clearForm();
+  }
+
+  function startEdit(item: CatalogItem) {
+    setMessage('');
+    setError('');
+    setEditingId(item.id);
+    setForm({
+      code: item.code,
+      label: item.label,
+      normalizedValue: item.normalizedValue,
+      isActive: item.isActive,
+    });
+  }
 
   async function refreshGroups() {
     const loadedGroups = await catalogApi.getGroups(token);
     setGroups(loadedGroups);
   }
 
-  async function refreshItems() {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!selectedGroupCode) {
       return;
     }
 
-    const loadedItems = await catalogApi.getItems(selectedGroupCode, token);
-    setItems(loadedItems);
-    setSelectedItemId((current) => {
-      if (current && loadedItems.some((item) => item.id === current)) {
-        return current;
+    setSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      if (editingId) {
+        await catalogApi.updateItem(
+          editingId,
+          {
+            label: form.label,
+            normalizedValue: form.normalizedValue || form.label,
+            isActive: form.isActive,
+          },
+          token,
+        );
+      } else {
+        await catalogApi.createItem(
+          selectedGroupCode,
+          {
+            code: form.code,
+            label: form.label,
+            normalizedValue: form.normalizedValue || form.label,
+            isActive: form.isActive,
+          },
+          token,
+        );
       }
 
-      return loadedItems[0]?.id ?? '';
-    });
-  }
-
-  function selectGroup(groupCode: string) {
-    setSelectedGroupCode(groupCode);
-    setSelectedItemId('');
-    setItemSearch('');
-    setAliasForm(EMPTY_ALIAS_FORM);
-  }
-
-  function selectItem(item: CatalogItem) {
-    setSelectedItemId(item.id);
-    setAliasForm((current) => ({ ...current, itemId: item.id }));
-  }
-
-  async function handleCreateGroup(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
-      const createdGroup = await catalogApi.createGroup(groupForm, token);
       await refreshGroups();
-      setSelectedGroupCode(createdGroup.code);
-      setGroupForm(EMPTY_GROUP_FORM);
-      setSuccessMessage('Catálogo creado correctamente.');
-    } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear el catálogo.');
+      clearForm();
+      setMessage(editingId ? 'Concepto actualizado correctamente.' : 'Concepto creado correctamente.');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el concepto.');
+    } finally {
+      setSaving(false);
     }
   }
 
-  async function handleCreateItem(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!selectedGroupCode) {
-      return;
-    }
-
-    setError(null);
-    setSuccessMessage(null);
+  async function deactivate(item: CatalogItem) {
+    setError('');
+    setMessage('');
 
     try {
-      await catalogApi.createItem(selectedGroupCode, {
-        code: itemForm.code,
-        label: itemForm.label,
-        normalizedValue: itemForm.normalizedValue || itemForm.label,
-      }, token);
-      await refreshItems();
-      setItemForm(EMPTY_ITEM_FORM);
-      setSuccessMessage('Valor creado correctamente.');
-    } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear el valor.');
+      await catalogApi.deleteItem(item.id, token);
+      await refreshGroups();
+      if (editingId === item.id) {
+        clearForm();
+      }
+      setMessage('Concepto desactivado correctamente.');
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo desactivar el concepto.');
     }
   }
 
-  async function handleToggleItem(item: CatalogItem) {
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
-      await catalogApi.updateItem(item.id, { isActive: !item.isActive }, token);
-      await refreshItems();
-      setSuccessMessage(item.isActive ? 'Valor desactivado.' : 'Valor activado.');
-    } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar el valor.');
-    }
-  }
-
-  async function handleCreateAlias(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const itemId = aliasForm.itemId || selectedItemId;
-
-    if (!itemId) {
-      setError('Selecciona un valor para asociar el alias.');
-      return;
-    }
-
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
-      await catalogApi.createAlias(itemId, {
-        rawValue: aliasForm.rawValue,
-        source: aliasForm.source,
-      }, token);
-      await refreshItems();
-      setAliasForm({ ...EMPTY_ALIAS_FORM, itemId });
-      setSuccessMessage('Alias creado correctamente.');
-    } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear el alias.');
-    }
+  if (loading) {
+    return <div className="panel">Cargando catalogos...</div>;
   }
 
   return (
-    <div className="page-stack">
-      <section className="hero-card">
-        <p className="eyebrow">Administración</p>
-        <h2>Catálogos</h2>
-        <p>
-          Administra los valores maestros y sus equivalencias para que la importación
-          de Excel reconozca variantes sin modificar el archivo original.
-        </p>
-      </section>
+    <section className="catalogos-page">
+      <div className="catalogos-layout">
+        <aside className="catalogos-tabs">
+          {CATALOG_CONFIGS.map((config) => {
+            const group = groups.find((item) => item.code === config.key);
 
-      {error && <div className="error-banner">{error}</div>}
-      {successMessage && <div className="success-banner">{successMessage}</div>}
-
-      <section className="panel-grid two-columns">
-        <article className="panel-card">
-          <div className="section-heading-row">
-            <div>
-              <p className="eyebrow">Paso 1</p>
-              <h3>Selecciona catálogo</h3>
-            </div>
-            <span>{groups.length} grupos</span>
-          </div>
-
-          <label>
-            Buscar catálogo
-            <input
-              value={groupSearch}
-              onChange={(event) => setGroupSearch(event.target.value)}
-              placeholder="Uso, tipo, estatus, ubicación..."
-            />
-          </label>
-
-          {isLoadingGroups ? (
-            <p>Cargando catálogos...</p>
-          ) : (
-            <div className="table-scroll">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Catálogo</th>
-                    <th>Tipo</th>
-                    <th>Valores</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredGroups.map((group) => (
-                    <tr
-                      key={group.id}
-                      onClick={() => selectGroup(group.code)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td>
-                        <strong>{group.name}</strong>
-                        <br />
-                        <small>{group.code}</small>
-                      </td>
-                      <td>{group.isSystem ? 'Sistema' : 'Manual'}</td>
-                      <td>{group.items?.length ?? 0}</td>
-                    </tr>
-                  ))}
-                  {filteredGroups.length === 0 && (
-                    <tr>
-                      <td colSpan={3}>No hay catálogos con esa búsqueda.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </article>
-
-        <article className="panel-card">
-          <div className="section-heading-row">
-            <div>
-              <p className="eyebrow">Crear nuevo grupo</p>
-              <h3>Solo si falta un catálogo completo</h3>
-            </div>
-          </div>
-          <p>
-            Para valores del Excel normalmente no crees grupos; selecciona un catálogo
-            existente y agrega un valor o alias.
-          </p>
-          <form className="form-grid" onSubmit={handleCreateGroup}>
-            <label>
-              Código técnico
-              <input
-                required
-                value={groupForm.code}
-                onChange={(event) => setGroupForm((current) => ({ ...current, code: event.target.value }))}
-                placeholder="vehicle_color"
-              />
-            </label>
-            <label>
-              Nombre visible
-              <input
-                required
-                value={groupForm.name}
-                onChange={(event) => setGroupForm((current) => ({ ...current, name: event.target.value }))}
-                placeholder="Color de unidad"
-              />
-            </label>
-            <label>
-              Descripción
-              <textarea
-                value={groupForm.description}
-                onChange={(event) => setGroupForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="Valores permitidos para..."
-              />
-            </label>
-            <button className="secondary-button" type="submit">
-              Crear grupo
-            </button>
-          </form>
-        </article>
-      </section>
-
-      <section className="panel-card">
-        <div className="section-heading-row">
-          <div>
-            <p className="eyebrow">Paso 2</p>
-            <h3>{selectedGroup?.name ?? 'Sin catálogo seleccionado'}</h3>
-            <p>{selectedGroup?.description || 'Selecciona un catálogo para administrar sus valores.'}</p>
-          </div>
-          <div className="stats-row">
-            <span>{items.length} valores</span>
-            <span>{activeItems} activos</span>
-            <span>{inactiveItems} inactivos</span>
-            <span>{totalAliases} alias</span>
-          </div>
-        </div>
-
-        <div className="panel-grid two-columns">
-          <article>
-            <div className="section-heading-row">
-              <div>
-                <h3>Valores del catálogo</h3>
-                <p>Selecciona un valor para ver sus alias o agregar equivalencias.</p>
-              </div>
-            </div>
-
-            <label>
-              Buscar valor
-              <input
-                value={itemSearch}
-                onChange={(event) => setItemSearch(event.target.value)}
-                placeholder="CIRCULANDO, GRUA, SINIESTRADO..."
-              />
-            </label>
-
-            <form className="form-grid three-columns" onSubmit={handleCreateItem}>
-              <label>
-                Código
-                <input
-                  required
-                  value={itemForm.code}
-                  onChange={(event) => setItemForm((current) => ({ ...current, code: event.target.value }))}
-                  placeholder="CIRCULANDO"
-                />
-              </label>
-              <label>
-                Etiqueta
-                <input
-                  required
-                  value={itemForm.label}
-                  onChange={(event) => setItemForm((current) => ({ ...current, label: event.target.value }))}
-                  placeholder="CIRCULANDO"
-                />
-              </label>
-              <label>
-                Normalizado
-                <input
-                  value={itemForm.normalizedValue}
-                  onChange={(event) => setItemForm((current) => ({ ...current, normalizedValue: event.target.value }))}
-                  placeholder="Opcional"
-                />
-              </label>
-              <button className="primary-button" disabled={!selectedGroupCode} type="submit">
-                Agregar valor
+            return (
+              <button
+                key={config.key}
+                type="button"
+                className={`catalogos-tab ${selectedGroupCode === config.key ? 'active' : ''}`}
+                onClick={() => handleSelectGroup(config.key)}
+              >
+                <span className="catalogos-tab-main">
+                  <strong>{config.label}</strong>
+                  <small>{config.description}</small>
+                </span>
+                <span className="catalogos-count">{group?.items?.length ?? 0}</span>
               </button>
-            </form>
+            );
+          })}
+        </aside>
 
-            {isLoadingItems ? (
-              <p>Cargando valores...</p>
-            ) : (
-              <div className="table-scroll">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Valor</th>
-                      <th>Normalizado</th>
-                      <th>Alias</th>
-                      <th>Estatus</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredItems.map((item) => (
-                      <tr
-                        key={item.id}
-                        onClick={() => selectItem(item)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <td>
-                          <strong>{item.label}</strong>
-                          <br />
-                          <small>{item.code}</small>
-                        </td>
-                        <td>{item.normalizedValue}</td>
-                        <td>{item.aliases?.length ?? 0}</td>
-                        <td>{item.isActive ? 'Activo' : 'Inactivo'}</td>
-                        <td>
-                          <button
-                            className="secondary-button"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleToggleItem(item);
-                            }}
-                          >
-                            {item.isActive ? 'Desactivar' : 'Activar'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredItems.length === 0 && (
-                      <tr>
-                        <td colSpan={5}>Este catálogo no tiene valores con esa búsqueda.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
+        <div className="catalogos-panel panel">
+          <div className="catalogos-header">
+            <div className="catalogos-header-card">
+              <h3>{currentConfig.label}</h3>
+              <p>{currentConfig.description}</p>
+            </div>
+            <div className="catalogos-header-card">
+              <span>Total activos</span>
+              <strong>{activeRows}</strong>
+            </div>
+          </div>
 
-          <article className="panel-card">
-            <div className="section-heading-row">
+          <form className={`catalogos-form-card ${editingId ? 'editing' : ''}`} onSubmit={handleSave}>
+            <div className="catalogos-form-heading">
               <div>
-                <p className="eyebrow">Paso 3</p>
-                <h3>Alias del valor seleccionado</h3>
+                <span>{editingId ? 'Editando concepto' : 'Nuevo concepto'}</span>
+                <strong>{currentConfig.label}</strong>
               </div>
+              {editingId && <small className="editing-badge">Cambios pendientes</small>}
             </div>
 
-            {selectedItem ? (
-              <>
-                <div className="stats-row">
-                  <span>{selectedItem.label}</span>
-                  <span>{selectedItem.isActive ? 'Activo' : 'Inactivo'}</span>
-                </div>
-                <p>
-                  Usa alias cuando el Excel trae el mismo concepto escrito diferente.
-                  Ejemplo: GRÚA → GRUA.
-                </p>
+            <div className="catalogos-form">
+              <label className="field">
+                <span>Código</span>
+                <input
+                  id="catalog-code"
+                  name="catalogCode"
+                  value={form.code}
+                  disabled={Boolean(editingId)}
+                  onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
+                  required
+                />
+              </label>
 
-                <div className="table-scroll">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Valor del Excel</th>
-                        <th>Normalizado</th>
-                        <th>Origen</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selectedItem.aliases ?? []).map((alias) => (
-                        <tr key={alias.id}>
-                          <td>{alias.rawValue}</td>
-                          <td>{alias.normalizedRawValue}</td>
-                          <td>{alias.source}</td>
-                        </tr>
-                      ))}
-                      {(selectedItem.aliases ?? []).length === 0 && (
-                        <tr>
-                          <td colSpan={3}>Este valor aún no tiene alias.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+              <label className="field">
+                <span>Etiqueta</span>
+                <input
+                  id="catalog-label"
+                  name="catalogLabel"
+                  value={form.label}
+                  onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))}
+                  required
+                />
+              </label>
 
-                <form className="form-grid" onSubmit={handleCreateAlias}>
-                  <input type="hidden" value={selectedItem.id} />
-                  <label>
-                    Valor exacto del Excel
-                    <input
-                      required
-                      value={aliasForm.rawValue}
-                      onChange={(event) => setAliasForm((current) => ({ ...current, rawValue: event.target.value }))}
-                      placeholder="GRÚA"
-                    />
-                  </label>
-                  <label>
-                    Origen
-                    <input
-                      value={aliasForm.source}
-                      onChange={(event) => setAliasForm((current) => ({ ...current, source: event.target.value }))}
-                      placeholder="excel"
-                    />
-                  </label>
-                  <button className="primary-button" type="submit">
-                    Agregar alias a {selectedItem.label}
+              <label className="field">
+                <span>Normalizado</span>
+                <input
+                  id="catalog-normalized"
+                  name="catalogNormalized"
+                  value={form.normalizedValue}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, normalizedValue: event.target.value }))
+                  }
+                />
+              </label>
+
+              <label className={`catalogos-toggle ${form.isActive ? 'active' : ''}`}>
+                <input
+                  id="catalog-active"
+                  name="catalogActive"
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, isActive: event.target.checked }))
+                  }
+                />
+                <span>Activo</span>
+              </label>
+
+              <div className="form-actions">
+                {editingId && (
+                  <button type="button" className="ghost-button" onClick={clearForm}>
+                    Cancelar edición
                   </button>
-                </form>
-              </>
-            ) : (
-              <p>Selecciona un valor del catálogo para administrar sus alias.</p>
-            )}
-          </article>
-        </div>
-      </section>
+                )}
+                <button type="submit" disabled={saving}>
+                  {saving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear'}
+                </button>
+              </div>
+            </div>
+          </form>
 
-      <section className="panel-card">
-        <p className="eyebrow">Guía rápida</p>
-        <h3>Cuándo crear valor y cuándo crear alias</h3>
-        <div className="panel-grid two-columns">
-          <div>
-            <strong>Crear valor</strong>
-            <p>Cuando el Excel trae una categoría nueva real que debe existir en el sistema.</p>
-            <small>Ejemplo: agregar BICICLETA en tipo de vehículo.</small>
+          {error && <p className="error">{error}</p>}
+          {message && <p className="success">{message}</p>}
+
+          <div className="catalogos-toolbar">
+            <div>
+              <h4>Registros activos</h4>
+              <p>{filteredRows.length} encontrados</p>
+            </div>
+
+            <input
+              id="catalog-search"
+              name="catalogSearch"
+              placeholder="Buscar catálogo"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+
+            <button type="button" className="ghost-button" onClick={() => setSearch('')}>
+              Limpiar
+            </button>
           </div>
-          <div>
-            <strong>Crear alias</strong>
-            <p>Cuando el Excel trae una variante de un valor que ya existe.</p>
-            <small>Ejemplo: GRÚA, GRUA PATRULLA o GRUA → GRUA.</small>
+
+          <div className="table-wrap">
+            <table className="catalogos-table">
+              <thead>
+                <tr>
+                  <th>Concepto</th>
+                  <th>Relación</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRows.length === 0 && (
+                  <tr>
+                    <td colSpan={3}>No hay registros.</td>
+                  </tr>
+                )}
+                {filteredRows.map((item) => (
+                  <tr key={item.id} className={item.id === selectedItemId ? 'is-selected-row' : undefined}>
+                    <td>
+                      <strong className="catalogos-concept">{getItemSummary(item)}</strong>
+                    </td>
+                    <td>
+                      <span className="catalogos-relation-pill">
+                        {item.isActive ? 'Activo' : 'Inactivo'} · {item.aliases?.length ?? 0} alias
+                      </span>
+                    </td>
+                    <td className="catalogos-actions">
+                      <button type="button" onClick={() => startEdit(item)}>
+                        Editar
+                      </button>
+                      <button type="button" className="danger-button" onClick={() => deactivate(item)}>
+                        Desactivar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }

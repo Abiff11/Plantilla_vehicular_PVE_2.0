@@ -312,12 +312,24 @@ export function PlantillaVehicularPage() {
 
               <label className="field">
                 <span>Desde</span>
-                <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+                <input
+                  id="dateFrom"
+                  name="dateFrom"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                />
               </label>
 
               <label className="field">
                 <span>Hasta</span>
-                <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+                <input
+                  id="dateTo"
+                  name="dateTo"
+                  type="date"
+                  value={dateTo}
+                  onChange={(event) => setDateTo(event.target.value)}
+                />
               </label>
             </div>
           </section>
