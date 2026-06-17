@@ -12,6 +12,7 @@ import { getRecordActivitySummary } from '../modules/records/record-activity';
 import type { GroupedRegionRecords, RecordFieldCatalogMap, VehicleRecord } from '../types';
 import { EmptyState } from './empty-state';
 import { PageIntro } from './page-intro';
+import { ReportExportModal } from './report-export-modal';
 import { StatsGrid } from './stats-grid';
 
 type GroupedRecordsProps = {
@@ -21,6 +22,7 @@ type GroupedRecordsProps = {
   title: string;
   description: string;
   headerFilters?: ReactNode;
+  reportContext?: string[];
   vehicleClassAfterDate?: boolean;
   renderRecordActions?: (record: VehicleRecord) => ReactNode;
   onRecordSelect?: (record: VehicleRecord) => void;
@@ -81,6 +83,17 @@ function resolveImportMetadata(record: VehicleRecord) {
   return parts.join(' · ');
 }
 
+function getCatalogOptionLabel(
+  catalog: RecordFieldCatalogMap[keyof RecordFieldCatalogMap],
+  value: string,
+) {
+  if (!value) {
+    return '';
+  }
+
+  return catalog.options.find((option) => option.value === value)?.label ?? value;
+}
+
 export function GroupedRecords({
   regions,
   fieldCatalogs,
@@ -88,10 +101,12 @@ export function GroupedRecords({
   title,
   description,
   headerFilters,
+  reportContext = [],
   renderRecordActions,
   onRecordSelect,
 }: GroupedRecordsProps) {
   const [filters, setFilters] = useState<FiltersState>(initialFilters);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const filteredRegions = useMemo(() => {
     const normalizedSearch = filters.search.trim().toLowerCase();
@@ -182,24 +197,57 @@ export function GroupedRecords({
     .flatMap((delegation) => delegation.records)
     .sort((left, right) => +new Date(right.createdAt) - +new Date(left.createdAt))[0];
 
+  const vehicleFilterContext = [
+    filters.search ? `Búsqueda: ${filters.search}` : '',
+    filters.useType ? `${fieldCatalogs.useType.label}: ${getCatalogOptionLabel(fieldCatalogs.useType, filters.useType)}` : '',
+    filters.vehicleClass ? `${fieldCatalogs.vehicleClass.label}: ${getCatalogOptionLabel(fieldCatalogs.vehicleClass, filters.vehicleClass)}` : '',
+    filters.physicalStatus ? `${fieldCatalogs.physicalStatus.label}: ${getCatalogOptionLabel(fieldCatalogs.physicalStatus, filters.physicalStatus)}` : '',
+    filters.status ? `${fieldCatalogs.status.label}: ${getCatalogOptionLabel(fieldCatalogs.status, filters.status)}` : '',
+    filters.assetClassification ? `${fieldCatalogs.assetClassification.label}: ${getCatalogOptionLabel(fieldCatalogs.assetClassification, filters.assetClassification)}` : '',
+  ].filter(Boolean);
+  const exportContext = [
+    ...reportContext,
+    ...(vehicleFilterContext.length > 0
+      ? vehicleFilterContext
+      : ['Filtros vehiculares: sin filtros adicionales']),
+  ];
+
   return (
     <div className="stack-lg">
+      <ReportExportModal
+        isOpen={isReportModalOpen}
+        title={`Reporte - ${title}`}
+        records={filteredRegions}
+        contextLines={exportContext}
+        onClose={() => setIsReportModalOpen(false)}
+      />
+
       <div className="panel">
         <PageIntro
           eyebrow={eyebrow}
           title={title}
           description={description}
           actions={
-            <label className="toolbar-search">
-              <span>Buscar</span>
-              <input
-                placeholder="Delegación, placas, CIV, color, adscripción o movimiento"
-                value={filters.search}
-                onChange={(event) =>
-                  setFilters((current) => ({ ...current, search: event.target.value }))
-                }
-              />
-            </label>
+            <div className="report-toolbar">
+              <label className="toolbar-search">
+                <span>Buscar</span>
+                <input
+                  placeholder="Delegación, placas, CIV, color, adscripción o movimiento"
+                  value={filters.search}
+                  onChange={(event) =>
+                    setFilters((current) => ({ ...current, search: event.target.value }))
+                  }
+                />
+              </label>
+              <button
+                className="primary-button report-export-button"
+                type="button"
+                disabled={totalRecords === 0}
+                onClick={() => setIsReportModalOpen(true)}
+              >
+                Generar reporte
+              </button>
+            </div>
           }
         />
 

@@ -86,6 +86,21 @@ export function PlantillaVehicularPage() {
     return catalogRegions.find((region) => region.id === selectedRegionId)?.delegations ?? [];
   }, [catalogRegions, selectedRegionId]);
 
+  const reportContext = useMemo(() => {
+    const selectedRegionName =
+      catalogRegions.find((region) => region.id === selectedRegionId)?.name ?? 'Todas las regiones';
+    const selectedDelegationName =
+      availableDelegations.find((delegation) => delegation.id === selectedDelegationId)?.name ??
+      'Todas las delegaciones';
+
+    return [
+      `Región: ${selectedRegionName}`,
+      `Delegación: ${selectedDelegationName}`,
+      `Desde: ${dateFrom || 'Sin fecha inicial'}`,
+      `Hasta: ${dateTo || 'Sin fecha final'}`,
+    ];
+  }, [availableDelegations, catalogRegions, dateFrom, dateTo, selectedDelegationId, selectedRegionId]);
+
   const transferRecord = async (record: VehicleRecord) => {
     if (!session) {
       return;
@@ -235,6 +250,7 @@ export function PlantillaVehicularPage() {
         eyebrow="Vista general vehicular"
         title="Operación vehicular general"
         description="Consulta la plantilla vehicular registrada por región y delegación."
+        reportContext={reportContext}
         vehicleClassAfterDate
         onRecordSelect={(record) => void openDetails(record)}
         renderRecordActions={(record) =>
