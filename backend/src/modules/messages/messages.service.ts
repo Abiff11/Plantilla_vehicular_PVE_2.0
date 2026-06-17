@@ -24,7 +24,14 @@ type UploadedFile = {
   size: number;
 };
 
-const ALLOWED_ROLES = [Role.Enlace, Role.PlantillaVehicular, Role.Coordinacion];
+const ALLOWED_ROLES = [
+  Role.Enlace,
+  Role.PlantillaVehicular,
+  Role.DirectorOperativo,
+  Role.DirectorGeneral,
+  Role.SuperAdmin,
+  Role.Coordinacion,
+];
 
 type AuthUser = {
   sub: string;
@@ -110,11 +117,16 @@ export class MessagesService {
 
     return this.userRepository.find({
       where: {
-        role: In([Role.Enlace, Role.PlantillaVehicular, Role.Coordinacion]),
+        role: In(ALLOWED_ROLES),
         isActive: true,
       },
       order: { firstName: "ASC" },
-    });
+    }).then((users) =>
+      users.map((user) => ({
+        ...user,
+        isOnline: this.realtimeGateway.isUserOnline(user.id),
+      })),
+    );
   }
 
   async getMyConversations(authUser: AuthUser) {

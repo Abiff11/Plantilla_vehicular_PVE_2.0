@@ -1,5 +1,6 @@
 import { getRecordActivitySummary } from '../modules/records/record-activity';
 import type { GroupedRegionRecords, VehicleRecord } from '../types';
+import { formatDateTimeMx } from './date-format';
 import { resolveVehicleDisplayPlate } from './vehicle-plates';
 
 export type ReportFieldId =
@@ -88,7 +89,7 @@ function displayDate(value: string) {
     return display(value);
   }
 
-  return date.toLocaleString('es-MX');
+  return formatDateTimeMx(date);
 }
 
 function displayRecordState(record: VehicleRecord) {
@@ -390,7 +391,7 @@ export function downloadExcelReport(payload: ReportDownloadPayload) {
         `<tr>${row.cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`,
     )
     .join('');
-  const generatedAt = new Date().toLocaleString('es-MX');
+  const generatedAt = formatDateTimeMx(new Date());
   const html = `<!doctype html>
 <html>
 <head>
@@ -481,7 +482,7 @@ function buildPdfLayout(payload: ReportDownloadPayload) {
   const bottomMargin = 20;
   const title = 'Reporte - POLICIA VIAL ESTATAL';
   const metaLines = [
-    `Generado: ${new Date().toLocaleString('es-MX')}`,
+    `Generado: ${formatDateTimeMx(new Date())}`,
     `Registros: ${payload.rows.length}`,
     ...payload.contextLines,
   ].map(normalizePdfText);

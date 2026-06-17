@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { useAuth } from '../modules/auth/auth-context';

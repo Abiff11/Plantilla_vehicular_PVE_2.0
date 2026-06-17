@@ -1,6 +1,7 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { LoadingSpinner } from '../components/loading-spinner';
+import { formatDateMx, formatDateTimeMx } from '../lib/date-format';
 import { api } from '../lib/api';
 import { formatUserName } from '../lib/format-user-name';
 import { socket } from '../lib/socket';
@@ -78,7 +79,7 @@ export function DirectorOperativoReportesPage() {
             <h2>Confirmaciones mensuales por delegación</h2>
           </div>
           <div className="panel-meta">
-            Último cierre mensual regional: {latestRegionalReport ? new Date(latestRegionalReport.submittedAt).toLocaleDateString() : 'Sin validación'}
+            Último cierre mensual regional: {latestRegionalReport ? formatDateMx(latestRegionalReport.submittedAt) : 'Sin validación'}
           </div>
         </div>
 
@@ -131,7 +132,7 @@ export function DirectorOperativoReportesPage() {
                     <td>{row.pendingChanges}</td>
                     <td>
                       {row.lastReport
-                        ? new Date(row.lastReport.submittedAt).toLocaleString()
+                        ? formatDateTimeMx(row.lastReport.submittedAt)
                         : 'Sin validación'}
                     </td>
                     <td>{formatUserName(row.lastReport?.submittedBy)}</td>
@@ -171,7 +172,7 @@ export function DirectorOperativoReportesPage() {
               <tbody>
                 {regionalReports.map((report) => (
                   <tr key={report.id}>
-                    <td>{new Date(report.submittedAt).toLocaleString()}</td>
+                    <td>{formatDateTimeMx(report.submittedAt)}</td>
                     <td>{report.hasChanges ? 'Con confirmaciones' : 'Sin nuevas confirmaciones'}</td>
                     <td>{report.confirmedDelegationReports}</td>
                     <td>{report.notes || '-'}</td>

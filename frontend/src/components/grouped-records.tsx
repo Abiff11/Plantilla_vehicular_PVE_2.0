@@ -13,6 +13,7 @@ import { getRecordActivitySummary } from '../modules/records/record-activity';
 import type { GroupedRegionRecords, RecordFieldCatalogMap, VehicleRecord } from '../types';
 import { EmptyState } from './empty-state';
 import { PageIntro } from './page-intro';
+import { formatDateTimeMx, formatTimeMx } from '../lib/date-format';
 import { ReportExportModal } from './report-export-modal';
 import { StatsGrid } from './stats-grid';
 
@@ -372,7 +373,7 @@ export function GroupedRecords({
             },
             {
               label: 'Ultima captura',
-              value: latestRecord ? new Date(latestRecord.createdAt).toLocaleTimeString() : '-',
+              value: latestRecord ? formatTimeMx(latestRecord.createdAt) : '-',
               helper: latestRecord ? latestRecord.delegation.name : 'Sin actividad',
             },
           ]}
@@ -427,7 +428,7 @@ export function GroupedRecords({
                       <tbody>
                         {delegation.records.map((record) => (
                           <tr key={`${delegation.delegationId}-${record.id}`}>
-                            <td>{new Date(record.createdAt).toLocaleString()}</td>
+                            <td>{formatDateTimeMx(record.createdAt)}</td>
                             <td>
                               <div className="vehicle-main-cell">
                                 <strong>{resolveVehicleDisplayPlate(record)}</strong>

@@ -1,15 +1,12 @@
-﻿import { EmptyState } from '../components/empty-state';
+import { EmptyState } from '../components/empty-state';
 import { PageIntro } from '../components/page-intro';
 import { StatsGrid } from '../components/stats-grid';
+import { formatDateMx } from '../lib/date-format';
 import { useAuth } from '../modules/auth/auth-context';
 import { useDirectorGeneralOverview } from '../modules/director-general/use-director-general-overview';
 
 function formatReportDate(value: string) {
-  return new Date(value).toLocaleDateString('es-MX', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  return formatDateMx(value);
 }
 
 function formatReportCell(value: number) {

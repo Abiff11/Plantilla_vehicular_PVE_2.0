@@ -1,8 +1,9 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { EmptyState } from '../components/empty-state';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { api } from '../lib/api';
+import { formatDateMx, formatDateTimeMx } from '../lib/date-format';
 import { formatUserName } from '../lib/format-user-name';
 import { socket } from '../lib/socket';
 import { useAuth } from '../modules/auth/auth-context';
@@ -59,7 +60,7 @@ function getLastRegionalReportText(row: RegionRosterReportOverviewRow) {
     return 'Sin validación regional';
   }
 
-  return new Date(row.lastReport.submittedAt).toLocaleString();
+  return formatDateTimeMx(row.lastReport.submittedAt);
 }
 
 export function PlantillaReportesPage() {
@@ -241,7 +242,7 @@ export function PlantillaReportesPage() {
 
           <div className="panel-actions">
             <div className="panel-meta">
-              Último cierre mensual: {latestRegionalReport ? new Date(latestRegionalReport.submittedAt).toLocaleDateString() : 'Sin cierre'}
+              Último cierre mensual: {latestRegionalReport ? formatDateMx(latestRegionalReport.submittedAt) : 'Sin cierre'}
             </div>
             {canSubmitRegionalClosure && (
               <button
@@ -362,5 +363,4 @@ export function PlantillaReportesPage() {
     </div>
   );
 }
-
 

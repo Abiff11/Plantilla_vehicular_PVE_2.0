@@ -3,6 +3,7 @@ import { EmptyState } from '../components/empty-state';
 import { LoadingSpinner } from '../components/loading-spinner';
 import { PageIntro } from '../components/page-intro';
 import { StatsGrid } from '../components/stats-grid';
+import { formatDateMx, formatDateTimeMx } from '../lib/date-format';
 import { VehicleEditModal } from '../components/vehicle-edit-modal';
 import { resolveVehicleDisplayPlate } from '../lib/vehicle-plates';
 import { resolveVehiclePhysicalStatusTone, resolveVehicleStatusTone } from '../lib/vehicle-status';
@@ -59,13 +60,13 @@ export function EnlaceRecordsPage() {
             { label: 'Vehículos visibles', value: records.length },
             {
               label: 'Última captura',
-              value: latestRecord ? new Date(latestRecord.createdAt).toLocaleDateString() : '-',
+              value: latestRecord ? formatDateMx(latestRecord.createdAt) : '-',
               helper: latestRecord ? resolveVehicleDisplayPlate(latestRecord) : 'Sin registros',
             },
             {
               label: 'Última validación',
               value: latestRosterReport
-                ? new Date(latestRosterReport.submittedAt).toLocaleDateString()
+                ? formatDateMx(latestRosterReport.submittedAt)
                 : 'Sin validación',
               helper: latestRosterReport
                 ? latestRosterReport.hasChanges
@@ -125,7 +126,7 @@ export function EnlaceRecordsPage() {
               <tbody>
                 {records.map((record) => (
                   <tr key={`${record.viewDelegation.id}-${record.id}`}>
-                    <td>{new Date(record.createdAt).toLocaleString()}</td>
+                    <td>{formatDateTimeMx(record.createdAt)}</td>
                     <td>
                       <div className="vehicle-main-cell">
                         <strong>{resolveVehicleDisplayPlate(record)}</strong>
@@ -229,7 +230,7 @@ export function EnlaceRecordsPage() {
               <tbody>
                 {rosterReports.map((report) => (
                   <tr key={report.id}>
-                    <td>{new Date(report.submittedAt).toLocaleString()}</td>
+                    <td>{formatDateTimeMx(report.submittedAt)}</td>
                     <td>{report.hasChanges ? 'Con cambios' : 'Sin cambios'}</td>
                     <td>{report.changesSinceLastReport}</td>
                     <td>{report.notes || '-'}</td>

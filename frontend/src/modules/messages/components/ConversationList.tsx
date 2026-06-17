@@ -1,4 +1,5 @@
 import type { Conversation, User } from '../../../types';
+import { formatDateMx } from '../../../lib/date-format';
 import { useAuth } from '../../auth/auth-context';
 
 type ConversationListProps = {
@@ -83,7 +84,7 @@ export function ConversationList({
                 </div>
                 {conv.lastMessageAt && (
                   <div className="conversation-time">
-                    {new Date(conv.lastMessageAt).toLocaleDateString()}
+                    {formatDateMx(conv.lastMessageAt)}
                   </div>
                 )}
               </li>

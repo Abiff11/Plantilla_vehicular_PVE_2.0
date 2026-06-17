@@ -1,4 +1,4 @@
-﻿import { DirectorOaxacaMap } from '../components/director-oaxaca-map';
+import { DirectorOaxacaMap } from '../components/director-oaxaca-map';
 import { EmptyState } from '../components/empty-state';
 import { PageIntro } from '../components/page-intro';
 import { StatsGrid } from '../components/stats-grid';

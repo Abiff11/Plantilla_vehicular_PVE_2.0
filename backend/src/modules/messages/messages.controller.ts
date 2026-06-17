@@ -66,7 +66,14 @@ type AuthUser = {
 
 @Controller("messages")
 @UseGuards(JwtAuthGuard, RolesGuard)
-@RequireRoles(Role.Enlace, Role.PlantillaVehicular, Role.Coordinacion)
+@RequireRoles(
+  Role.Enlace,
+  Role.PlantillaVehicular,
+  Role.DirectorOperativo,
+  Role.DirectorGeneral,
+  Role.SuperAdmin,
+  Role.Coordinacion,
+)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 

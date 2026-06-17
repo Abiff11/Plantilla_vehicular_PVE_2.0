@@ -1,7 +1,8 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { PageIntro } from '../components/page-intro';
 import { StatsGrid } from '../components/stats-grid';
+import { formatDateTimeMx, formatTimeMx } from '../lib/date-format';
 import { api } from '../lib/api';
 import { formatUserName } from '../lib/format-user-name';
 import { socket } from '../lib/socket';
@@ -57,7 +58,7 @@ export function CoordinacionAuditPage() {
             { label: 'Eventos registrados', value: totalItems },
             {
               label: 'Último movimiento',
-              value: auditLogs[0] ? new Date(auditLogs[0].createdAt).toLocaleTimeString() : '-',
+              value: auditLogs[0] ? formatTimeMx(auditLogs[0].createdAt) : '-',
               helper: auditLogs[0]?.action ?? 'Sin actividad',
             },
             {
@@ -92,7 +93,7 @@ export function CoordinacionAuditPage() {
               <article className="activity-item" key={auditLog.id}>
                 <div className="activity-item-head">
                   <strong>{auditLog.action}</strong>
-                  <span>{new Date(auditLog.createdAt).toLocaleString()}</span>
+                  <span>{formatDateTimeMx(auditLog.createdAt)}</span>
                 </div>
                 <p>{auditLog.actor ? formatUserName(auditLog.actor) : 'Sistema'}</p>
                 <span>

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { api } from '../../../lib/api';
+import { socket } from '../../../lib/socket';
 import { hasAnyRole, MESSENGER_ROLES } from '../../../lib/role-access';
 import type { User } from '../../../types';
 import { useAuth } from '../../auth/auth-context';
@@ -14,6 +15,7 @@ export function MessengerPanel() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!session) return;
@@ -30,11 +32,35 @@ export function MessengerPanel() {
     void loadUsers();
   }, [session]);
 
-  if (!session) return null;
+  useEffect(() => {
+    if (!session) return;
 
-  const availableUsers = users.filter(
-    (u) => u.id !== session.user.id && hasAnyRole(u.role, MESSENGER_ROLES),
-  );
+    const handlePresenceUpdated = (payload: { onlineUserIds?: string[] }) => {
+      setOnlineUserIds(payload.onlineUserIds ?? []);
+    };
+
+    socket.on('presence:updated', handlePresenceUpdated);
+
+    return () => {
+      socket.off('presence:updated', handlePresenceUpdated);
+    };
+  }, [session]);
+
+  const availableUsers = useMemo(() => {
+    if (!session) {
+      return [];
+    }
+
+    return users
+      .filter((u) => u.id !== session.user.id && hasAnyRole(u.role, MESSENGER_ROLES))
+      .map((u) => ({
+        ...u,
+        isOnline: u.isOnline ?? onlineUserIds.includes(u.id),
+      }))
+      .sort((a, b) => Number(Boolean(b.isOnline)) - Number(Boolean(a.isOnline)));
+  }, [onlineUserIds, session, users]);
+
+  if (!session) return null;
 
   const selectedConversation = conversations.find(
     (c) => c.id === selectedConversationId,
@@ -77,6 +103,9 @@ export function MessengerPanel() {
       <div className="messenger-sidebar">
         <div className="sidebar-header">
           <h2>Mensajes</h2>
+          <span className="sidebar-online-count">
+            {availableUsers.filter((user) => user.isOnline).length} conectados
+          </span>
           <button
             className="new-conversation-btn"
             onClick={() => setShowNewConversation(true)}
@@ -167,6 +196,9 @@ function NewConversationModal({
                     {user.firstName} {user.lastName}
                   </span>
                   <span className="user-role">{user.role}</span>
+                  <span className={`user-status ${user.isOnline ? 'online' : 'offline'}`}>
+                    {user.isOnline ? 'Conectado' : 'Desconectado'}
+                  </span>
                 </li>
               ))}
             </ul>

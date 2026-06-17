@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageIntro } from '../components/page-intro';
 import { StatsGrid } from '../components/stats-grid';

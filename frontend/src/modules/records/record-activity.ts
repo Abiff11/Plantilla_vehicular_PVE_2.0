@@ -1,5 +1,6 @@
-﻿import Swal from "sweetalert2";
+import Swal from "sweetalert2";
 import { api } from "../../lib/api";
+import { formatDateMx, formatDateTimeMx } from "../../lib/date-format";
 import { formatUserName } from "../../lib/format-user-name";
 import { resolveConfiguredNetworkUrl } from "../../lib/resolve-network-url";
 import { resolveVehicleDisplayPlate } from "../../lib/vehicle-plates";
@@ -52,7 +53,7 @@ function renderTransferLine(transfer: VehicleTransferEvent) {
     <div class="activity-item">
       <div class="activity-item-head">
         <strong>${escapeHtml(transfer.fromDelegation.name)} -> ${escapeHtml(transfer.toDelegation.name)}</strong>
-        <span>${new Date(transfer.movedAt).toLocaleString()}</span>
+        <span>${formatDateTimeMx(transfer.movedAt)}</span>
       </div>
       <p>Hecho por ${escapeHtml(formatUserName(transfer.movedBy))}.</p>
       <span>${escapeHtml(transfer.reason || "Sin motivo registrado.")}</span>
@@ -77,7 +78,7 @@ function renderEditLine(edit: VehicleEditEvent) {
     <div class="activity-item">
       <div class="activity-item-head">
         <strong>Edicion registrada</strong>
-        <span>${new Date(edit.editedAt).toLocaleString()}</span>
+        <span>${formatDateTimeMx(edit.editedAt)}</span>
       </div>
       <p>Hecho por ${escapeHtml(edit.actor ? formatUserName(edit.actor) : "Usuario no disponible")}.</p>
       <span>${changes}</span>
@@ -149,7 +150,7 @@ export function getRecordActivitySummary(record: VehicleRecord) {
   }
 
   if (record.latestEdit) {
-    parts.push(`Editado el ${new Date(record.latestEdit.editedAt).toLocaleDateString()}`);
+    parts.push(`Editado el ${formatDateMx(record.latestEdit.editedAt)}`);
   }
 
   if (record.importBatchId) {

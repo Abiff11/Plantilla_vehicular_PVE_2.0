@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { EmptyState } from '../components/empty-state';
 import { PageIntro } from '../components/page-intro';

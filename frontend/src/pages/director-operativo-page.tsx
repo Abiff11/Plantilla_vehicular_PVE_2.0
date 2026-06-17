@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { GroupedRecords } from '../components/grouped-records';
 import { LoadingSpinner } from '../components/loading-spinner';

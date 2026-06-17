@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { useAuth } from '../modules/auth/auth-context';
+import { formatDateTimeMx } from '../lib/date-format';
 import { vehicleImportApi } from '../modules/imports/vehicle-import-api';
 import type {
   VehicleImportBatch,
@@ -429,7 +430,7 @@ export function VehicleImportPage() {
               <div className="import-history-meta">
                 <span>{batch.totalRows} filas</span>
                 <span>{batch.importedRows} importadas</span>
-                <span>{new Date(batch.createdAt).toLocaleString()}</span>
+                <span>{formatDateTimeMx(batch.createdAt)}</span>
               </div>
             </button>
           ))}

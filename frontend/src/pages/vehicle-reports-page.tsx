@@ -4,6 +4,7 @@ import { LoadingSpinner } from '../components/loading-spinner';
 import { PageIntro } from '../components/page-intro';
 import { ReportExportModal } from '../components/report-export-modal';
 import { StatsGrid } from '../components/stats-grid';
+import { formatDateMx, formatDateTimeMx } from '../lib/date-format';
 import { api } from '../lib/api';
 import { appendReportExportHistory, loadReportExportHistory } from '../lib/report-export-history';
 import { socket } from '../lib/socket';
@@ -130,7 +131,7 @@ export function VehicleReportsPage() {
             { label: 'Reportes guardados', value: history.length },
             {
               label: 'Último reporte',
-              value: latestReport ? new Date(latestReport.createdAt).toLocaleDateString() : '-',
+              value: latestReport ? formatDateMx(latestReport.createdAt) : '-',
               helper: latestReport ? latestReport.title : 'Sin historial',
             },
             {
@@ -278,7 +279,7 @@ export function VehicleReportsPage() {
               <tbody>
                 {history.map((entry) => (
                   <tr key={entry.id}>
-                    <td>{new Date(entry.createdAt).toLocaleString()}</td>
+                    <td>{formatDateTimeMx(entry.createdAt)}</td>
                     <td>{entry.title}</td>
                     <td>{entry.format.toUpperCase()}</td>
                     <td>{entry.recordCount}</td>

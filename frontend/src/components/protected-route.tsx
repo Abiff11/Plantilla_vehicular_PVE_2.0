@@ -1,4 +1,4 @@
-﻿import type { ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { Navigate } from 'react-router-dom';
 import { APP_ROUTES } from '../lib/routes';
 import { useAuth } from '../modules/auth/auth-context';

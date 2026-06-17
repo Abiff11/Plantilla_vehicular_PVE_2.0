@@ -122,6 +122,8 @@ function regionRoom(regionId: string) {
 export class RealtimeGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
 {
+  private readonly onlineUsers = new Map<string, number>();
+
   constructor(
     private readonly jwtService: JwtService,
     @InjectRepository(UserEntity)
@@ -157,6 +159,7 @@ export class RealtimeGateway
     const user = (socket.data as AuthenticatedSocketData).user;
 
     socket.join(userRoom(user.sub));
+    this.markUserOnline(user.sub);
 
     if (user.role === Role.DirectorOperativo && user.regionId) {
       socket.join(regionRoom(user.regionId));
@@ -170,6 +173,8 @@ export class RealtimeGateway
       socket.join('records:oversight');
     }
 
+    this.emitPresenceUpdate();
+
     realtimeDebugLog('connected', {
       socketId: socket.id,
       userId: user.sub,
@@ -180,6 +185,11 @@ export class RealtimeGateway
 
   handleDisconnect(socket: Socket) {
     const user = (socket.data as AuthenticatedSocketData).user;
+
+    if (user?.sub) {
+      this.markUserOffline(user.sub);
+      this.emitPresenceUpdate();
+    }
 
     realtimeDebugLog('disconnected', {
       socketId: socket.id,
@@ -258,6 +268,16 @@ export class RealtimeGateway
     }
   }
 
+  isUserOnline(userId: string) {
+    return (this.onlineUsers.get(userId) ?? 0) > 0;
+  }
+
+  getOnlineUserIds() {
+    return [...this.onlineUsers.entries()]
+      .filter(([, count]) => count > 0)
+      .map(([userId]) => userId);
+  }
+
   private async authenticateSocket(socket: Socket) {
     const token = this.extractToken(socket);
 
@@ -305,5 +325,27 @@ export class RealtimeGateway
 
   private canAccessAuditChannel(role: Role) {
     return role === Role.Coordinacion;
+  }
+
+  private markUserOnline(userId: string) {
+    const currentCount = this.onlineUsers.get(userId) ?? 0;
+    this.onlineUsers.set(userId, currentCount + 1);
+  }
+
+  private markUserOffline(userId: string) {
+    const currentCount = this.onlineUsers.get(userId) ?? 0;
+
+    if (currentCount <= 1) {
+      this.onlineUsers.delete(userId);
+      return;
+    }
+
+    this.onlineUsers.set(userId, currentCount - 1);
+  }
+
+  private emitPresenceUpdate() {
+    this.server.emit('presence:updated', {
+      onlineUserIds: this.getOnlineUserIds(),
+    });
   }
 }

@@ -1,4 +1,4 @@
-﻿export function resolveVehicleStatusTone(status: string): string {
+export function resolveVehicleStatusTone(status: string): string {
   const normalizedStatus = status.trim().toUpperCase();
 
   if (normalizedStatus === 'ACTIVO') return 'is-success';

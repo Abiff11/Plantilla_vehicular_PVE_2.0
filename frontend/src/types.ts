@@ -42,6 +42,7 @@ export type User = {
   role: Role;
   region?: Region | null;
   delegation?: Delegation | null;
+  isOnline?: boolean;
 };
 
 export type CreateUserPayload = {

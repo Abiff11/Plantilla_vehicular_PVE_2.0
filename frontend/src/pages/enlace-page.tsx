@@ -1,7 +1,8 @@
-﻿import { EmptyState } from '../components/empty-state';
+import { EmptyState } from '../components/empty-state';
 import { PageIntro } from '../components/page-intro';
 import { RecordForm } from '../components/record-form';
 import { StatsGrid } from '../components/stats-grid';
+import { formatDateMx } from '../lib/date-format';
 import { useEnlaceData } from '../modules/records/use-enlace-data';
 
 export function EnlacePage() {
@@ -34,13 +35,13 @@ export function EnlacePage() {
             { label: 'Capturas realizadas', value: records.length },
             {
               label: 'Ultima captura',
-              value: latestRecord ? new Date(latestRecord.createdAt).toLocaleDateString() : '-',
+              value: latestRecord ? formatDateMx(latestRecord.createdAt) : '-',
               helper: latestRecord ? latestRecord.plates : 'Sin registros',
             },
             {
               label: 'Última validación',
               value: latestRosterReport
-                ? new Date(latestRosterReport.submittedAt).toLocaleDateString()
+                ? formatDateMx(latestRosterReport.submittedAt)
                 : 'Sin validación',
               helper: latestRosterReport
                 ? latestRosterReport.hasChanges

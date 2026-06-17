@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Conversation, Message, User } from "../../../types";
+import { formatTimeMx } from "../../../lib/date-format";
 import { useAuth } from "../../auth/auth-context";
 import { useMessages } from "../use-messages";
 import { resolveConfiguredNetworkUrl } from "../../../lib/resolve-network-url";
@@ -222,10 +223,7 @@ export function ChatView({ conversation, users }: ChatViewProps) {
                       </div>
                     )}
                     <div className="message-time">
-                      {new Date(msg.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatTimeMx(msg.createdAt)}
                     </div>
                   </div>
                 </li>
