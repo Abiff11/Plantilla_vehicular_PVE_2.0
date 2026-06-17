@@ -8,6 +8,7 @@ import {
   type ReportFieldId,
 } from '../lib/report-export';
 import type { GroupedRegionRecords } from '../types';
+import '../report-export.css';
 
 const FIELD_GROUPS = [
   'Ubicación',
