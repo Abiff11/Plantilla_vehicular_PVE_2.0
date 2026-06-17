@@ -3,15 +3,20 @@ export const RECORD_FIELD_CATALOG = {
     label: 'Uso',
     allowsCustom: true,
     options: [
+      { value: 'OPERATIVO', label: 'OPERATIVO' },
+      { value: 'SUSTANTIVO', label: 'SUSTANTIVO' },
+      { value: 'ADMINISTRATIVO', label: 'ADMINISTRATIVO' },
       { value: 'PATRULLA', label: 'PATRULLA' },
       { value: 'PARTICULAR', label: 'PARTICULAR' },
       { value: 'OTRO', label: 'OTRO' },
     ],
   },
   vehicleClass: {
-    label: 'Clase de vehículo',
+    label: 'Clase de vehiculo',
     allowsCustom: false,
     options: [
+      { value: 'AUTOMOVIL', label: 'AUTOMOVIL' },
+      { value: 'CAMIONETA', label: 'CAMIONETA' },
       { value: 'SEDAN', label: 'SEDAN' },
       { value: 'PICK UP', label: 'PICK UP' },
       { value: 'MOTOCICLETA', label: 'MOTOCICLETA' },
@@ -21,7 +26,7 @@ export const RECORD_FIELD_CATALOG = {
     ],
   },
   physicalStatus: {
-    label: 'Estado físico',
+    label: 'Estado fisico',
     allowsCustom: false,
     options: [
       { value: 'BUENO', label: 'BUENO' },
@@ -41,7 +46,7 @@ export const RECORD_FIELD_CATALOG = {
     ],
   },
   assetClassification: {
-    label: 'Clasificación del bien',
+    label: 'Clasificacion del bien',
     allowsCustom: true,
     options: [
       { value: 'PATRIMONIAL', label: 'PATRIMONIAL' },

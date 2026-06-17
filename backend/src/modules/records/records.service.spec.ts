@@ -48,7 +48,7 @@ function makeEmptyRecord(overrides: Partial<NormalizedRecordValues> = {}): Norma
 }
 
 async function ensureNoDuplicateRecords(
-  values: NormalizedRecordValues,
+  values: Record<string, string>,
   findFn: (field: string, value: string) => Promise<boolean>,
 ): Promise<void> {
   const uniqueFields = ['plates', 'engineNumber', 'serialNumber'] as const;
@@ -139,9 +139,19 @@ describe('Catalog field validation logic', () => {
     expect(result).toBeNull();
   });
 
+  it('accepts AUTOMOVIL as valid value for closed field vehicleClass', () => {
+    const result = validateCatalogFields(makeEmptyRecord({ vehicleClass: 'AUTOMOVIL' }));
+    expect(result).toBeNull();
+  });
+
+  it('accepts CAMIONETA as valid value for closed field vehicleClass', () => {
+    const result = validateCatalogFields(makeEmptyRecord({ vehicleClass: 'CAMIONETA' }));
+    expect(result).toBeNull();
+  });
+
   it('rejects invalid value for closed field vehicleClass', () => {
     const result = validateCatalogFields(makeEmptyRecord({ vehicleClass: 'CAMION' }));
-    expect(result).toContain('Clase de vehículo');
+    expect(result).toContain('Clase de vehiculo');
     expect(result).toContain('CAMION');
     expect(result).toContain('not a valid option');
   });
@@ -153,7 +163,7 @@ describe('Catalog field validation logic', () => {
 
   it('rejects invalid value for closed field physicalStatus', () => {
     const result = validateCatalogFields(makeEmptyRecord({ physicalStatus: 'DESTRUIDO' }));
-    expect(result).toContain('Estado físico');
+    expect(result).toContain('Estado fisico');
     expect(result).toContain('DESTRUIDO');
   });
 
@@ -186,7 +196,7 @@ describe('Catalog field validation logic', () => {
     const result = validateCatalogFields(
       makeEmptyRecord({ vehicleClass: 'INVALIDO', physicalStatus: 'MALO' }),
     );
-    expect(result).toContain('Clase de vehículo');
+    expect(result).toContain('Clase de vehiculo');
     expect(result).toContain('INVALIDO');
   });
 });

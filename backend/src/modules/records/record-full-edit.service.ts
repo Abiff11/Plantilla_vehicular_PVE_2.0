@@ -101,7 +101,7 @@ export class RecordFullEditService {
       return record;
     }
 
-    const catalogError = this.validateCatalogFields(normalizedValues);
+    const catalogError = this.validateCatalogFields(normalizedValues, dto);
 
     if (catalogError) {
       throw new BadRequestException(catalogError);
@@ -167,8 +167,12 @@ export class RecordFullEditService {
     }
   }
 
-  private validateCatalogFields(values: EditableRecordValues) {
+  private validateCatalogFields(values: EditableRecordValues, dto: UpdateRecordDto) {
     for (const field of catalogValidatedFields) {
+      if (dto[field] === undefined) {
+        continue;
+      }
+
       const value = values[field];
 
       if (!value || String(value).trim().length === 0) {
