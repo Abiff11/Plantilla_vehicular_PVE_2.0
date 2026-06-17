@@ -16,13 +16,22 @@
   white-space: nowrap;
 }
 
-.report-export-modal {
-  width: min(1180px, 96vw);
-  max-width: 1180px;
+.modal-content.report-export-modal {
+  width: min(1400px, 96vw);
+  max-width: 1400px;
   max-height: 92vh;
   display: grid;
   gap: 14px;
+  overflow-x: hidden;
   overflow-y: auto;
+}
+
+.report-export-modal {
+  min-height: 0;
+}
+
+.report-export-modal > * {
+  min-width: 0;
 }
 
 .report-export-header,
@@ -92,11 +101,12 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  min-width: 0;
 }
 
 .report-field-groups {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -147,7 +157,7 @@
 }
 
 .report-preview-table-wrapper {
-  max-height: 320px;
+  max-height: 360px;
 }
 
 .report-preview-table {
