@@ -75,6 +75,18 @@ const NO_PLATE_VALUES = new Set([
   'SINPLACAS',
 ]);
 
+const GENERIC_IDENTIFIER_VALUES = new Set([
+  'SINNUMERO',
+  'SINMOTOR',
+  'SINSERIE',
+  'SN',
+  'SM',
+  'IMPORTADO',
+  'HECHOENMEXICO',
+  'HECHOENUSA',
+  'HECHOENEUA',
+]);
+
 @Injectable()
 export class RecordFullEditService {
   constructor(
@@ -205,6 +217,13 @@ export class RecordFullEditService {
       const fieldValue = values[field];
 
       if (!fieldValue || String(fieldValue).trim().length === 0) {
+        continue;
+      }
+
+      if (
+        (field === 'engineNumber' || field === 'serialNumber') &&
+        isGenericIdentifierValue(fieldValue)
+      ) {
         continue;
       }
 
@@ -363,4 +382,9 @@ function normalizePlateSourceValue(value: unknown) {
   }
 
   return normalized;
+}
+
+function isGenericIdentifierValue(value: unknown) {
+  const normalized = normalizeCode(value).replace(/[\s.-]+/gu, '');
+  return GENERIC_IDENTIFIER_VALUES.has(normalized);
 }

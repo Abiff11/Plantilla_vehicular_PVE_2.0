@@ -159,6 +159,18 @@ const reportableMovementActions = [
   "RECORD_TRANSFERRED",
 ];
 
+const GENERIC_IDENTIFIER_VALUES = new Set([
+  "SINNUMERO",
+  "SINMOTOR",
+  "SINSERIE",
+  "SN",
+  "SM",
+  "IMPORTADO",
+  "HECHOENMEXICO",
+  "HECHOENUSA",
+  "HECHOENEUA",
+]);
+
 const editableRecordFields = [
   "plates",
   "civ",
@@ -1352,6 +1364,13 @@ export class RecordsService {
         continue;
       }
 
+      if (
+        (field === "engineNumber" || field === "serialNumber") &&
+        isGenericIdentifierValue(fieldValue)
+      ) {
+        continue;
+      }
+
       const query = this.recordRepository
         .createQueryBuilder("record")
         .where(`record.${field} = :value`, { value: fieldValue })
@@ -1992,4 +2011,9 @@ export class RecordsService {
         ),
       }));
   }
+}
+
+function isGenericIdentifierValue(value: string) {
+  const normalized = stripDiacritics(normalizeUpper(value)).replace(/[\s.-]+/gu, "");
+  return GENERIC_IDENTIFIER_VALUES.has(normalized);
 }
