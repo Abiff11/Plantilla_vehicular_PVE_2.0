@@ -163,3 +163,22 @@ socket.on('connect_error', async (error) => {
     socket.connect();
   }
 });
+
+export async function connectSocket() {
+  const backendReachable = await canReachBackend();
+
+  if (backendReachable && !socket.connected) {
+    socket.connect();
+  }
+}
+
+export function disconnectSocket() {
+  if (socket.connected) {
+    socket.disconnect();
+  }
+}
+
+export function resetSocketReconnectAttempts() {
+  reconnectAttempts = 0;
+  backendAvailabilityPromise = null;
+}

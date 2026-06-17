@@ -313,7 +313,7 @@ export function AppShell() {
             <div className="brand-logo-wrap sidebar-logo-wrap">
               <img
                 className="institutional-logo sidebar-logo"
-                src="/policia-vial-estatal-oaxaca-seeklogo.png"
+                src={`${import.meta.env.BASE_URL}policia-vial-estatal-oaxaca-seeklogo.png`}
                 alt="Policía Vial Estatal de Oaxaca"
               />
             </div>

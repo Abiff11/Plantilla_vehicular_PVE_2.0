@@ -50,7 +50,7 @@ export function LoginPage() {
         <div className="brand-logo-wrap login-logo-wrap">
           <img
             className="institutional-logo"
-            src="/policia-vial-estatal-oaxaca-seeklogo.png"
+            src={`${import.meta.env.BASE_URL}policia-vial-estatal-oaxaca-seeklogo.png`}
             alt="Policía Vial Estatal de Oaxaca"
           />
         </div>

@@ -24,8 +24,8 @@ COPY --from=builder --chown=node:node /app/backend/package.json ./package.json
 COPY --from=builder --chown=node:node /app/backend/dist ./dist
 
 RUN mkdir -p /app/backend/uploads/vehicle-photos /app/backend/uploads/message-photos \
-    && chown -R node:node /app/backend \
-    && chmod -R 750 /app/backend
+    && chown -R node:node /app/backend/uploads \
+    && chmod -R 750 /app/backend/uploads
 
 USER node
 
