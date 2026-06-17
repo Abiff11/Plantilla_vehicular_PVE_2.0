@@ -17,8 +17,7 @@ function resolveApiUrl() {
     return 'http://localhost:3101/api';
   }
 
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:3101/api`;
+  return `${window.location.origin}/api`;
 }
 
 const API_URL = resolveApiUrl();

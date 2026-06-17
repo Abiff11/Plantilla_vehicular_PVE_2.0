@@ -10,13 +10,13 @@ function resolveApiBaseUrl() {
     "/api",
   );
   if (configuredUrl) {
-    return configuredUrl.replace(/\/api$/, "");
+    const apiBaseUrl = configuredUrl.replace(/\/api$/, "");
+    return apiBaseUrl || (typeof window === "undefined" ? "" : window.location.origin);
   }
   if (typeof window === "undefined") {
     return "http://localhost:3101";
   }
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:3101`;
+  return window.location.origin;
 }
 
 const API_BASE_URL = resolveApiBaseUrl();

@@ -20,7 +20,13 @@ function resolveApiBaseUrl() {
   const configuredApiUrl = resolveConfiguredNetworkUrl(import.meta.env.VITE_API_URL, '/api');
 
   if (configuredApiUrl) {
-    return configuredApiUrl.replace(/\/api$/, '');
+    const apiBaseUrl = configuredApiUrl.replace(/\/api$/, '');
+
+    if (apiBaseUrl) {
+      return apiBaseUrl;
+    }
+
+    return typeof window === 'undefined' ? '' : window.location.origin;
   }
 
   return null;
@@ -37,8 +43,7 @@ function resolveHealthUrl() {
     return 'http://localhost:3101/api/health';
   }
 
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:3101/api/health`;
+  return `${window.location.origin}/api/health`;
 }
 
 function normalizeSocketPath(value: string | undefined) {
@@ -58,7 +63,7 @@ function normalizeSocketPath(value: string | undefined) {
 function resolveSocketUrl() {
   const configuredSocketUrl = resolveConfiguredNetworkUrl(import.meta.env.VITE_SOCKET_URL, '/');
 
-  if (configuredSocketUrl && configuredSocketUrl !== '/') {
+  if (configuredSocketUrl) {
     if (configuredSocketUrl.startsWith('/')) {
       return typeof window === 'undefined' ? configuredSocketUrl : window.location.origin;
     }
@@ -80,8 +85,7 @@ function resolveSocketUrl() {
     return 'http://localhost:3101';
   }
 
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:3101`;
+  return window.location.origin;
 }
 
 const SOCKET_URL = resolveSocketUrl();
