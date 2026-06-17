@@ -875,6 +875,13 @@ input[type='file']::file-selector-button:active {
   font-size: 11px;
 }
 
+.modal-actions button,
+.modal-actions-row button,
+.table-action-button,
+.compact-button {
+  width: auto;
+}
+
 .table-action-button {
   min-height: 30px;
   padding: 0 10px;
@@ -3371,11 +3378,15 @@ tbody tr:hover {
   justify-content: flex-end;
 }
 
+.modal-actions button {
+  min-height: 34px;
+}
+
 .cancel-btn,
 .create-btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 11px;
   cursor: pointer;
   border: 1px solid var(--border);
 }
