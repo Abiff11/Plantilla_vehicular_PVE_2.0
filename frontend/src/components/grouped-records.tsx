@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   resolveVehiclePhysicalStatusTone,
@@ -8,6 +8,7 @@ import {
   resolveVehicleDisplayPlate,
   resolveVehiclePlateDisplayLabel,
 } from '../lib/vehicle-plates';
+import type { ReportExportHistoryEntry } from '../lib/report-export-history';
 import { getRecordActivitySummary } from '../modules/records/record-activity';
 import type { GroupedRegionRecords, RecordFieldCatalogMap, VehicleRecord } from '../types';
 import { EmptyState } from './empty-state';
@@ -23,6 +24,7 @@ type GroupedRecordsProps = {
   description: string;
   headerFilters?: ReactNode;
   reportContext?: string[];
+  onReportExport?: (entry: ReportExportHistoryEntry) => void;
   vehicleClassAfterDate?: boolean;
   renderRecordActions?: (record: VehicleRecord) => ReactNode;
   onRecordSelect?: (record: VehicleRecord) => void;
@@ -102,11 +104,24 @@ export function GroupedRecords({
   description,
   headerFilters,
   reportContext = [],
+  onReportExport,
   renderRecordActions,
   onRecordSelect,
 }: GroupedRecordsProps) {
   const [filters, setFilters] = useState<FiltersState>(initialFilters);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenReportExport = () => {
+      setIsReportModalOpen(true);
+    };
+
+    window.addEventListener('vehicle-report-export:open', handleOpenReportExport);
+
+    return () => {
+      window.removeEventListener('vehicle-report-export:open', handleOpenReportExport);
+    };
+  }, []);
 
   const filteredRegions = useMemo(() => {
     const normalizedSearch = filters.search.trim().toLowerCase();
@@ -181,15 +196,6 @@ export function GroupedRecords({
     (total, region) => total + region.delegations.length,
     0,
   );
-  const totalRecords = filteredRegions.reduce(
-    (total, region) =>
-      total +
-      region.delegations.reduce(
-        (delegationTotal, delegation) => delegationTotal + delegation.records.length,
-        0,
-      ),
-    0,
-  );
   const totalRegions = filteredRegions.length;
 
   const latestRecord = filteredRegions
@@ -219,6 +225,7 @@ export function GroupedRecords({
         title={`Reporte - ${title}`}
         records={filteredRegions}
         contextLines={exportContext}
+        onExport={onReportExport}
         onClose={() => setIsReportModalOpen(false)}
       />
 
@@ -239,14 +246,6 @@ export function GroupedRecords({
                   }
                 />
               </label>
-              <button
-                className="primary-button report-export-button"
-                type="button"
-                disabled={totalRecords === 0}
-                onClick={() => setIsReportModalOpen(true)}
-              >
-                Generar reporte
-              </button>
             </div>
           }
         />
@@ -359,7 +358,18 @@ export function GroupedRecords({
           items={[
             { label: 'Regiones visibles', value: totalRegions },
             { label: 'Delegaciones activas', value: totalDelegations },
-            { label: 'Capturas listadas', value: totalRecords },
+            {
+              label: 'Capturas listadas',
+              value: filteredRegions.reduce(
+                (total, region) =>
+                  total +
+                  region.delegations.reduce(
+                    (delegationTotal, delegation) => delegationTotal + delegation.records.length,
+                    0,
+                  ),
+                0,
+              ),
+            },
             {
               label: 'Ultima captura',
               value: latestRecord ? new Date(latestRecord.createdAt).toLocaleTimeString() : '-',

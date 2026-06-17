@@ -7,6 +7,7 @@ import {
   REPORT_FIELDS,
   type ReportFieldId,
 } from '../lib/report-export';
+import type { ReportExportHistoryEntry } from '../lib/report-export-history';
 import type { GroupedRegionRecords } from '../types';
 import '../report-export.css';
 
@@ -24,6 +25,7 @@ type ReportExportModalProps = {
   title: string;
   records: GroupedRegionRecords[];
   contextLines: string[];
+  onExport?: (entry: ReportExportHistoryEntry) => void;
   onClose: () => void;
 };
 
@@ -58,6 +60,7 @@ export function ReportExportModal({
   title,
   records,
   contextLines,
+  onExport,
   onClose,
 }: ReportExportModalProps) {
   const [selectedFieldIds, setSelectedFieldIds] = useState<ReportFieldId[]>(DEFAULT_REPORT_FIELD_IDS);
@@ -78,6 +81,18 @@ export function ReportExportModal({
     contextLines,
     columns: reportTable.columns,
     rows: reportTable.rows,
+  };
+
+  const recordExport = (format: ReportExportHistoryEntry['format']) => {
+    onExport?.({
+      title,
+      format,
+      recordCount: totalRecords,
+      fieldCount: selectedFieldIds.length,
+      contextLines,
+      createdAt: new Date().toISOString(),
+      id: `${format}-${Date.now()}`,
+    });
   };
 
   return (
@@ -210,7 +225,10 @@ export function ReportExportModal({
             className="secondary-button"
             type="button"
             disabled={!canExport}
-            onClick={() => downloadExcelReport(payload)}
+            onClick={() => {
+              recordExport('excel');
+              downloadExcelReport(payload);
+            }}
           >
             Descargar Excel
           </button>
@@ -218,7 +236,10 @@ export function ReportExportModal({
             className="primary-button"
             type="button"
             disabled={!canExport}
-            onClick={() => downloadPdfReport(payload)}
+            onClick={() => {
+              recordExport('pdf');
+              downloadPdfReport(payload);
+            }}
           >
             Descargar PDF
           </button>

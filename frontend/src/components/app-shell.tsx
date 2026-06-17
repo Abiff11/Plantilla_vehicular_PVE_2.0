@@ -44,6 +44,11 @@ const pageTitles: Record<string, { title: string; description: string }> = {
     description:
       "Consulta la operación vehicular general organizada por región y delegación.",
   },
+  [APP_ROUTES.vehicleReports]: {
+    title: "Reportes vehiculares",
+    description:
+      "Consulta el historial local de reportes y genera nuevos exportables desde la vista vehicular.",
+  },
   [APP_ROUTES.vehicleImports]: {
     title: "Importar Excel",
     description:
@@ -86,8 +91,8 @@ const pageTitles: Record<string, { title: string; description: string }> = {
 
 type SidebarItem = {
   label: string;
-  route: string;
   allowedRoles: (typeof ROUTE_ROLES)[keyof typeof ROUTE_ROLES];
+  route: string;
   end?: boolean;
 };
 
@@ -114,6 +119,17 @@ const sidebarSections: SidebarSection[] = [
       {
         label: "Vista general vehicular",
         route: APP_ROUTES.overview,
+        allowedRoles: ROUTE_ROLES.overview,
+        end: true,
+      },
+    ],
+  },
+  {
+    title: "Reportes vehiculares",
+    items: [
+      {
+        label: "Historial y generación",
+        route: APP_ROUTES.vehicleReports,
         allowedRoles: ROUTE_ROLES.overview,
         end: true,
       },
@@ -444,3 +460,4 @@ export function AppShell() {
     </div>
   );
 }
+

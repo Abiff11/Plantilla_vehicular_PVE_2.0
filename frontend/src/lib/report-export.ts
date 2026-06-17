@@ -421,84 +421,238 @@ ${bodyRows}
   );
 }
 
-function splitLongLine(line: string, maxLength: number) {
-  if (line.length <= maxLength) {
-    return [line];
-  }
-
-  const chunks: string[] = [];
-  let remaining = line;
-
-  while (remaining.length > maxLength) {
-    const breakPoint = remaining.lastIndexOf(' ', maxLength);
-    const cutAt = breakPoint > 40 ? breakPoint : maxLength;
-    chunks.push(remaining.slice(0, cutAt));
-    remaining = remaining.slice(cutAt).trimStart();
-  }
-
-  if (remaining) {
-    chunks.push(remaining);
-  }
-
-  return chunks;
+function normalizePdfText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .replace(/[^\x20-\x7E]/gu, ' ');
 }
 
-function buildPdfLines(payload: ReportDownloadPayload) {
-  const lines = [
-    payload.title,
+function escapePdfTextContent(value: string) {
+  return normalizePdfText(value)
+    .replace(/\\/gu, '\\\\')
+    .replace(/\(/gu, '\\(')
+    .replace(/\)/gu, '\\)');
+}
+
+function estimateTextWidth(value: string, fontSize: number) {
+  return Math.ceil(value.length * fontSize * 0.52);
+}
+
+function wrapPdfText(value: string, maxWidth: number, fontSize: number) {
+  const normalized = normalizePdfText(value).trim();
+
+  if (!normalized) {
+    return [''];
+  }
+
+  const words = normalized.split(/\s+/gu);
+  const lines: string[] = [];
+  let current = words[0] ?? '';
+
+  for (let index = 1; index < words.length; index += 1) {
+    const word = words[index];
+    const candidate = `${current} ${word}`;
+
+    if (estimateTextWidth(candidate, fontSize) <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+
+    lines.push(current);
+    current = word;
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+function buildPdfLayout(payload: ReportDownloadPayload) {
+  const fontSize = 8;
+  const headerFontSize = 9;
+  const titleFontSize = 13;
+  const lineHeight = 10;
+  const leftMargin = 20;
+  const rightMargin = 20;
+  const topMargin = 22;
+  const bottomMargin = 20;
+  const title = 'Reporte - POLICIA VIAL ESTATAL';
+  const metaLines = [
     `Generado: ${new Date().toLocaleString('es-MX')}`,
     `Registros: ${payload.rows.length}`,
     ...payload.contextLines,
-    '',
-    payload.columns.map((column) => column.label).join(' | '),
-    '-'.repeat(150),
-  ];
+  ].map(normalizePdfText);
 
-  for (const row of payload.rows) {
-    const line = row.cells.join(' | ');
-    lines.push(...splitLongLine(line, 155));
+  const columnWidths = payload.columns.map((column, columnIndex) => {
+    const columnSamples = [
+      column.label,
+      ...payload.rows.map((row) => row.cells[columnIndex] ?? ''),
+    ];
+    const maxSampleWidth = columnSamples.reduce((maxWidth, sample) => {
+      return Math.max(maxWidth, estimateTextWidth(normalizePdfText(sample), fontSize));
+    }, estimateTextWidth(normalizePdfText(column.label), headerFontSize));
+
+    return Math.max(78, Math.min(220, maxSampleWidth + 20));
+  });
+
+  const pageWidth = Math.max(
+    842,
+    leftMargin + rightMargin + columnWidths.reduce((total, width) => total + width, 0),
+  );
+  const pageHeight = 595;
+  const titleBlockHeight = 18 + metaLines.length * 11 + 10;
+  const tableHeaderHeight = 20;
+  const rowPaddingY = 6;
+
+  const wrappedRows = payload.rows.map((row) =>
+    row.cells.map((cell, columnIndex) =>
+      wrapPdfText(cell, columnWidths[columnIndex] - 12, fontSize),
+    ),
+  );
+
+  const rowHeights = wrappedRows.map((rowCells) => {
+    const maxLines = rowCells.reduce((max, cellLines) => Math.max(max, cellLines.length), 1);
+    return maxLines * lineHeight + rowPaddingY;
+  });
+
+  const availableHeight = pageHeight - topMargin - bottomMargin - titleBlockHeight - tableHeaderHeight - 8;
+  const pages: number[][] = [];
+  let currentPageRows: number[] = [];
+  let remainingHeight = availableHeight;
+
+  rowHeights.forEach((rowHeight, rowIndex) => {
+    if (currentPageRows.length > 0 && rowHeight > remainingHeight) {
+      pages.push(currentPageRows);
+      currentPageRows = [];
+      remainingHeight = availableHeight;
+    }
+
+    currentPageRows.push(rowIndex);
+    remainingHeight -= rowHeight;
+  });
+
+  if (currentPageRows.length > 0 || pages.length === 0) {
+    pages.push(currentPageRows);
   }
 
-  return lines.flatMap((line) => splitLongLine(line, 155));
+  return {
+    title,
+    metaLines,
+    pageWidth,
+    pageHeight,
+    titleFontSize,
+    fontSize,
+    headerFontSize,
+    lineHeight,
+    leftMargin,
+    topMargin,
+    bottomMargin,
+    titleBlockHeight,
+    tableHeaderHeight,
+    rowPaddingY,
+    columnWidths,
+    wrappedRows,
+    rowHeights,
+    pages,
+  };
 }
 
-function createPdfBlob(lines: string[]) {
-  const linesPerPage = 44;
-  const pages: string[][] = [];
-
-  for (let index = 0; index < lines.length; index += linesPerPage) {
-    pages.push(lines.slice(index, index + linesPerPage));
-  }
-
+function createPdfBlob(payload: ReportDownloadPayload) {
+  const layout = buildPdfLayout(payload);
   const objects: string[] = [];
   const pageObjectIds: number[] = [];
-  const fontObjectId = 3 + pages.length * 2;
+  const contentObjectIds: number[] = [];
+  const fontRegularObjectId = 3 + layout.pages.length * 2;
+  const fontBoldObjectId = fontRegularObjectId + 1;
 
-  objects[0] = '<< /Type /Catalog /Pages 2 0 R >>';
-  objects[1] = '';
+  const drawText = (
+    fontId: number,
+    fontSize: number,
+    x: number,
+    y: number,
+    text: string,
+  ) => `BT /F${fontId} ${fontSize} Tf 1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} Tm (${escapePdfTextContent(text)}) Tj ET`;
 
-  pages.forEach((pageLines, pageIndex) => {
+  const drawRect = (x: number, y: number, width: number, height: number, fill = false) =>
+    `${x.toFixed(2)} ${y.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re ${fill ? 'B' : 'S'}`;
+
+  layout.pages.forEach((pageRows, pageIndex) => {
     const pageObjectId = 3 + pageIndex * 2;
     const contentObjectId = pageObjectId + 1;
     pageObjectIds.push(pageObjectId);
-
-    const textStream = [
-      'BT',
-      '/F1 8 Tf',
-      '24 565 Td',
-      '11 TL',
-      ...pageLines.map((line, lineIndex) =>
-        `${lineIndex === 0 ? '' : 'T* ' }(${escapePdfText(line)}) Tj`,
-      ),
-      'ET',
-    ].join('\n');
-
-    objects[pageObjectId - 1] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${fontObjectId} 0 R >> >> /Contents ${contentObjectId} 0 R >>`;
-    objects[contentObjectId - 1] = `<< /Length ${textStream.length} >>\nstream\n${textStream}\nendstream`;
+    contentObjectIds.push(contentObjectId);
   });
 
-  objects[1] = `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`;
-  objects[fontObjectId - 1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  objects[0] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objects[1] = `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageObjectIds.length} >>`;
+  objects[fontRegularObjectId - 1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  objects[fontBoldObjectId - 1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
+
+  layout.pages.forEach((pageRows, pageIndex) => {
+    const pageObjectId = pageObjectIds[pageIndex];
+    const contentObjectId = contentObjectIds[pageIndex];
+    const commands: string[] = [];
+    const startX = layout.leftMargin;
+    const tableTopY = layout.pageHeight - layout.topMargin - layout.titleBlockHeight - layout.tableHeaderHeight - 6;
+
+    commands.push('0 0 0 RG');
+    commands.push('0 0 0 rg');
+    commands.push(drawText(fontBoldObjectId, layout.titleFontSize, startX, layout.pageHeight - layout.topMargin - layout.titleFontSize, layout.title));
+
+    let metaY = layout.pageHeight - layout.topMargin - layout.titleFontSize - 10;
+    layout.metaLines.forEach((line) => {
+      commands.push(drawText(fontRegularObjectId, layout.fontSize, startX, metaY, line));
+      metaY -= 11;
+    });
+
+    let currentY = tableTopY;
+    let currentX = startX;
+
+    commands.push('0.93 0.95 0.98 rg');
+    commands.push('0.18 0.24 0.35 RG');
+    layout.columnWidths.forEach((width, columnIndex) => {
+      commands.push(drawRect(currentX, currentY, width, layout.tableHeaderHeight, true));
+      const label = normalizePdfText(payload.columns[columnIndex]?.label ?? '');
+      const labelY = currentY + 6;
+      commands.push('0 0 0 rg');
+      commands.push(drawText(fontBoldObjectId, layout.headerFontSize, currentX + 4, labelY, label));
+      currentX += width;
+    });
+
+    currentY -= layout.tableHeaderHeight;
+
+    pageRows.forEach((rowIndex) => {
+      const rowHeight = layout.rowHeights[rowIndex];
+      const rowCells = layout.wrappedRows[rowIndex];
+      currentX = startX;
+
+      rowCells.forEach((cellLines, columnIndex) => {
+        const width = layout.columnWidths[columnIndex];
+        commands.push('1 1 1 rg');
+        commands.push('0.80 0.84 0.88 RG');
+        commands.push(drawRect(currentX, currentY - rowHeight, width, rowHeight, false));
+
+        let textY = currentY - 7;
+        cellLines.forEach((line) => {
+          commands.push('0 0 0 rg');
+          commands.push(drawText(fontRegularObjectId, layout.fontSize, currentX + 4, textY, line));
+          textY -= layout.lineHeight;
+        });
+
+        currentX += width;
+      });
+
+      currentY -= rowHeight;
+    });
+
+    const contentStream = commands.join('\n');
+    objects[pageObjectId - 1] =
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${layout.pageWidth.toFixed(2)} ${layout.pageHeight.toFixed(2)}] /Resources << /Font << /F${fontRegularObjectId} ${fontRegularObjectId} 0 R /F${fontBoldObjectId} ${fontBoldObjectId} 0 R >> >> /Contents ${contentObjectId} 0 R >>`;
+    objects[contentObjectId - 1] = `<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream`;
+  });
 
   const offsets: number[] = [];
   let pdf = '%PDF-1.4\n';
@@ -519,11 +673,10 @@ function createPdfBlob(lines: string[]) {
 }
 
 export function downloadPdfReport(payload: ReportDownloadPayload) {
-  const lines = buildPdfLines(payload);
-  const blob = createPdfBlob(lines);
+  const blob = createPdfBlob(payload);
 
   downloadBlob(
     blob,
-    `${normalizeFileName(payload.title)}-${new Date().toISOString().slice(0, 10)}.pdf`,
+    `Reporte-POLICIA-VIAL-ESTATAL-${new Date().toISOString().slice(0, 10)}.pdf`,
   );
 }

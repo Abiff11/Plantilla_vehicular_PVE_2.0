@@ -479,6 +479,16 @@ export class RecordsService {
 
     const fromDelegation = record.delegation;
     const movedAt = new Date();
+    const before = {
+      delegation: fromDelegation.name,
+      regionName: record.regionName,
+      adscription: record.adscription,
+    };
+    const after = {
+      delegation: toDelegation.name,
+      regionName: toDelegation.region.name,
+      adscription: toDelegation.name,
+    };
 
     await this.vehicleTransferRepository.save(
       this.vehicleTransferRepository.create({
@@ -492,8 +502,25 @@ export class RecordsService {
     );
 
     record.delegation = toDelegation;
+    record.regionName = after.regionName;
+    record.delegationName = after.delegation;
+    record.adscription = after.adscription;
     await this.recordRepository.save(record);
     const updatedRecord = await this.findOne(id);
+
+    await this.auditLogsService.register({
+      actorId: authUser.sub,
+      action: "RECORD_UPDATED",
+      entityType: "record",
+      entityId: id,
+      metadata: {
+        delegationId: toDelegation.id,
+        regionId: toDelegation.region.id,
+        changedFields: ["delegation", "delegationName", "regionName", "adscription"],
+        before,
+        after,
+      },
+    });
 
     await this.auditLogsService.register({
       actorId: authUser.sub,
@@ -1733,21 +1760,6 @@ export class RecordsService {
       return [];
     }
 
-    const historicalRecordIds = await this.vehicleTransferRepository
-      .createQueryBuilder("transfer")
-      .leftJoin("transfer.record", "record")
-      .select("record.id", "id")
-      .where("transfer.fromDelegationId IN (:...scopeDelegationIds)", {
-        scopeDelegationIds: filters.scopeDelegationIds,
-      })
-      .orWhere("transfer.toDelegationId IN (:...scopeDelegationIds)", {
-        scopeDelegationIds: filters.scopeDelegationIds,
-      })
-      .getRawMany<{ id: string }>();
-
-    const recordIds = Array.from(
-      new Set(historicalRecordIds.map((row) => row.id)),
-    );
     const query = this.recordRepository
       .createQueryBuilder("record")
       .leftJoinAndSelect("record.delegation", "delegation")
@@ -1755,19 +1767,9 @@ export class RecordsService {
       .leftJoinAndSelect("record.createdBy", "createdBy")
       .leftJoinAndSelect("record.photos", "photos")
       .leftJoinAndSelect("photos.uploadedBy", "photoUploadedBy")
-      .where(
-        new Brackets((whereBuilder) => {
-          whereBuilder.where("delegation.id IN (:...scopeDelegationIds)", {
-            scopeDelegationIds: filters.scopeDelegationIds,
-          });
-
-          if (recordIds.length > 0) {
-            whereBuilder.orWhere("record.id IN (:...recordIds)", {
-              recordIds,
-            });
-          }
-        }),
-      )
+      .where("delegation.id IN (:...scopeDelegationIds)", {
+        scopeDelegationIds: filters.scopeDelegationIds,
+      })
       .orderBy("record.createdAt", "DESC");
 
     if (filters.dateFrom) {
@@ -1783,12 +1785,11 @@ export class RecordsService {
     }
 
     const records = await query.getMany();
-    return this.hydrateRecordViews(records, filters.scopeDelegationIds);
+    return this.hydrateRecordViews(records);
   }
 
   private async hydrateRecordViews(
     records: RecordEntity[],
-    scopeDelegationIds: string[],
   ) {
     if (records.length === 0) {
       return [];
@@ -1848,63 +1849,19 @@ export class RecordsService {
     for (const record of records) {
       const recordTransfers = transfersByRecordId.get(record.id) ?? [];
       const recordEdits = editsByRecordId.get(record.id) ?? [];
-      const viewDelegations = new Map<string, ViewDelegation>();
-
-      if (scopeDelegationIds.includes(record.delegation.id)) {
-        viewDelegations.set(
-          record.delegation.id,
-          this.mapDelegation(record.delegation),
-        );
-      }
-
-      for (const transfer of recordTransfers) {
-        if (scopeDelegationIds.includes(transfer.fromDelegation.id)) {
-          viewDelegations.set(
-            transfer.fromDelegation.id,
-            this.mapDelegation(transfer.fromDelegation),
-          );
-        }
-
-        if (scopeDelegationIds.includes(transfer.toDelegation.id)) {
-          viewDelegations.set(
-            transfer.toDelegation.id,
-            this.mapDelegation(transfer.toDelegation),
-          );
-        }
-      }
-
-      for (const viewDelegation of viewDelegations.values()) {
-        const scopedTransferHistory = recordTransfers
-          .filter(
-            (transfer) =>
-              transfer.fromDelegation.id === viewDelegation.id ||
-              transfer.toDelegation.id === viewDelegation.id,
-          )
-          .map((transfer) => this.mapTransfer(transfer));
-        const latestTransfer =
-          (record.delegation.id === viewDelegation.id
-            ? scopedTransferHistory[0]
-            : scopedTransferHistory.find(
-                (transfer) => transfer.fromDelegation.id === viewDelegation.id,
-              )) ??
-          scopedTransferHistory[0] ??
-          null;
-
-        rows.push({
-          ...record,
-          viewDelegation,
-          recordState:
-            record.delegation.id === viewDelegation.id
-              ? "CURRENT"
-              : "TRANSFERRED_OUT",
-          latestTransfer,
-          latestEdit: recordEdits[0] ? this.mapEditLog(recordEdits[0]) : null,
-          transferHistory: recordTransfers.map((transfer) =>
-            this.mapTransfer(transfer),
-          ),
-          editHistory: recordEdits.map((editLog) => this.mapEditLog(editLog)),
-        });
-      }
+      rows.push({
+        ...record,
+        viewDelegation: this.mapDelegation(record.delegation),
+        recordState: "CURRENT",
+        latestTransfer: recordTransfers[0]
+          ? this.mapTransfer(recordTransfers[0])
+          : null,
+        latestEdit: recordEdits[0] ? this.mapEditLog(recordEdits[0]) : null,
+        transferHistory: recordTransfers.map((transfer) =>
+          this.mapTransfer(transfer),
+        ),
+        editHistory: recordEdits.map((editLog) => this.mapEditLog(editLog)),
+      });
     }
 
     return rows.sort(

@@ -13,6 +13,7 @@ import { DirectorGeneralMapPage } from "./pages/director-general-map-page";
 import { DirectorOperativoPage } from "./pages/director-operativo-page";
 import { CatalogsPage } from "./pages/catalogs-page";
 import { VehicleImportPage } from "./pages/vehicle-import-page";
+import { VehicleReportsPage } from "./pages/vehicle-reports-page";
 import { APP_ROUTES, LEGACY_ROUTE_REDIRECTS } from "./lib/routes";
 import { ALL_ROLES, ROUTE_ROLES } from "./lib/role-access";
 import { PlantillaReportesPage } from "./pages/plantilla-reportes-page";
@@ -68,6 +69,14 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={ROUTE_ROLES.vehicleImports}>
               <VehicleImportPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={APP_ROUTES.vehicleReports.slice(1)}
+          element={
+            <ProtectedRoute allowedRoles={ROUTE_ROLES.overview}>
+              <VehicleReportsPage />
             </ProtectedRoute>
           }
         />

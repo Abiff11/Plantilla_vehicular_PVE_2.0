@@ -387,6 +387,12 @@ table {
   padding-top: 10px;
   flex-shrink: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 8px;
+}
+
+.sidebar-footer button {
+  width: 100%;
 }
 
 .main-stage {
@@ -608,6 +614,19 @@ table {
 
 .query-filter-grid {
   margin-bottom: 0;
+}
+
+.query-filter-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.query-filter-hint {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .toolbar-search input {

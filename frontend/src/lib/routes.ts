@@ -5,6 +5,7 @@ export const APP_ROUTES = {
   archive: '/archive',
   monitor: '/monitor',
   overview: '/overview',
+  vehicleReports: '/reports/vehicular',
   vehicleImports: '/imports/vehicles',
   insights: '/insights',
   insightsMap: '/insights/map',

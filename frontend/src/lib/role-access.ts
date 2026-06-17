@@ -14,6 +14,9 @@ export const ALL_ROLES: Role[] = [
 export const MESSENGER_ROLES: Role[] = [
   "enlace",
   "plantilla_vehicular",
+  "director_operativo",
+  "director_general",
+  "superadmin",
   "coordinacion",
 ];
 
@@ -23,7 +26,7 @@ export const ROUTE_ROLES = {
   archive: ["enlace"] as Role[],
   monitor: ["director_operativo"] as Role[],
   overview: ["plantilla_vehicular", "superadmin", "coordinacion"] as Role[],
-  vehicleImports: ["plantilla_vehicular", "superadmin", "coordinacion"] as Role[],
+  vehicleImports: ["superadmin", "coordinacion"] as Role[],
   reportsDelegations: ["director_operativo"] as Role[],
   reportsRegional: [
     "plantilla_vehicular",
@@ -37,7 +40,12 @@ export const ROUTE_ROLES = {
     "superadmin",
     "coordinacion",
   ] as Role[],
-  insightsMap: ["director_general", "superadmin", "coordinacion"] as Role[],
+  insightsMap: [
+    "director_general",
+    "plantilla_vehicular",
+    "superadmin",
+    "coordinacion",
+  ] as Role[],
   control: ["superadmin", "coordinacion"] as Role[],
   catalogs: ["plantilla_vehicular", "superadmin", "coordinacion"] as Role[],
   controlActivity: ["superadmin", "coordinacion"] as Role[],
