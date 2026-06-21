@@ -13,6 +13,7 @@ import { VehicleImportBatchEntity, VehicleImportBatchStatus } from '../entities/
 import { VehicleImportErrorEntity } from '../entities/vehicle-import-error.entity';
 import { normalizeExcelImportRecord, type NormalizedExcelImportRecord } from './excel-import-normalizer';
 import { parseExcelWorkbook } from './excel-workbook.parser';
+import { assertValidExcelSignature } from 'src/common/security/upload-validation';
 
 type UploadedExcelFile = { originalname: string; mimetype: string; buffer: Buffer; size: number };
 type AuthUser = { sub: string; role: Role; regionId: string | null; delegationId: string | null };
@@ -155,8 +156,17 @@ export class RecordsImportService {
 
   private assertExcelFile(file: UploadedExcelFile) {
     if (!file) throw new BadRequestException('Se requiere un archivo Excel.');
-    if (!file.originalname.toLowerCase().endsWith('.xlsx')) throw new BadRequestException('Solo se permite archivo .xlsx.');
-    if (!EXCEL_MIME_TYPES.has(file.mimetype)) throw new BadRequestException('El archivo no tiene un tipo MIME permitido para Excel.');
+
+    if (!EXCEL_MIME_TYPES.has(file.mimetype)) {
+      throw new BadRequestException('El archivo no tiene un tipo MIME permitido para Excel.');
+    }
+
+    try {
+      assertValidExcelSignature(file);
+    } catch (error) {
+      throw new BadRequestException(error instanceof Error ? error.message : 'El archivo Excel no es valido.');
+    }
+
     if (file.size > 15 * 1024 * 1024) throw new BadRequestException('El archivo Excel no debe superar 15 MB.');
   }
 

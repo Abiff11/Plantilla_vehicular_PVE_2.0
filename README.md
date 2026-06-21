@@ -82,6 +82,22 @@ La contraseña real debe vivir en:
 /opt/intranet/infra/security/plantilla_vehicular.db.env
 ```
 
+## Almacenamiento de imágenes
+
+En producción las fotos de vehículos y adjuntos del mensajero se guardan en Cloudflare R2. El backend no debe arrancar en `NODE_ENV=production` si `STORAGE_DRIVER` no es `r2`.
+
+Variables requeridas en `.env`:
+
+```txt
+STORAGE_DRIVER=r2
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=
+```
+
+`R2_PUBLIC_URL` es opcional. Si se define con un dominio público de R2 o un dominio propio de Cloudflare, las URLs guardadas apuntan directo a ese dominio. Si queda vacío, la app sirve los archivos desde `/api/files/*` y el backend lee el objeto desde R2.
+
 ## Deploy en servidor
 
 Ruta del repo:

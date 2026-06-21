@@ -11,6 +11,7 @@ import { Readable } from "stream";
 export class R2StorageProvider implements StorageProvider {
   private readonly client: S3Client;
   private readonly bucket: string;
+  private readonly publicUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     const storageConfig = createStorageConfig(this.configService);
@@ -20,7 +21,6 @@ export class R2StorageProvider implements StorageProvider {
       ["R2_ACCESS_KEY_ID", storageConfig.r2.accessKeyId],
       ["R2_SECRET_ACCESS_KEY", storageConfig.r2.secretAccessKey],
       ["R2_BUCKET", storageConfig.r2.bucket],
-      ["R2_PUBLIC_URL", storageConfig.r2.publicUrl],
     ].filter(([, value]) => !value);
 
     if (missingValues.length > 0) {
@@ -32,6 +32,7 @@ export class R2StorageProvider implements StorageProvider {
     }
 
     this.bucket = storageConfig.r2.bucket;
+    this.publicUrl = storageConfig.r2.publicUrl.replace(/\/+$/u, "");
 
     this.client = new S3Client({
       region: "auto",
@@ -64,7 +65,7 @@ export class R2StorageProvider implements StorageProvider {
       originalName: file.originalname,
       fileName,
       objectKey,
-      publicUrl: `/api/files/${objectKey}`,
+      publicUrl: this.publicUrl ? `${this.publicUrl}/${objectKey}` : `/api/files/${objectKey}`,
       mimeType: file.mimetype,
       size: file.size,
       storageProvider: "r2",

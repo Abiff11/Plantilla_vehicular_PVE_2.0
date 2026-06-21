@@ -14,6 +14,35 @@ type AuditPayload = {
   metadata?: Record<string, unknown>;
 };
 
+const SENSITIVE_METADATA_KEYS = [
+  /password/i,
+  /token/i,
+  /secret/i,
+  /cookie/i,
+  /authorization/i,
+  /session/i,
+];
+
+function sanitizeMetadataValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeMetadataValue(item));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, entry]) => {
+      if (SENSITIVE_METADATA_KEYS.some((pattern) => pattern.test(key))) {
+        return [key, '[REDACTED]'];
+      }
+
+      return [key, sanitizeMetadataValue(entry)];
+    }),
+  );
+}
+
 @Injectable()
 export class AuditLogsService {
   constructor(
@@ -28,6 +57,7 @@ export class AuditLogsService {
     const actor = payload.actorId
       ? await this.userRepository.findOneBy({ id: payload.actorId })
       : null;
+    const metadata = sanitizeMetadataValue(payload.metadata ?? {});
 
     const auditLog = await this.auditLogRepository.save(
       this.auditLogRepository.create({
@@ -35,7 +65,7 @@ export class AuditLogsService {
         action: payload.action,
         entityType: payload.entityType,
         entityId: payload.entityId,
-        metadata: payload.metadata ?? {},
+        metadata: metadata as Record<string, unknown>,
       }),
     );
 

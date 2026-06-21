@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,6 +10,7 @@ import { Role } from "src/common/enums/role.enum";
 import { AuditLogsService } from "src/modules/audit-logs/audit-logs.service";
 import { RealtimeGateway } from "src/modules/realtime/realtime.gateway";
 import { UserEntity } from "src/modules/users/entities/user.entity";
+import { assertValidMessageAttachmentSignature } from "src/common/security/upload-validation";
 import { CreateConversationDto } from "./dto/create-conversation.dto";
 import { MarkReadDto } from "./dto/mark-read.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
@@ -189,6 +191,7 @@ export class MessagesService {
     const conversation = await this.findOneConversation(dto.conversationId);
 
     this.validateConversationAccess(conversation, authUser.sub);
+    this.assertValidAttachments(photos);
 
     const sender = await this.userRepository.findOneBy({ id: authUser.sub });
 
@@ -381,6 +384,22 @@ export class MessagesService {
 
     if (!isParticipant) {
       throw new ForbiddenException("No formas parte de esta conversacion.");
+    }
+  }
+
+  private assertValidAttachments(photos?: UploadedFile[]) {
+    if (!photos || photos.length === 0) {
+      return;
+    }
+
+    for (const photo of photos) {
+      try {
+        assertValidMessageAttachmentSignature(photo);
+      } catch (error) {
+        throw new BadRequestException(
+          error instanceof Error ? error.message : "El archivo no coincide con un tipo permitido.",
+        );
+      }
     }
   }
 }
