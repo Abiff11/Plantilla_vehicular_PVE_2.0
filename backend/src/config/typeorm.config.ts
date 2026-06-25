@@ -79,6 +79,15 @@ function resolveNumber(value: string | number | undefined, fallback: number) {
   return Number.isFinite(parsedValue) ? parsedValue : fallback;
 }
 
+function resolvePositiveNumber(
+  value: string | number | undefined,
+  fallback: number,
+  min = 1,
+) {
+  const parsedValue = resolveNumber(value, fallback);
+  return parsedValue >= min ? parsedValue : fallback;
+}
+
 function resolveBoolean(value: string | undefined, fallback: boolean) {
   if (value === 'true') {
     return true;
@@ -113,6 +122,10 @@ export function createTypeOrmOptions(
     readValue('DATABASE_SSL_REJECT_UNAUTHORIZED', 'true'),
     true,
   );
+  const queryCacheEnabled = resolveBoolean(
+    readValue('CACHE_QUERY_ENABLED', 'false'),
+    false,
+  );
 
   return {
     type: 'postgres',
@@ -129,6 +142,28 @@ export function createTypeOrmOptions(
     migrationsRun: resolveBoolean(readValue('DATABASE_MIGRATIONS_RUN', 'false'), false),
     dropSchema: false,
     ssl: databaseSsl ? { rejectUnauthorized } : false,
+    extra: {
+      max: resolvePositiveNumber(readValue('DB_POOL_MAX', '20'), 20),
+      idleTimeoutMillis: resolvePositiveNumber(
+        readValue('DB_POOL_IDLE_TIMEOUT_MS', '30000'),
+        30_000,
+        1_000,
+      ),
+      connectionTimeoutMillis: resolvePositiveNumber(
+        readValue('DB_POOL_CONNECTION_TIMEOUT_MS', '5000'),
+        5_000,
+        500,
+      ),
+    },
+    cache: queryCacheEnabled
+      ? {
+          duration: resolvePositiveNumber(
+            readValue('CACHE_QUERY_DURATION_MS', '30000'),
+            30_000,
+            1_000,
+          ),
+        }
+      : false,
   };
 }
 
