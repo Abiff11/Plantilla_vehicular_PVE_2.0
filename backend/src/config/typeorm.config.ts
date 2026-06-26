@@ -140,6 +140,11 @@ export function createTypeOrmOptions(
     ],
     synchronize: false,
     migrationsRun: resolveBoolean(readValue('DATABASE_MIGRATIONS_RUN', 'false'), false),
+    maxQueryExecutionTime: resolvePositiveNumber(
+      readValue('DB_MAX_QUERY_EXECUTION_TIME', '500'),
+      500,
+      0,
+    ),
     dropSchema: false,
     ssl: databaseSsl ? { rejectUnauthorized } : false,
     extra: {
@@ -153,6 +158,16 @@ export function createTypeOrmOptions(
         readValue('DB_POOL_CONNECTION_TIMEOUT_MS', '5000'),
         5_000,
         500,
+      ),
+      statement_timeout: resolvePositiveNumber(
+        readValue('DB_STATEMENT_TIMEOUT_MS', '15000'),
+        15_000,
+        1_000,
+      ),
+      query_timeout: resolvePositiveNumber(
+        readValue('DB_QUERY_TIMEOUT_MS', '20000'),
+        20_000,
+        1_000,
       ),
     },
     cache: queryCacheEnabled
