@@ -88,8 +88,14 @@ export function performanceGuardMiddleware(
   }
 
   activeHeavyRequests += 1;
+  let released = false;
 
   const release = () => {
+    if (released) {
+      return;
+    }
+
+    released = true;
     activeHeavyRequests = Math.max(0, activeHeavyRequests - 1);
   };
 
