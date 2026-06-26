@@ -5,7 +5,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
-import { csrfMiddleware, httpLoggingMiddleware, rateLimitMiddleware, requestIdMiddleware } from './common/middleware';
+import { csrfMiddleware, httpLoggingMiddleware, performanceGuardMiddleware, rateLimitMiddleware, requestIdMiddleware } from './common/middleware';
 
 const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
@@ -101,6 +101,7 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().set('trust proxy', resolveTrustProxy());
 
   app.use(requestIdMiddleware);
+  app.use(performanceGuardMiddleware);
   app.use(rateLimitMiddleware);
   app.use(httpLoggingMiddleware);
   app.use(csrfMiddleware);
