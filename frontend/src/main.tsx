@@ -1,4 +1,5 @@
 import './lib/browser-request-defaults';
+import './lib/sweetalert-fetch-errors';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
