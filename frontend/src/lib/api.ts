@@ -41,6 +41,51 @@ function resolveApiUrl() {
 }
 
 const API_URL = resolveApiUrl();
+const GET_CACHE_TTL_MS = Number(import.meta.env.VITE_API_GET_CACHE_TTL_MS ?? 1500);
+const pendingGetRequests = new Map<string, Promise<unknown>>();
+const recentGetResponses = new Map<string, { expiresAt: number; value: unknown }>();
+
+function clearGetRequestCache() {
+  pendingGetRequests.clear();
+  recentGetResponses.clear();
+}
+
+function shouldReuseGetRequest(method: string, init?: RequestInit) {
+  return method === 'GET' && !init?.body && GET_CACHE_TTL_MS > 0;
+}
+
+function getRequestCacheKey(path: string, method: string, token?: string) {
+  return `${method}:${token ?? 'anon'}:${path}`;
+}
+
+async function withGetRequestReuse<T>(key: string, factory: () => Promise<T>): Promise<T> {
+  const cached = recentGetResponses.get(key);
+  const now = Date.now();
+
+  if (cached && cached.expiresAt > now) {
+    return cached.value as T;
+  }
+
+  const pending = pendingGetRequests.get(key);
+  if (pending) {
+    return pending as Promise<T>;
+  }
+
+  const requestPromise = factory()
+    .then((value) => {
+      recentGetResponses.set(key, {
+        expiresAt: Date.now() + GET_CACHE_TTL_MS,
+        value,
+      });
+      return value;
+    })
+    .finally(() => {
+      pendingGetRequests.delete(key);
+    });
+
+  pendingGetRequests.set(key, requestPromise as Promise<unknown>);
+  return requestPromise;
+}
 
 function translateBackendMessage(message: string) {
   const exactTranslations: Record<string, string> = {
@@ -141,38 +186,51 @@ function getPublicErrorMessage(status: number, responseText = '') {
 }
 
 async function request<T>(path: string, init?: RequestInit, token?: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const executeRequest = async () => {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
 
-  if (!response.ok) {
-    const responseText = await response.text();
+    if (!response.ok) {
+      const responseText = await response.text();
 
-    if (response.status === 401 && token) {
-      if (unauthorizedHandler) {
-        unauthorizedHandler();
+      if (response.status === 401 && token) {
+        if (unauthorizedHandler) {
+          unauthorizedHandler();
+        }
       }
+
+      throw new Error(getPublicErrorMessage(response.status, responseText));
     }
 
-    throw new Error(getPublicErrorMessage(response.status, responseText));
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      clearGetRequestCache();
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const responseText = await response.text();
+
+    if (!responseText.trim()) {
+      return undefined as T;
+    }
+
+    return JSON.parse(responseText) as T;
+  };
+
+  if (shouldReuseGetRequest(method, init)) {
+    return withGetRequestReuse<T>(getRequestCacheKey(path, method, token), executeRequest);
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const responseText = await response.text();
-
-  if (!responseText.trim()) {
-    return undefined as T;
-  }
-
-  return JSON.parse(responseText) as T;
+  return executeRequest();
 }
 
 async function requestWithFormData<T>(path: string, formData: FormData, token: string): Promise<T> {
@@ -195,6 +253,8 @@ async function requestWithFormData<T>(path: string, formData: FormData, token: s
 
     throw new Error(getPublicErrorMessage(response.status, responseText));
   }
+
+  clearGetRequestCache();
 
   const responseText = await response.text();
 
