@@ -84,19 +84,36 @@ La contraseña real debe vivir en:
 
 ## Almacenamiento de imágenes
 
-En producción las fotos de vehículos y adjuntos del mensajero se guardan en Cloudflare R2. El backend no debe arrancar en `NODE_ENV=production` si `STORAGE_DRIVER` no es `r2`.
+En producción las fotos de vehículos y adjuntos del mensajero se guardan en el servidor usando `STORAGE_DRIVER=local`.
 
-Variables requeridas en `.env`:
+El backend escribe los archivos dentro de:
 
 ```txt
-STORAGE_DRIVER=r2
+/app/backend/uploads
+```
+
+Ese directorio está montado por Docker en el volumen persistente:
+
+```txt
+plantilla_uploads
+```
+
+Variables requeridas en `.env` para almacenamiento local:
+
+```txt
+STORAGE_DRIVER=local
+```
+
+Cloudflare R2 sigue soportado como opción alternativa. Para usarlo se debe cambiar `STORAGE_DRIVER=r2` y configurar:
+
+```txt
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET=
 ```
 
-`R2_PUBLIC_URL` es opcional. Si se define con un dominio público de R2 o un dominio propio de Cloudflare, las URLs guardadas apuntan directo a ese dominio. Si queda vacío, la app sirve los archivos desde `/api/files/*` y el backend lee el objeto desde R2.
+`R2_PUBLIC_URL` es opcional. Si se define con un dominio público de R2 o un dominio propio de Cloudflare, las URLs guardadas apuntan directo a ese dominio. Si queda vacío, la app sirve los archivos desde `/api/files/*`.
 
 ## Deploy en servidor
 
