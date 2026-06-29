@@ -174,10 +174,6 @@ export function validateEnv(config: EnvConfig): NormalizedEnvConfig {
       'DATABASE_PASSWORD',
       16,
     );
-
-    if (normalizedConfig.STORAGE_DRIVER !== 'r2') {
-      throw new Error('STORAGE_DRIVER must be r2 in production');
-    }
   } else if (config.FRONTEND_ORIGINS?.trim()) {
     normalizedConfig.FRONTEND_ORIGINS = validateOrigins(config.FRONTEND_ORIGINS, false);
   }
