@@ -17,7 +17,10 @@ import type {
 
 export function PlantillaVehicularPage() {
   const { session } = useAuth();
-  const isSuperAdmin = session?.user.role === 'superadmin';
+  const canDeleteRecord =
+    session?.user.role === 'plantilla_vehicular' ||
+    session?.user.role === 'superadmin' ||
+    session?.user.role === 'coordinacion';
   const [regions, setRegions] = useState<GroupedRegionRecords[]>([]);
   const [catalogRegions, setCatalogRegions] = useState<Region[]>([]);
   const [fieldCatalogs, setFieldCatalogs] = useState<RecordFieldCatalogMap | null>(null);
@@ -185,7 +188,7 @@ export function PlantillaVehicularPage() {
   };
 
   const deleteRecord = async (record: VehicleRecord) => {
-    if (!session || !isSuperAdmin) {
+    if (!session || !canDeleteRecord) {
       return;
     }
 
@@ -262,7 +265,7 @@ export function PlantillaVehicularPage() {
               <button className="inline-button" type="button" onClick={() => void transferRecord(record)}>
                 Trasladar
               </button>
-              {isSuperAdmin ? (
+              {canDeleteRecord ? (
                 <button className="inline-button" type="button" onClick={() => void deleteRecord(record)}>
                   Eliminar
                 </button>
