@@ -5,6 +5,7 @@ const CSRF_COOKIE_NAME = 'pve_vehicle_csrf_token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const EXCLUDED_PATHS = new Set(['/api/auth/login']);
+const EXCLUDED_PREFIXES = ['/api/integrations/control-personal/'];
 
 function parseCookie(cookieHeader: string | undefined, name: string) {
   if (!cookieHeader) {
@@ -49,8 +50,12 @@ function validateRequestOrigin(request: Request) {
   throw new ForbiddenException('Origen no permitido.');
 }
 
+function isCsrfExcludedPath(path: string) {
+  return EXCLUDED_PATHS.has(path) || EXCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 export function csrfMiddleware(request: Request, _response: Response, next: NextFunction) {
-  if (SAFE_METHODS.has(request.method) || EXCLUDED_PATHS.has(request.path)) {
+  if (SAFE_METHODS.has(request.method) || isCsrfExcludedPath(request.path)) {
     next();
     return;
   }
