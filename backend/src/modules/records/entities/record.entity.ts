@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, OneToMany } from 'typeorm';
+import { Column, Entity, Index, ManyToOne, OneToMany } from 'typeorm';
 import { BaseEntity } from 'src/common/entities/base.entity';
 import { DelegationEntity } from 'src/modules/catalog/entities/delegation.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
@@ -62,6 +62,10 @@ export class RecordEntity extends BaseEntity {
 
   @Column()
   custodian!: string;
+
+  @Index('IDX_RECORDS_CUSTODIAN_OFICIAL_ID')
+  @Column({ type: 'uuid', nullable: true })
+  custodianOficialId!: string | null;
 
   @Column()
   patrolNumber!: string;
