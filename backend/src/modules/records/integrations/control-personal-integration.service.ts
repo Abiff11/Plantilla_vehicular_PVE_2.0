@@ -1,8 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { ILike, IsNull, Repository } from 'typeorm';
 import { AuditLogsService } from 'src/modules/audit-logs/audit-logs.service';
 import { RecordEntity } from '../entities/record.entity';
+
+export type VehicleLinkSource = 'UUID' | 'NOMBRE';
+export type VehicleMatchSource = 'UUID' | 'NOMBRE' | 'MIXTO' | 'NINGUNO';
 
 @Injectable()
 export class ControlPersonalIntegrationService {
@@ -13,10 +16,33 @@ export class ControlPersonalIntegrationService {
 
   async findVehiclesByOfficer(officerId: string, officerName?: string) {
     const stable = await this.recordsRepo.find({ where: { custodianOficialId: officerId }, order: { patrolNumber: 'ASC' } });
-    if (stable.length || !officerName?.trim()) return { matchSource: 'UUID', items: stable.map((item) => this.toView(item)) };
+    if (!officerName?.trim()) {
+      return {
+        matchSource: stable.length ? 'UUID' as const : 'NINGUNO' as const,
+        items: stable.map((item) => this.toView(item, 'UUID')),
+      };
+    }
 
-    const legacy = await this.recordsRepo.find({ where: { custodian: ILike(officerName.trim()) }, order: { patrolNumber: 'ASC' } });
-    return { matchSource: legacy.length ? 'NOMBRE' : 'NINGUNO', items: legacy.map((item) => this.toView(item)) };
+    const legacy = await this.recordsRepo.find({
+      where: { custodian: ILike(officerName.trim()), custodianOficialId: IsNull() },
+      order: { patrolNumber: 'ASC' },
+    });
+
+    const matchSource: VehicleMatchSource = stable.length && legacy.length
+      ? 'MIXTO'
+      : stable.length
+        ? 'UUID'
+        : legacy.length
+          ? 'NOMBRE'
+          : 'NINGUNO';
+
+    return {
+      matchSource,
+      items: [
+        ...stable.map((item) => this.toView(item, 'UUID')),
+        ...legacy.map((item) => this.toView(item, 'NOMBRE')),
+      ],
+    };
   }
 
   async linkVehicleToOfficer(recordId: string, officerId: string, officerName: string) {
@@ -32,7 +58,7 @@ export class ControlPersonalIntegrationService {
     }
 
     if (record.custodianOficialId === officerId) {
-      return { matchSource: 'UUID' as const, item: this.toView(record) };
+      return { matchSource: 'UUID' as const, item: this.toView(record, 'UUID') };
     }
 
     const previousOfficerId = record.custodianOficialId;
@@ -50,7 +76,7 @@ export class ControlPersonalIntegrationService {
       },
     });
 
-    return { matchSource: 'UUID' as const, item: this.toView(saved) };
+    return { matchSource: 'UUID' as const, item: this.toView(saved, 'UUID') };
   }
 
   private normalizeName(value: string) {
@@ -62,7 +88,7 @@ export class ControlPersonalIntegrationService {
       .toUpperCase();
   }
 
-  private toView(record: RecordEntity) {
+  private toView(record: RecordEntity, linkSource: VehicleLinkSource) {
     return {
       id: record.id,
       patrolNumber: record.patrolNumber,
@@ -76,6 +102,7 @@ export class ControlPersonalIntegrationService {
       status: record.status,
       adscription: record.adscription,
       realLocation: record.realLocation,
+      linkSource,
     };
   }
 }
