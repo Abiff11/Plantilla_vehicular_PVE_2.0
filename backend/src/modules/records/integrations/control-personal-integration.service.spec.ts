@@ -24,16 +24,20 @@ describe('ControlPersonalIntegrationService', () => {
     return { service: new ControlPersonalIntegrationService(repo, auditLogs), auditLogs };
   }
 
-  it('prioritizes the stable Control Personal UUID link', async () => {
-    const repo = { find: jest.fn().mockResolvedValueOnce([{ ...baseRecord, custodianOficialId: officerId }]) } as any;
+  it('returns UUID linked vehicles and marks each item source', async () => {
+    const repo = {
+      find: jest.fn()
+        .mockResolvedValueOnce([{ ...baseRecord, custodianOficialId: officerId }])
+        .mockResolvedValueOnce([]),
+    } as any;
     const { service } = createService(repo);
     const result = await service.findVehiclesByOfficer(officerId, 'OFICIAL PRUEBA');
     expect(result.matchSource).toBe('UUID');
     expect(result.items).toHaveLength(1);
-    expect(repo.find).toHaveBeenCalledTimes(1);
+    expect(result.items[0].linkSource).toBe('UUID');
   });
 
-  it('uses the legacy custodian name only when no UUID link exists', async () => {
+  it('uses the legacy custodian name only for unlinked vehicles', async () => {
     const repo = {
       find: jest.fn()
         .mockResolvedValueOnce([])
@@ -42,15 +46,29 @@ describe('ControlPersonalIntegrationService', () => {
     const { service } = createService(repo);
     const result = await service.findVehiclesByOfficer(officerId, 'OFICIAL PRUEBA');
     expect(result.matchSource).toBe('NOMBRE');
-    expect(result.items[0].patrolNumber).toBe('PV-001');
+    expect(result.items[0].linkSource).toBe('NOMBRE');
     expect(repo.find).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps UUID-linked and pending legacy vehicles together', async () => {
+    const secondRecord = { ...baseRecord, id: '33333333-3333-4333-8333-333333333333', patrolNumber: 'PV-002', custodianOficialId: null };
+    const repo = {
+      find: jest.fn()
+        .mockResolvedValueOnce([{ ...baseRecord, custodianOficialId: officerId }])
+        .mockResolvedValueOnce([secondRecord]),
+    } as any;
+    const { service } = createService(repo);
+    const result = await service.findVehiclesByOfficer(officerId, 'OFICIAL PRUEBA');
+    expect(result.matchSource).toBe('MIXTO');
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.linkSource)).toEqual(['UUID', 'NOMBRE']);
   });
 
   it('does not attempt the legacy lookup without an officer name', async () => {
     const repo = { find: jest.fn().mockResolvedValueOnce([]) } as any;
     const { service } = createService(repo);
     const result = await service.findVehiclesByOfficer(officerId);
-    expect(result.matchSource).toBe('UUID');
+    expect(result.matchSource).toBe('NINGUNO');
     expect(result.items).toEqual([]);
     expect(repo.find).toHaveBeenCalledTimes(1);
   });
@@ -67,6 +85,7 @@ describe('ControlPersonalIntegrationService', () => {
 
     expect(record.custodianOficialId).toBe(officerId);
     expect(result.matchSource).toBe('UUID');
+    expect(result.item.linkSource).toBe('UUID');
     expect(repo.save).toHaveBeenCalledTimes(1);
     expect(auditLogs.register).toHaveBeenCalledWith(expect.objectContaining({
       action: 'LINK_CONTROL_PERSONAL_CUSTODIAN',
@@ -76,7 +95,7 @@ describe('ControlPersonalIntegrationService', () => {
 
   it('rejects linking a vehicle already linked to another officer', async () => {
     const repo = {
-      findOne: jest.fn().mockResolvedValue({ ...baseRecord, custodianOficialId: '33333333-3333-4333-8333-333333333333' }),
+      findOne: jest.fn().mockResolvedValue({ ...baseRecord, custodianOficialId: '44444444-4444-4444-8444-444444444444' }),
     } as any;
     const { service } = createService(repo);
 
