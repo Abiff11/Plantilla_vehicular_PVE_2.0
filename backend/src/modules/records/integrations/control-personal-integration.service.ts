@@ -1,11 +1,15 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { AuditLogsService } from 'src/modules/audit-logs/audit-logs.service';
 import { RecordEntity } from '../entities/record.entity';
 
 export type VehicleLinkSource = 'UUID' | 'NOMBRE';
 export type VehicleMatchSource = 'UUID' | 'NOMBRE' | 'MIXTO' | 'NINGUNO';
+
+const LEGACY_NAME_ACCENTED_CHARACTERS = 'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖòóôõöÙÚÛÜùúûüÝýÿÇç';
+const LEGACY_NAME_ASCII_CHARACTERS = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiNnOOOOOoooooUUUUuuuuYyyCc';
+const NORMALIZED_CUSTODIAN_SQL = `UPPER(TRIM(REGEXP_REPLACE(TRANSLATE(record.custodian, '${LEGACY_NAME_ACCENTED_CHARACTERS}', '${LEGACY_NAME_ASCII_CHARACTERS}'), '[[:space:]]+', ' ', 'g')))`;
 
 @Injectable()
 export class ControlPersonalIntegrationService {
@@ -23,10 +27,7 @@ export class ControlPersonalIntegrationService {
       };
     }
 
-    const legacy = await this.recordsRepo.find({
-      where: { custodian: ILike(officerName.trim()), custodianOficialId: IsNull() },
-      order: { patrolNumber: 'ASC' },
-    });
+    const legacy = await this.findLegacyVehicles(this.normalizeName(officerName));
 
     const matchSource: VehicleMatchSource = stable.length && legacy.length
       ? 'MIXTO'
@@ -86,6 +87,15 @@ export class ControlPersonalIntegrationService {
       .replace(/\s+/gu, ' ')
       .trim()
       .toUpperCase();
+  }
+
+  private findLegacyVehicles(normalizedOfficerName: string) {
+    return this.recordsRepo
+      .createQueryBuilder('record')
+      .where('record."custodianOficialId" IS NULL')
+      .andWhere(`${NORMALIZED_CUSTODIAN_SQL} = :normalizedOfficerName`, { normalizedOfficerName })
+      .orderBy('record.patrolNumber', 'ASC')
+      .getMany();
   }
 
   private toView(record: RecordEntity, linkSource: VehicleLinkSource) {

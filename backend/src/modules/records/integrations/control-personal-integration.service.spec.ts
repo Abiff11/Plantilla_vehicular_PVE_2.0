@@ -24,12 +24,28 @@ describe('ControlPersonalIntegrationService', () => {
     return { service: new ControlPersonalIntegrationService(repo, auditLogs), auditLogs };
   }
 
+  function createLegacyQuery(items: any[]) {
+    return {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(items),
+    };
+  }
+
+  function createLookupRepo(stable: any[] = [], legacy: any[] = []) {
+    const legacyQuery = createLegacyQuery(legacy);
+    return {
+      repo: {
+        find: jest.fn().mockResolvedValue(stable),
+        createQueryBuilder: jest.fn().mockReturnValue(legacyQuery),
+      } as any,
+      legacyQuery,
+    };
+  }
+
   it('returns UUID linked vehicles and marks each item source', async () => {
-    const repo = {
-      find: jest.fn()
-        .mockResolvedValueOnce([{ ...baseRecord, custodianOficialId: officerId }])
-        .mockResolvedValueOnce([]),
-    } as any;
+    const { repo } = createLookupRepo([{ ...baseRecord, custodianOficialId: officerId }]);
     const { service } = createService(repo);
     const result = await service.findVehiclesByOfficer(officerId, 'OFICIAL PRUEBA');
     expect(result.matchSource).toBe('UUID');
@@ -38,25 +54,20 @@ describe('ControlPersonalIntegrationService', () => {
   });
 
   it('uses the legacy custodian name only for unlinked vehicles', async () => {
-    const repo = {
-      find: jest.fn()
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ ...baseRecord, custodianOficialId: null }]),
-    } as any;
+    const { repo, legacyQuery } = createLookupRepo([], [{ ...baseRecord, custodianOficialId: null }]);
     const { service } = createService(repo);
     const result = await service.findVehiclesByOfficer(officerId, 'OFICIAL PRUEBA');
     expect(result.matchSource).toBe('NOMBRE');
     expect(result.items[0].linkSource).toBe('NOMBRE');
-    expect(repo.find).toHaveBeenCalledTimes(2);
+    expect(repo.find).toHaveBeenCalledTimes(1);
+    expect(legacyQuery.andWhere).toHaveBeenCalledWith(expect.stringContaining('TRANSLATE(record.custodian'), {
+      normalizedOfficerName: 'OFICIAL PRUEBA',
+    });
   });
 
   it('keeps UUID-linked and pending legacy vehicles together', async () => {
     const secondRecord = { ...baseRecord, id: '33333333-3333-4333-8333-333333333333', patrolNumber: 'PV-002', custodianOficialId: null };
-    const repo = {
-      find: jest.fn()
-        .mockResolvedValueOnce([{ ...baseRecord, custodianOficialId: officerId }])
-        .mockResolvedValueOnce([secondRecord]),
-    } as any;
+    const { repo } = createLookupRepo([{ ...baseRecord, custodianOficialId: officerId }], [secondRecord]);
     const { service } = createService(repo);
     const result = await service.findVehiclesByOfficer(officerId, 'OFICIAL PRUEBA');
     expect(result.matchSource).toBe('MIXTO');
@@ -65,12 +76,43 @@ describe('ControlPersonalIntegrationService', () => {
   });
 
   it('does not attempt the legacy lookup without an officer name', async () => {
-    const repo = { find: jest.fn().mockResolvedValueOnce([]) } as any;
+    const { repo } = createLookupRepo();
     const { service } = createService(repo);
     const result = await service.findVehiclesByOfficer(officerId);
     expect(result.matchSource).toBe('NINGUNO');
     expect(result.items).toEqual([]);
     expect(repo.find).toHaveBeenCalledTimes(1);
+    expect(repo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['JOSÉ PÉREZ', 'JOSE PEREZ'],
+    ['josé pérez', 'JOSE PEREZ'],
+    ['  JOSÉ   PÉREZ  ', 'JOSE PEREZ'],
+  ])('normalizes historical names before lookup: %s', async (officerName, expectedNormalizedName) => {
+    const { repo, legacyQuery } = createLookupRepo([], [{ ...baseRecord, custodian: 'JOSÉ PÉREZ', custodianOficialId: null }]);
+    const { service } = createService(repo);
+
+    const result = await service.findVehiclesByOfficer(officerId, officerName);
+
+    expect(result.matchSource).toBe('NOMBRE');
+    expect(result.items[0].linkSource).toBe('NOMBRE');
+    expect(legacyQuery.andWhere).toHaveBeenCalledWith(expect.any(String), {
+      normalizedOfficerName: expectedNormalizedName,
+    });
+  });
+
+  it('does not return a historical vehicle for a different normalized name', async () => {
+    const { repo, legacyQuery } = createLookupRepo();
+    const { service } = createService(repo);
+
+    const result = await service.findVehiclesByOfficer(officerId, 'JOSE PEREZ GARCIA');
+
+    expect(result.matchSource).toBe('NINGUNO');
+    expect(result.items).toEqual([]);
+    expect(legacyQuery.andWhere).toHaveBeenCalledWith(expect.any(String), {
+      normalizedOfficerName: 'JOSE PEREZ GARCIA',
+    });
   });
 
   it('persists a confirmed UUID link and audits it', async () => {
