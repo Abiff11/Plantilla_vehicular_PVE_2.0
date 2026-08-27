@@ -15,6 +15,9 @@ import { VehicleImportErrorEntity } from './entities/vehicle-import-error.entity
 import { VehiclePhotoEntity } from './entities/vehicle-photo.entity';
 import { VehicleRosterReportEntity } from './entities/vehicle-roster-report.entity';
 import { VehicleTransferEntity } from './entities/vehicle-transfer.entity';
+import { ControlPersonalIntegrationController } from './integrations/control-personal-integration.controller';
+import { ControlPersonalIntegrationGuard } from './integrations/control-personal-integration.guard';
+import { ControlPersonalIntegrationService } from './integrations/control-personal-integration.service';
 import { RecordsImportController } from './imports/records-import.controller';
 import { RecordsImportService } from './imports/records-import.service';
 import { RecordFullEditService } from './record-full-edit.service';
@@ -41,12 +44,19 @@ import { StorageModule } from '../storage/storage.module';
     AuditLogsModule,
     StorageModule,
   ],
-  controllers: [RecordsController, RecordsImportController, DirectorOverviewController],
+  controllers: [
+    RecordsController,
+    RecordsImportController,
+    DirectorOverviewController,
+    ControlPersonalIntegrationController,
+  ],
   providers: [
     RecordsService,
     RecordFullEditService,
     RecordsImportService,
     DirectorOverviewService,
+    ControlPersonalIntegrationGuard,
+    ControlPersonalIntegrationService,
   ],
 })
 export class RecordsModule {}
