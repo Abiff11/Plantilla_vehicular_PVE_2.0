@@ -48,7 +48,7 @@ export class RecordPhotosService {
       throw new NotFoundException("No se encontro el usuario.");
     }
 
-    const hasPrimary = record.photos.some((photo) => photo.isPrimary);
+    const hasExistingPhotos = record.photos.length > 0;
     const storedPhotos = await Promise.all(
       photos.map((photo) =>
         this.storageService.saveFile({
@@ -67,7 +67,7 @@ export class RecordPhotosService {
         mimeType: storedPhoto.mimeType,
         size: storedPhoto.size,
         storageProvider: storedPhoto.storageProvider,
-        isPrimary: !hasPrimary && index === 0,
+        isPrimary: !hasExistingPhotos && index === 0,
         record,
         uploadedBy,
       }),
