@@ -9,6 +9,7 @@ import { CreateCatalogAliasDto } from './dto/create-catalog-alias.dto';
 import { CreateCatalogGroupDto } from './dto/create-catalog-group.dto';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
 import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
+import { VehicleFormCatalogService } from './vehicle-form-catalog.service';
 
 type AuthUser = {
   sub: string;
@@ -17,7 +18,10 @@ type AuthUser = {
 @Controller('catalog')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CatalogController {
-  constructor(private readonly catalogService: CatalogService) {}
+  constructor(
+    private readonly catalogService: CatalogService,
+    private readonly vehicleFormCatalogService: VehicleFormCatalogService,
+  ) {}
 
   @Get('regions')
   findAllRegions() {
@@ -26,7 +30,7 @@ export class CatalogController {
 
   @Get('record-fields')
   getRecordFieldCatalog() {
-    return this.catalogService.getRecordFieldCatalog();
+    return this.vehicleFormCatalogService.getRecordFieldCatalog();
   }
 
   @Get('groups')
