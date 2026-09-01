@@ -1,5 +1,6 @@
 import './lib/browser-request-defaults';
 import './lib/sweetalert-fetch-errors';
+import './lib/vehicle-kardex-photo-lightbox';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
