@@ -165,20 +165,24 @@ export async function openRecordDetails(
   options: OpenRecordDetailsOptions = {},
 ): Promise<RecordDetailsAction> {
   const displayPlates = resolveVehicleDisplayPlate(record);
+  const vehicleIdentifier = record.patrolNumber || displayPlates;
   const canEdit = options.canEdit === true && record.recordState === "CURRENT";
+  const historyCount = record.transferHistory.length + record.editHistory.length;
+
   const vehicleSummarySection = `
     <div class="activity-item vehicle-detail-summary">
       <div class="vehicle-detail-summary-top">
         <div>
           <span class="vehicle-detail-eyebrow">Kardex vehicular</span>
-          <strong>Datos del vehículo</strong>
+          <strong>${escapeHtml(record.patrolNumber || "Sin número de patrulla")}</strong>
         </div>
         <span class="record-chip is-info">${escapeHtml(displayPlates)}</span>
       </div>
       <div class="vehicle-detail-sections">
         <section class="vehicle-detail-section">
-          <h5>Placas</h5>
+          <h5>Identificación y placas</h5>
           <div class="vehicle-detail-grid">
+            ${renderVehicleDetailField("No. patrulla", record.patrolNumber)}
             ${renderVehicleDetailField("CIV", record.civ)}
             ${renderVehicleDetailField("Placas anteriores", record.previousPlates)}
             ${renderVehicleDetailField("Placas 2024", record.plates2024)}
@@ -207,26 +211,37 @@ export async function openRecordDetails(
           <h5>Asignación y estado</h5>
           <div class="vehicle-detail-grid">
             ${renderVehicleDetailField("Resguardante", record.custodian)}
-            ${renderVehicleDetailField("No. patrulla", record.patrolNumber)}
             ${renderVehicleDetailField("Adscripción", record.adscription)}
             ${renderVehicleDetailField("Ubicación real", record.realLocation)}
+            ${renderVehicleDetailField("Delegación actual", record.delegation.name)}
             ${renderVehicleDetailField("Estado físico", record.physicalStatus)}
             ${renderVehicleDetailField("Estatus sistema", record.status)}
             ${renderVehicleDetailField("Estatus Excel", record.rawCirculationStatus)}
             ${renderVehicleDetailField("Clasificación del bien", record.assetClassification)}
             ${renderVehicleDetailField("Anotación general", record.rawAssetClassification)}
-            ${renderVehicleDetailField("Delegación actual", record.delegation.name)}
           </div>
         </section>
+      </div>
+    </div>
+  `;
 
-        <section class="vehicle-detail-section">
-          <h5>Importación</h5>
-          <div class="vehicle-detail-grid">
-            ${renderVehicleDetailField("Sección Excel", record.sourceSection)}
-            ${renderVehicleDetailField("Fila Excel", record.sourceRowNumber)}
-            ${renderVehicleDetailField("Lote importación", record.importBatchId)}
-          </div>
-        </section>
+  const currentStateSection = `
+    <div class="vehicle-detail-current-card">
+      <div class="vehicle-detail-current-item">
+        <span>Estado del registro</span>
+        <strong>${escapeHtml(record.recordState === "CURRENT" ? "Vigente" : "Trasladado")}</strong>
+      </div>
+      <div class="vehicle-detail-current-item">
+        <span>Delegación actual</span>
+        <strong>${escapeHtml(record.delegation.name)}</strong>
+      </div>
+      <div class="vehicle-detail-current-item">
+        <span>Delegación consultada</span>
+        <strong>${escapeHtml(record.viewDelegation.name)}</strong>
+      </div>
+      <div class="vehicle-detail-current-item">
+        <span>Placas visibles</span>
+        <strong>${escapeHtml(displayPlates)}</strong>
       </div>
     </div>
   `;
@@ -246,7 +261,7 @@ export async function openRecordDetails(
       ? `
         <div class="activity-item">
           <div class="activity-item-head">
-            <strong>Fotos</strong>
+            <strong>Fotos de la unidad</strong>
             <span>${record.photos.length} imagen(es)</span>
           </div>
           <div class="photo-gallery">
@@ -257,7 +272,7 @@ export async function openRecordDetails(
       : '<div class="activity-item"><span>Sin fotos cargadas.</span></div>';
 
   const result = await Swal.fire({
-    title: `Historial de ${escapeHtml(displayPlates)}`,
+    title: `Kárdex vehicular · ${vehicleIdentifier}`,
     width: 900,
     confirmButtonText: canEdit ? (options.editButtonText ?? "Editar vehículo") : "Cerrar",
     showCancelButton: canEdit,
@@ -268,36 +283,77 @@ export async function openRecordDetails(
       confirmButton: canEdit ? "vehicle-detail-edit-primary" : undefined,
     },
     html: `
-      <div class="activity-list">
-        ${vehicleSummarySection}
+      <div class="vehicle-detail-tabs" role="tablist" aria-label="Secciones del kárdex vehicular">
+        <button
+          type="button"
+          class="vehicle-detail-tab is-active"
+          role="tab"
+          aria-selected="true"
+          aria-controls="vehicle-detail-panel-details"
+          data-vehicle-tab="details"
+        >
+          Detalles del vehículo
+        </button>
+        <button
+          type="button"
+          class="vehicle-detail-tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="vehicle-detail-panel-history"
+          data-vehicle-tab="history"
+          tabindex="-1"
+        >
+          Historial
+          <span class="vehicle-detail-tab-count">${historyCount}</span>
+        </button>
+      </div>
 
-        <div class="activity-item">
-          <div class="activity-item-head">
-            <strong>Estado actual</strong>
-            <span>${escapeHtml(record.recordState === "CURRENT" ? "Vigente en la delegación" : "Trasladado")}</span>
-          </div>
-          <p>Delegación visible: ${escapeHtml(record.viewDelegation.name)}</p>
-          <span>Delegación actual: ${escapeHtml(record.delegation.name)}</span>
+      <div
+        id="vehicle-detail-panel-details"
+        class="vehicle-detail-tab-panel is-active"
+        role="tabpanel"
+        data-vehicle-tab-panel="details"
+      >
+        <div class="vehicle-detail-primary-stack">
+          ${vehicleSummarySection}
+          ${currentStateSection}
+          ${photosSection}
         </div>
+      </div>
 
-        ${photosSection}
+      <div
+        id="vehicle-detail-panel-history"
+        class="vehicle-detail-tab-panel"
+        role="tabpanel"
+        data-vehicle-tab-panel="history"
+        hidden
+      >
+        <div class="vehicle-detail-history-stack">
+          <section class="vehicle-detail-history-section">
+            <div class="vehicle-detail-history-header">
+              <div class="vehicle-detail-history-heading">
+                <strong>Historial de traslados</strong>
+                <span>Cambios de delegación registrados para esta unidad.</span>
+              </div>
+              <span class="vehicle-detail-history-count">${record.transferHistory.length}</span>
+            </div>
+            <div class="vehicle-detail-history-body">
+              ${transferHistory}
+            </div>
+          </section>
 
-        <div class="activity-item">
-          <div class="activity-item-head">
-            <strong>Historial de traslados</strong>
-          </div>
-          <div class="activity-list">
-            ${transferHistory}
-          </div>
-        </div>
-
-        <div class="activity-item">
-          <div class="activity-item-head">
-            <strong>Historial de ediciones</strong>
-          </div>
-          <div class="activity-list">
-            ${editHistory}
-          </div>
+          <section class="vehicle-detail-history-section">
+            <div class="vehicle-detail-history-header">
+              <div class="vehicle-detail-history-heading">
+                <strong>Historial de ediciones</strong>
+                <span>Modificaciones realizadas sobre los datos del vehículo.</span>
+              </div>
+              <span class="vehicle-detail-history-count">${record.editHistory.length}</span>
+            </div>
+            <div class="vehicle-detail-history-body">
+              ${editHistory}
+            </div>
+          </section>
         </div>
       </div>
     `,
@@ -307,6 +363,58 @@ export async function openRecordDetails(
       if (!popup) {
         return;
       }
+
+      const tabButtons = Array.from(
+        popup.querySelectorAll<HTMLButtonElement>("[data-vehicle-tab]"),
+      );
+      const tabPanels = Array.from(
+        popup.querySelectorAll<HTMLElement>("[data-vehicle-tab-panel]"),
+      );
+
+      const activateTab = (tabName: string) => {
+        tabButtons.forEach((button) => {
+          const isActive = button.dataset.vehicleTab === tabName;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", String(isActive));
+          button.tabIndex = isActive ? 0 : -1;
+        });
+
+        tabPanels.forEach((panel) => {
+          const isActive = panel.dataset.vehicleTabPanel === tabName;
+          panel.classList.toggle("is-active", isActive);
+          panel.hidden = !isActive;
+        });
+      };
+
+      tabButtons.forEach((button, index) => {
+        button.addEventListener("click", () => {
+          activateTab(button.dataset.vehicleTab ?? "details");
+        });
+
+        button.addEventListener("keydown", (event) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+            return;
+          }
+
+          event.preventDefault();
+
+          let targetIndex = index;
+
+          if (event.key === "ArrowLeft") {
+            targetIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+          } else if (event.key === "ArrowRight") {
+            targetIndex = (index + 1) % tabButtons.length;
+          } else if (event.key === "Home") {
+            targetIndex = 0;
+          } else if (event.key === "End") {
+            targetIndex = tabButtons.length - 1;
+          }
+
+          const targetButton = tabButtons[targetIndex];
+          targetButton?.focus();
+          activateTab(targetButton?.dataset.vehicleTab ?? "details");
+        });
+      });
 
       popup.querySelectorAll(".photo-thumb").forEach((thumb) => {
         thumb.addEventListener("click", () => {
