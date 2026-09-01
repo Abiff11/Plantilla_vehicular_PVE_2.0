@@ -20,6 +20,7 @@ import { ControlPersonalIntegrationGuard } from './integrations/control-personal
 import { ControlPersonalIntegrationService } from './integrations/control-personal-integration.service';
 import { RecordsImportController } from './imports/records-import.controller';
 import { RecordsImportService } from './imports/records-import.service';
+import { RecordCreateService } from './record-create.service';
 import { RecordFullEditService } from './record-full-edit.service';
 import { RecordPhotosController } from './record-photos.controller';
 import { RecordPhotosService } from './record-photos.service';
@@ -55,6 +56,7 @@ import { StorageModule } from '../storage/storage.module';
   ],
   providers: [
     RecordsService,
+    RecordCreateService,
     RecordFullEditService,
     RecordPhotosService,
     RecordsImportService,

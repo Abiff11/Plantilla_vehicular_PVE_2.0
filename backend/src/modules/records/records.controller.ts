@@ -25,6 +25,7 @@ import { CreateRecordDto } from "./dto/create-record.dto";
 import { SubmitRosterReportDto } from "./dto/submit-roster-report.dto";
 import { TransferRecordDto } from "./dto/transfer-record.dto";
 import { UpdateRecordDto } from "./dto/update-record.dto";
+import { RecordCreateService } from "./record-create.service";
 import { RecordFullEditService } from "./record-full-edit.service";
 import { RecordsService } from "./records.service";
 
@@ -89,6 +90,7 @@ type AuthUser = {
 export class RecordsController {
   constructor(
     private readonly recordsService: RecordsService,
+    private readonly recordCreateService: RecordCreateService,
     private readonly recordFullEditService: RecordFullEditService,
   ) {}
 
@@ -107,7 +109,7 @@ export class RecordsController {
     @UploadedFiles() photos?: UploadedFile[],
   ) {
     assertValidPhotos(photos);
-    return this.recordsService.create(dto, user, photos);
+    return this.recordCreateService.create(dto, user, photos);
   }
 
   @Get("my")
