@@ -33,4 +33,5 @@ export type StoredFileObject = {
 export interface StorageProvider {
   saveFile(input: SavedFileInput): Promise<StoredFile>;
   getObject(objectKey: string): Promise<StoredFileObject>;
+  deleteObject(objectKey: string): Promise<void>;
 }
