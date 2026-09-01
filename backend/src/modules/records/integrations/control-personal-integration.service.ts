@@ -9,7 +9,10 @@ export type VehicleMatchSource = 'UUID' | 'NOMBRE' | 'MIXTO' | 'NINGUNO';
 
 const LEGACY_NAME_ACCENTED_CHARACTERS = 'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖòóôõöÙÚÛÜùúûüÝýÿÇç';
 const LEGACY_NAME_ASCII_CHARACTERS = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiNnOOOOOoooooUUUUuuuuYyyCc';
-const NORMALIZED_CUSTODIAN_SQL = `UPPER(TRIM(REGEXP_REPLACE(TRANSLATE(record.custodian, '${LEGACY_NAME_ACCENTED_CHARACTERS}', '${LEGACY_NAME_ASCII_CHARACTERS}'), '[[:space:]]+', ' ', 'g')))`;
+const LEGACY_CUSTODIAN_RANK_PREFIXES = new Set(['CMDTE', 'CMTE', 'COMANDANTE']);
+const LEGACY_CUSTODIAN_RANK_PREFIX_SQL = '(CMDTE|CMTE|COMANDANTE)';
+const NORMALIZED_CUSTODIAN_SQL = `UPPER(TRIM(REGEXP_REPLACE(REGEXP_REPLACE(TRANSLATE(record.custodian, '${LEGACY_NAME_ACCENTED_CHARACTERS}', '${LEGACY_NAME_ASCII_CHARACTERS}'), '[^A-Za-z0-9]+', ' ', 'g'), '[[:space:]]+', ' ', 'g')))`;
+const CUSTODIAN_WITHOUT_RANK_SQL = `REGEXP_REPLACE(${NORMALIZED_CUSTODIAN_SQL}, '^${LEGACY_CUSTODIAN_RANK_PREFIX_SQL}[[:space:]]+', '')`;
 
 @Injectable()
 export class ControlPersonalIntegrationService {
@@ -27,7 +30,7 @@ export class ControlPersonalIntegrationService {
       };
     }
 
-    const legacy = await this.findLegacyVehicles(this.normalizeName(officerName));
+    const legacy = await this.findLegacyVehicles(officerName);
 
     const matchSource: VehicleMatchSource = stable.length && legacy.length
       ? 'MIXTO'
@@ -54,7 +57,7 @@ export class ControlPersonalIntegrationService {
       throw new ConflictException('El vehículo ya está vinculado a otro oficial');
     }
 
-    if (this.normalizeName(record.custodian) !== this.normalizeName(officerName)) {
+    if (!this.namesEquivalent(record.custodian, officerName)) {
       throw new BadRequestException('El resguardante del vehículo no coincide con el oficial que se intenta vincular');
     }
 
@@ -84,16 +87,50 @@ export class ControlPersonalIntegrationService {
     return value
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/gu, '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/gu, ' ')
       .replace(/\s+/gu, ' ')
-      .trim()
-      .toUpperCase();
+      .trim();
   }
 
-  private findLegacyVehicles(normalizedOfficerName: string) {
+  private stripLegacyRankPrefix(normalizedName: string) {
+    const tokens = normalizedName.split(' ').filter(Boolean);
+    if (tokens.length > 1 && LEGACY_CUSTODIAN_RANK_PREFIXES.has(tokens[0])) {
+      return tokens.slice(1).join(' ');
+    }
+    return normalizedName;
+  }
+
+  private buildNameCandidates(value: string) {
+    const normalized = this.stripLegacyRankPrefix(this.normalizeName(value));
+    if (!normalized) return [];
+
+    const tokens = normalized.split(' ');
+    return Array.from(new Set(tokens.map((_, index) => [
+      ...tokens.slice(index),
+      ...tokens.slice(0, index),
+    ].join(' '))));
+  }
+
+  private namesEquivalent(left: string, right: string) {
+    const leftNormalized = this.stripLegacyRankPrefix(this.normalizeName(left));
+    const rightNormalized = this.stripLegacyRankPrefix(this.normalizeName(right));
+    if (!leftNormalized || !rightNormalized) return false;
+
+    return this.buildNameCandidates(leftNormalized).includes(rightNormalized);
+  }
+
+  private findLegacyVehicles(officerName: string) {
+    const normalizedOfficerNames = this.buildNameCandidates(officerName);
+    if (!normalizedOfficerNames.length) return Promise.resolve([] as RecordEntity[]);
+
     return this.recordsRepo
       .createQueryBuilder('record')
       .where('record."custodianOficialId" IS NULL')
-      .andWhere(`${NORMALIZED_CUSTODIAN_SQL} = :normalizedOfficerName`, { normalizedOfficerName })
+      .andWhere(
+        `${CUSTODIAN_WITHOUT_RANK_SQL} IN (:...normalizedOfficerNames)`,
+        { normalizedOfficerNames },
+      )
       .orderBy('record.patrolNumber', 'ASC')
       .getMany();
   }
