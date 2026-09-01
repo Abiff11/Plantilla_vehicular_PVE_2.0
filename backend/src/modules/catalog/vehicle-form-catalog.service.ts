@@ -36,6 +36,17 @@ const VEHICLE_FORM_CATALOGS = {
   },
 } satisfies Record<string, VehicleFormCatalogDefinition>;
 
+type VehicleFormCatalogField = keyof typeof VEHICLE_FORM_CATALOGS;
+
+type VehicleFormCatalogView = Record<
+  VehicleFormCatalogField,
+  {
+    label: string;
+    allowsCustom: boolean;
+    options: Array<{ value: string; label: string }>;
+  }
+>;
+
 @Injectable()
 export class VehicleFormCatalogService {
   constructor(
@@ -43,7 +54,7 @@ export class VehicleFormCatalogService {
     private readonly catalogGroupRepository: Repository<CatalogGroupEntity>,
   ) {}
 
-  async getRecordFieldCatalog() {
+  async getRecordFieldCatalog(): Promise<VehicleFormCatalogView> {
     const groupCodes = Object.values(VEHICLE_FORM_CATALOGS).map((entry) => entry.groupCode);
     const groups = await this.catalogGroupRepository.find({
       where: groupCodes.map((code) => ({ code })),
@@ -77,6 +88,36 @@ export class VehicleFormCatalogService {
           },
         ];
       }),
-    );
+    ) as VehicleFormCatalogView;
+  }
+
+  async validateValues(
+    values: Record<string, unknown>,
+    fields: readonly string[] = Object.keys(VEHICLE_FORM_CATALOGS),
+  ) {
+    const catalog = await this.getRecordFieldCatalog();
+
+    for (const field of fields) {
+      if (!(field in VEHICLE_FORM_CATALOGS)) {
+        continue;
+      }
+
+      const fieldName = field as VehicleFormCatalogField;
+      const value = String(values[fieldName] ?? '').trim();
+      if (!value) {
+        continue;
+      }
+
+      const entry = catalog[fieldName];
+      if (entry.options.some((option) => option.value === value) || entry.allowsCustom) {
+        continue;
+      }
+
+      return `${entry.label}: '${value}' no es una opcion valida. Valores permitidos: ${entry.options
+        .map((option) => option.value)
+        .join(', ')}.`;
+    }
+
+    return null;
   }
 }
