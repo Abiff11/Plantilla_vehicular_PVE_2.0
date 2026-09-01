@@ -9,8 +9,10 @@ export type VehicleMatchSource = 'UUID' | 'NOMBRE' | 'MIXTO' | 'NINGUNO';
 
 const LEGACY_NAME_ACCENTED_CHARACTERS = 'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖòóôõöÙÚÛÜùúûüÝýÿÇç';
 const LEGACY_NAME_ASCII_CHARACTERS = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiNnOOOOOoooooUUUUuuuuYyyCc';
+const LEGACY_CUSTODIAN_RANK_PREFIXES = new Set(['CMDTE', 'CMTE', 'COMANDANTE']);
+const LEGACY_CUSTODIAN_RANK_PREFIX_SQL = '(CMDTE|CMTE|COMANDANTE)';
 const NORMALIZED_CUSTODIAN_SQL = `UPPER(TRIM(REGEXP_REPLACE(REGEXP_REPLACE(TRANSLATE(record.custodian, '${LEGACY_NAME_ACCENTED_CHARACTERS}', '${LEGACY_NAME_ASCII_CHARACTERS}'), '[^A-Za-z0-9]+', ' ', 'g'), '[[:space:]]+', ' ', 'g')))`;
-const CUSTODIAN_WITHOUT_LEADING_LABEL_SQL = `REGEXP_REPLACE(${NORMALIZED_CUSTODIAN_SQL}, '^[^ ]+[[:space:]]+', '')`;
+const CUSTODIAN_WITHOUT_RANK_SQL = `REGEXP_REPLACE(${NORMALIZED_CUSTODIAN_SQL}, '^${LEGACY_CUSTODIAN_RANK_PREFIX_SQL}[[:space:]]+', '')`;
 
 @Injectable()
 export class ControlPersonalIntegrationService {
@@ -91,8 +93,16 @@ export class ControlPersonalIntegrationService {
       .trim();
   }
 
+  private stripLegacyRankPrefix(normalizedName: string) {
+    const tokens = normalizedName.split(' ').filter(Boolean);
+    if (tokens.length > 1 && LEGACY_CUSTODIAN_RANK_PREFIXES.has(tokens[0])) {
+      return tokens.slice(1).join(' ');
+    }
+    return normalizedName;
+  }
+
   private buildNameCandidates(value: string) {
-    const normalized = this.normalizeName(value);
+    const normalized = this.stripLegacyRankPrefix(this.normalizeName(value));
     if (!normalized) return [];
 
     const tokens = normalized.split(' ');
@@ -103,19 +113,11 @@ export class ControlPersonalIntegrationService {
   }
 
   private namesEquivalent(left: string, right: string) {
-    const leftNormalized = this.normalizeName(left);
-    const rightNormalized = this.normalizeName(right);
+    const leftNormalized = this.stripLegacyRankPrefix(this.normalizeName(left));
+    const rightNormalized = this.stripLegacyRankPrefix(this.normalizeName(right));
     if (!leftNormalized || !rightNormalized) return false;
 
-    const leftCandidates = new Set(this.buildNameCandidates(leftNormalized));
-    if (leftCandidates.has(rightNormalized)) return true;
-
-    const rightTokens = rightNormalized.split(' ');
-    if (rightTokens.length > 1 && leftCandidates.has(rightTokens.slice(1).join(' '))) return true;
-
-    const rightCandidates = new Set(this.buildNameCandidates(rightNormalized));
-    const leftTokens = leftNormalized.split(' ');
-    return leftTokens.length > 1 && rightCandidates.has(leftTokens.slice(1).join(' '));
+    return this.buildNameCandidates(leftNormalized).includes(rightNormalized);
   }
 
   private findLegacyVehicles(officerName: string) {
@@ -126,11 +128,8 @@ export class ControlPersonalIntegrationService {
       .createQueryBuilder('record')
       .where('record."custodianOficialId" IS NULL')
       .andWhere(
-        `(${NORMALIZED_CUSTODIAN_SQL} IN (:...normalizedOfficerNames) OR ${CUSTODIAN_WITHOUT_LEADING_LABEL_SQL} IN (:...normalizedOfficerNamesWithoutLabel))`,
-        {
-          normalizedOfficerNames,
-          normalizedOfficerNamesWithoutLabel: normalizedOfficerNames,
-        },
+        `${CUSTODIAN_WITHOUT_RANK_SQL} IN (:...normalizedOfficerNames)`,
+        { normalizedOfficerNames },
       )
       .orderBy('record.patrolNumber', 'ASC')
       .getMany();
