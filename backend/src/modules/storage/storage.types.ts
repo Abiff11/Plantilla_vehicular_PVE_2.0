@@ -1,5 +1,3 @@
-export type StorageDriver = "local" | "r2";
-
 export type StorageFolder = "vehicle-photos" | "message-photos";
 
 export type UploadableFiles = {
@@ -21,7 +19,7 @@ export type StoredFile = {
   publicUrl: string;
   mimeType: string;
   size: number;
-  storageProvider: StorageDriver;
+  storageProvider: "local";
 };
 
 export type StoredFileObject = {
