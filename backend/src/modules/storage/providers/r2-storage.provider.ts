@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { SavedFileInput, StorageProvider, StoredFile, StoredFileObject } from "../storage.types";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { ConfigService } from "@nestjs/config";
 import { createStorageConfig } from "../storage.config";
 import { extname } from "path";
@@ -99,6 +99,15 @@ export class R2StorageProvider implements StorageProvider {
 
       throw new NotFoundException("No se encontro el archivo.");
     }
+  }
+
+  async deleteObject(objectKey: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+      }),
+    );
   }
 
   private streamToBuffer(stream: Readable) {
