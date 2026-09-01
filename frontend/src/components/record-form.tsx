@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import type { Delegation, RecordFieldCatalogMap, RecordFormValues } from '../types';
+import type { Delegation, RecordFieldCatalogMap, RecordFormValues, Region } from '../types';
 
 const customCatalogFields = ['useType', 'status', 'assetClassification'] as const;
 const MAX_PHOTOS = 3;
@@ -52,7 +52,8 @@ type PhotoFile = {
 };
 
 type RecordFormProps = {
-  delegations: Delegation[];
+  delegations?: Delegation[];
+  regions?: Region[];
   fieldCatalogs: RecordFieldCatalogMap;
   initialValues?: RecordFormValues;
   mode?: 'create' | 'edit';
@@ -164,7 +165,8 @@ function toSubmitValues(
 }
 
 export function RecordForm({
-  delegations,
+  delegations = [],
+  regions = [],
   fieldCatalogs,
   initialValues,
   mode = 'create',
@@ -186,15 +188,28 @@ export function RecordForm({
 
   const [photos, setPhotos] = useState<PhotoFile[]>([]);
   const [photoErrors, setPhotoErrors] = useState<string[]>([]);
+  const [selectedRegionId, setSelectedRegionId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedUseType = watch('useType');
   const selectedStatus = watch('status');
   const selectedAssetClassification = watch('assetClassification');
+  const usesRegionDelegationCascade = delegationSelectionMode === 'select' && regions.length > 0;
+  const selectedRegion = regions.find((region) => region.id === selectedRegionId) ?? null;
+  const selectableDelegations = usesRegionDelegationCascade
+    ? selectedRegion?.delegations ?? []
+    : delegations;
 
   useEffect(() => {
     if (initialValues) {
       reset(toFormDefaults(initialValues));
+
+      if (usesRegionDelegationCascade) {
+        const initialRegion = regions.find((region) =>
+          region.delegations.some((delegation) => delegation.id === initialValues.delegationId),
+        );
+        setSelectedRegionId(initialRegion?.id ?? '');
+      }
       return;
     }
 
@@ -206,7 +221,23 @@ export function RecordForm({
       shouldValidate: true,
       shouldDirty: false,
     });
-  }, [delegationSelectionMode, delegations, initialValues, reset, setValue]);
+  }, [
+    delegationSelectionMode,
+    delegations,
+    initialValues,
+    regions,
+    reset,
+    setValue,
+    usesRegionDelegationCascade,
+  ]);
+
+  const handleRegionChange = (regionId: string) => {
+    setSelectedRegionId(regionId);
+    setValue('delegationId', '', {
+      shouldValidate: false,
+      shouldDirty: true,
+    });
+  };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -292,6 +323,9 @@ export function RecordForm({
             delegationId:
               delegationSelectionMode === 'fixed' ? delegations[0]?.id ?? '' : '',
           });
+          if (usesRegionDelegationCascade) {
+            setSelectedRegionId('');
+          }
           setPhotos([]);
           setPhotoErrors([]);
         }
@@ -304,29 +338,68 @@ export function RecordForm({
         </div>
       </div>
 
-      <label className="field">
-        <span>Delegacion</span>
-        {delegationSelectionMode === 'select' ? (
-          <select {...register('delegationId')}>
-            <option value="">Selecciona una delegacion</option>
-            {delegations.map((delegation) => (
-              <option key={delegation.id} value={delegation.id}>
-                {delegation.name}
-              </option>
-            ))}
-          </select>
+      {delegationSelectionMode === 'select' ? (
+        usesRegionDelegationCascade ? (
+          <div className="form-grid">
+            <label className="field">
+              <span>Región</span>
+              <select
+                value={selectedRegionId}
+                required
+                onChange={(event) => handleRegionChange(event.target.value)}
+              >
+                <option value="">Selecciona una región</option>
+                {regions.map((region) => (
+                  <option key={region.id} value={region.id}>
+                    {region.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Delegación</span>
+              <select {...register('delegationId')} disabled={!selectedRegionId}>
+                <option value="">
+                  {selectedRegionId
+                    ? 'Selecciona una delegación'
+                    : 'Selecciona primero una región'}
+                </option>
+                {selectableDelegations.map((delegation) => (
+                  <option key={delegation.id} value={delegation.id}>
+                    {delegation.name}
+                  </option>
+                ))}
+              </select>
+              {errors.delegationId && <small>{errors.delegationId.message}</small>}
+            </label>
+          </div>
         ) : (
-          <>
-            <input
-              disabled
-              readOnly
-              value={delegations[0]?.name ?? 'Sin delegacion asignada'}
-            />
-            <input type="hidden" {...register('delegationId')} />
-          </>
-        )}
-        {errors.delegationId && <small>{errors.delegationId.message}</small>}
-      </label>
+          <label className="field">
+            <span>Delegación</span>
+            <select {...register('delegationId')}>
+              <option value="">Selecciona una delegación</option>
+              {delegations.map((delegation) => (
+                <option key={delegation.id} value={delegation.id}>
+                  {delegation.name}
+                </option>
+              ))}
+            </select>
+            {errors.delegationId && <small>{errors.delegationId.message}</small>}
+          </label>
+        )
+      ) : (
+        <label className="field">
+          <span>Delegación</span>
+          <input
+            disabled
+            readOnly
+            value={delegations[0]?.name ?? 'Sin delegación asignada'}
+          />
+          <input type="hidden" {...register('delegationId')} />
+          {errors.delegationId && <small>{errors.delegationId.message}</small>}
+        </label>
+      )}
 
       <div className="form-grid">
         {textFields.map(([fieldName, label]) => (
