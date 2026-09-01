@@ -13,7 +13,7 @@ export const RECORD_FIELD_CATALOG = {
   },
   vehicleClass: {
     label: 'Clase de vehiculo',
-    allowsCustom: true,
+    allowsCustom: false,
     options: [
       { value: 'AUTOMOVIL', label: 'AUTOMOVIL' },
       { value: 'CAMIONETA', label: 'CAMIONETA' },
@@ -27,7 +27,7 @@ export const RECORD_FIELD_CATALOG = {
   },
   physicalStatus: {
     label: 'Estado fisico',
-    allowsCustom: true,
+    allowsCustom: false,
     options: [
       { value: 'BUENO', label: 'BUENO' },
       { value: 'REGULAR', label: 'REGULAR' },
