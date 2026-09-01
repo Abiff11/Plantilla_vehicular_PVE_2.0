@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne } from "typeorm";
+import { AfterLoad, Column, Entity, ManyToOne } from "typeorm";
 import { BaseEntity } from "src/common/entities/base.entity";
 import { RecordEntity } from "src/modules/records/entities/record.entity";
 import { UserEntity } from "src/modules/users/entities/user.entity";
@@ -40,4 +40,11 @@ export class VehiclePhotoEntity extends BaseEntity {
     onDelete: "RESTRICT",
   })
   uploadedBy!: UserEntity;
+
+  @AfterLoad()
+  useLocalPublicUrl() {
+    if (this.objectKey) {
+      this.publicUrl = `/api/files/${this.objectKey}`;
+    }
+  }
 }
