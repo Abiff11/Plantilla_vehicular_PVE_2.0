@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import type {
   Delegation,
+  RecordFieldCatalog,
   RecordFieldCatalogMap,
   RecordFormValues,
   Region,
@@ -38,12 +39,11 @@ const schema = z
     serialNumber: requiredText,
     color: optionalText,
     custodian: optionalText,
-    adscription: optionalText,
+    adscription: requiredText,
     realLocation: optionalText,
     physicalStatus: requiredText,
     status: requiredText,
     statusCustom: optionalText,
-    rawCirculationStatus: optionalText,
     assetClassification: requiredText,
     assetClassificationCustom: optionalText,
     observation: optionalText,
@@ -81,8 +81,10 @@ type CompleteRecordFormValues = RecordFormValues &
     | 'color'
     | 'adscription'
     | 'realLocation'
-    | 'rawCirculationStatus'
   >;
+
+type ExtendedRecordFieldCatalogMap = RecordFieldCatalogMap &
+  Record<'brand' | 'type' | 'color' | 'adscription' | 'realLocation', RecordFieldCatalog>;
 
 type PhotoFile = {
   file: File;
@@ -125,7 +127,6 @@ const emptyFormValues: RecordFormData = {
   physicalStatus: '',
   status: '',
   statusCustom: '',
-  rawCirculationStatus: '',
   assetClassification: '',
   assetClassificationCustom: '',
   observation: '',
@@ -164,7 +165,7 @@ function toFormDefaults(initialValues?: RecordFormValues): RecordFormData {
 
 function toSubmitValues(
   values: RecordFormData,
-  fieldCatalogs: RecordFieldCatalogMap,
+  fieldCatalogs: ExtendedRecordFieldCatalogMap,
 ): CompleteRecordFormValues {
   const previousPlates = normalizeCode(values.previousPlates);
   const plates2024 = normalizeCode(values.plates2024);
@@ -204,7 +205,6 @@ function toSubmitValues(
       values.statusCustom,
       fieldCatalogs.status.allowsCustom,
     ),
-    rawCirculationStatus: normalizeUpper(values.rawCirculationStatus),
     assetClassification: normalizeCatalogValue(
       values.assetClassification,
       values.assetClassificationCustom,
@@ -228,6 +228,7 @@ export function RecordForm({
   onSubmit,
   onCancel,
 }: RecordFormProps) {
+  const catalogs = fieldCatalogs as ExtendedRecordFieldCatalogMap;
   const {
     register,
     handleSubmit,
@@ -375,7 +376,7 @@ export function RecordForm({
     fieldName: 'useType' | 'vehicleClass' | 'physicalStatus' | 'status' | 'assetClassification',
     required = false,
   ) => {
-    const catalog = fieldCatalogs[fieldName];
+    const catalog = catalogs[fieldName];
     const selectedValue =
       fieldName === 'useType'
         ? selectedUseType
@@ -422,12 +423,37 @@ export function RecordForm({
     );
   };
 
+  const renderSimpleCatalogField = (
+    fieldName: 'brand' | 'type' | 'color' | 'adscription' | 'realLocation',
+    required = false,
+  ) => {
+    const catalog = catalogs[fieldName];
+
+    return (
+      <label className="field" key={fieldName}>
+        <span>
+          {catalog.label}
+          {required && <RequiredMark />}
+        </span>
+        <select {...register(fieldName)}>
+          <option value="">Selecciona una opción</option>
+          {catalog.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {errors[fieldName] && <small>{errors[fieldName]?.message}</small>}
+      </label>
+    );
+  };
+
   return (
     <form
       className="panel stack-md"
       onSubmit={handleSubmit(async (values) => {
         const photoFiles = photos.map((photo) => photo.file);
-        await onSubmit(toSubmitValues(values, fieldCatalogs), photoFiles);
+        await onSubmit(toSubmitValues(values, catalogs), photoFiles);
 
         if (mode === 'create') {
           photos.forEach((photo) => URL.revokeObjectURL(photo.preview));
@@ -456,38 +482,53 @@ export function RecordForm({
         <div className="panel-header">
           <div>
             <p className="eyebrow">Ubicación administrativa</p>
-            <h3>Región y delegación</h3>
+            <h3>Región, delegación y adscripción</h3>
           </div>
         </div>
 
-        {delegationSelectionMode === 'select' ? (
-          usesRegionDelegationCascade ? (
-            <div className="form-grid">
-              <label className="field">
-                <span>Región<RequiredMark /></span>
-                <select
-                  value={selectedRegionId}
-                  required
-                  onChange={(event) => handleRegionChange(event.target.value)}
-                >
-                  <option value="">Selecciona una región</option>
-                  {regions.map((region) => (
-                    <option key={region.id} value={region.id}>
-                      {region.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+        <div className="form-grid">
+          {delegationSelectionMode === 'select' ? (
+            usesRegionDelegationCascade ? (
+              <>
+                <label className="field">
+                  <span>Región<RequiredMark /></span>
+                  <select
+                    value={selectedRegionId}
+                    required
+                    onChange={(event) => handleRegionChange(event.target.value)}
+                  >
+                    <option value="">Selecciona una región</option>
+                    {regions.map((region) => (
+                      <option key={region.id} value={region.id}>
+                        {region.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
+                <label className="field">
+                  <span>Delegación<RequiredMark /></span>
+                  <select {...register('delegationId')} disabled={!selectedRegionId}>
+                    <option value="">
+                      {selectedRegionId
+                        ? 'Selecciona una delegación'
+                        : 'Selecciona primero una región'}
+                    </option>
+                    {selectableDelegations.map((delegation) => (
+                      <option key={delegation.id} value={delegation.id}>
+                        {delegation.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.delegationId && <small>{errors.delegationId.message}</small>}
+                </label>
+              </>
+            ) : (
               <label className="field">
                 <span>Delegación<RequiredMark /></span>
-                <select {...register('delegationId')} disabled={!selectedRegionId}>
-                  <option value="">
-                    {selectedRegionId
-                      ? 'Selecciona una delegación'
-                      : 'Selecciona primero una región'}
-                  </option>
-                  {selectableDelegations.map((delegation) => (
+                <select {...register('delegationId')}>
+                  <option value="">Selecciona una delegación</option>
+                  {delegations.map((delegation) => (
                     <option key={delegation.id} value={delegation.id}>
                       {delegation.name}
                     </option>
@@ -495,29 +536,23 @@ export function RecordForm({
                 </select>
                 {errors.delegationId && <small>{errors.delegationId.message}</small>}
               </label>
-            </div>
+            )
           ) : (
             <label className="field">
               <span>Delegación<RequiredMark /></span>
-              <select {...register('delegationId')}>
-                <option value="">Selecciona una delegación</option>
-                {delegations.map((delegation) => (
-                  <option key={delegation.id} value={delegation.id}>
-                    {delegation.name}
-                  </option>
-                ))}
-              </select>
+              <input disabled readOnly value={delegations[0]?.name ?? 'Sin delegación asignada'} />
+              <input type="hidden" {...register('delegationId')} />
               {errors.delegationId && <small>{errors.delegationId.message}</small>}
             </label>
-          )
-        ) : (
-          <label className="field">
-            <span>Delegación<RequiredMark /></span>
-            <input disabled readOnly value={delegations[0]?.name ?? 'Sin delegación asignada'} />
-            <input type="hidden" {...register('delegationId')} />
-            {errors.delegationId && <small>{errors.delegationId.message}</small>}
-          </label>
-        )}
+          )}
+
+          {renderSimpleCatalogField('adscription', true)}
+        </div>
+
+        <label className="field field-full">
+          <span>Resguardante</span>
+          <input {...register('custodian')} />
+        </label>
       </section>
 
       <section className="panel stack-md">
@@ -566,16 +601,8 @@ export function RecordForm({
         <div className="form-grid">
           {renderCatalogField('vehicleClass', true)}
           {renderCatalogField('useType', true)}
-          <label className="field">
-            <span>Marca<RequiredMark /></span>
-            <input {...register('brand')} />
-            {errors.brand && <small>{errors.brand.message}</small>}
-          </label>
-          <label className="field">
-            <span>Tipo<RequiredMark /></span>
-            <input {...register('type')} />
-            {errors.type && <small>{errors.type.message}</small>}
-          </label>
+          {renderSimpleCatalogField('brand', true)}
+          {renderSimpleCatalogField('type', true)}
           <label className="field">
             <span>Modelo<RequiredMark /></span>
             <input {...register('model')} />
@@ -599,10 +626,7 @@ export function RecordForm({
             <input {...register('serialNumber')} />
             {errors.serialNumber && <small>{errors.serialNumber.message}</small>}
           </label>
-          <label className="field">
-            <span>Color</span>
-            <input {...register('color')} />
-          </label>
+          {renderSimpleCatalogField('color')}
         </div>
       </section>
 
@@ -614,18 +638,7 @@ export function RecordForm({
           </div>
         </div>
         <div className="form-grid">
-          <label className="field">
-            <span>Resguardante</span>
-            <input {...register('custodian')} />
-          </label>
-          <label className="field">
-            <span>Adscripción</span>
-            <input {...register('adscription')} />
-          </label>
-          <label className="field">
-            <span>Ubicación real</span>
-            <input {...register('realLocation')} />
-          </label>
+          {renderSimpleCatalogField('realLocation')}
           <label className="field">
             <span>Delegación actual</span>
             <input disabled readOnly value={currentDelegationLabel} />
@@ -636,10 +649,6 @@ export function RecordForm({
           </label>
           {renderCatalogField('physicalStatus', true)}
           {renderCatalogField('status', true)}
-          <label className="field">
-            <span>Estatus Excel</span>
-            <input {...register('rawCirculationStatus')} />
-          </label>
           {renderCatalogField('assetClassification', true)}
         </div>
         <small>
