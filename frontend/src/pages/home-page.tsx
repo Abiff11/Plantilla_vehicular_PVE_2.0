@@ -19,7 +19,7 @@ const roleDescriptions: Record<Role, string> = {
   director_operativo:
     'Supervisa las delegaciones de tu región y consulta el cierre mensual regional.',
   plantilla_vehicular:
-    'Consulta la operación vehicular general y el seguimiento mensual de regiones.',
+    'Captura unidades, consulta la operación vehicular general y da seguimiento mensual a las regiones.',
   director_general:
     'Consulta indicadores directivos, mapa operativo y validaciones mensuales.',
   superadmin:
@@ -54,6 +54,11 @@ const quickActions: Record<Role, QuickAction[]> = {
     },
   ],
   plantilla_vehicular: [
+    {
+      label: 'Capturar vehículo',
+      to: APP_ROUTES.superadminCapture,
+      helper: 'Registrar unidad y asignar región y delegación',
+    },
     {
       label: 'Vista general',
       to: APP_ROUTES.overview,
