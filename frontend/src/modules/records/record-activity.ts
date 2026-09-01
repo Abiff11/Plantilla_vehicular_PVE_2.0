@@ -41,49 +41,52 @@ function escapeHtml(value: unknown) {
 
 function renderVehicleDetailField(label: string, value: unknown) {
   return `
-    <div class="vehicle-detail-field">
+    <div class="vehicle-kardex-field">
       <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value || "-")}</strong>
+      <div class="vehicle-kardex-read-value">${escapeHtml(value || "No registrado")}</div>
     </div>
   `;
 }
 
-function renderTransferLine(transfer: VehicleTransferEvent) {
+function renderTransferRow(transfer: VehicleTransferEvent) {
   return `
-    <div class="activity-item">
-      <div class="activity-item-head">
-        <strong>${escapeHtml(transfer.fromDelegation.name)} -> ${escapeHtml(transfer.toDelegation.name)}</strong>
-        <span>${formatDateTimeMx(transfer.movedAt)}</span>
-      </div>
-      <p>Hecho por ${escapeHtml(formatUserName(transfer.movedBy))}.</p>
-      <span>${escapeHtml(transfer.reason || "Sin motivo registrado.")}</span>
-    </div>
+    <tr>
+      <td>${formatDateTimeMx(transfer.movedAt)}</td>
+      <td>${escapeHtml(formatUserName(transfer.movedBy))}</td>
+      <td>${escapeHtml(transfer.fromDelegation.name)}</td>
+      <td>${escapeHtml(transfer.toDelegation.name)}</td>
+      <td>${escapeHtml(transfer.reason || "Sin motivo registrado")}</td>
+    </tr>
   `;
 }
 
-function renderEditLine(edit: VehicleEditEvent) {
-  const changes =
-    edit.changedFields.length > 0
-      ? edit.changedFields
-          .map((fieldName) => {
-            const beforeValue = escapeHtml(edit.before[fieldName] ?? "-");
-            const afterValue = escapeHtml(edit.after[fieldName] ?? "-");
+function renderEditRows(edit: VehicleEditEvent) {
+  const actor = escapeHtml(edit.actor ? formatUserName(edit.actor) : "Usuario no disponible");
+  const editedAt = formatDateTimeMx(edit.editedAt);
 
-            return `<div><strong>${escapeHtml(fieldName)}</strong>: ${beforeValue} -> ${afterValue}</div>`;
-          })
-          .join("")
-      : "<div>Sin detalle de cambios.</div>";
+  if (edit.changedFields.length === 0) {
+    return `
+      <tr>
+        <td>${editedAt}</td>
+        <td>${actor}</td>
+        <td>Sin detalle de cambios</td>
+        <td>-</td>
+        <td>-</td>
+      </tr>
+    `;
+  }
 
-  return `
-    <div class="activity-item">
-      <div class="activity-item-head">
-        <strong>Edicion registrada</strong>
-        <span>${formatDateTimeMx(edit.editedAt)}</span>
-      </div>
-      <p>Hecho por ${escapeHtml(edit.actor ? formatUserName(edit.actor) : "Usuario no disponible")}.</p>
-      <span>${changes}</span>
-    </div>
-  `;
+  return edit.changedFields
+    .map((fieldName) => `
+      <tr>
+        <td>${editedAt}</td>
+        <td>${actor}</td>
+        <td>${escapeHtml(fieldName)}</td>
+        <td>${escapeHtml(edit.before[fieldName] ?? "-")}</td>
+        <td>${escapeHtml(edit.after[fieldName] ?? "-")}</td>
+      </tr>
+    `)
+    .join("");
 }
 
 function joinUrl(base: string, path: string) {
@@ -140,6 +143,34 @@ function renderPhotoThumbnail(photo: VehiclePhoto) {
   `;
 }
 
+function renderIdentityPhoto(record: VehicleRecord) {
+  const photo = record.photos?.[0];
+
+  if (!photo) {
+    return `
+      <div class="vehicle-kardex-photo-placeholder" aria-label="Unidad sin fotografía">
+        <span>SIN FOTO</span>
+      </div>
+    `;
+  }
+
+  const photoUrl = escapeHtml(resolvePhotoUrl(photo));
+  const photoName = escapeHtml(photo.fileName);
+
+  return `
+    <button
+      type="button"
+      class="vehicle-kardex-photo"
+      data-photo-url="${photoUrl}"
+      data-photo-name="${photoName}"
+      aria-label="Ver fotografía principal de la unidad"
+    >
+      <img src="${photoUrl}" alt="${photoName}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';" />
+      <span class="vehicle-kardex-photo-fallback" style="display:none;">Imagen no disponible</span>
+    </button>
+  `;
+}
+
 export function getRecordActivitySummary(record: VehicleRecord) {
   const parts = [];
 
@@ -168,121 +199,180 @@ export async function openRecordDetails(
   const vehicleIdentifier = record.patrolNumber || displayPlates;
   const canEdit = options.canEdit === true && record.recordState === "CURRENT";
   const historyCount = record.transferHistory.length + record.editHistory.length;
+  const vehicleState = record.recordState === "CURRENT" ? "VIGENTE" : "TRASLADADO";
 
-  const vehicleSummarySection = `
-    <div class="activity-item vehicle-detail-summary">
-      <div class="vehicle-detail-summary-top">
-        <div>
-          <span class="vehicle-detail-eyebrow">Kardex vehicular</span>
-          <strong>${escapeHtml(record.patrolNumber || "Sin número de patrulla")}</strong>
-        </div>
-        <span class="record-chip is-info">${escapeHtml(displayPlates)}</span>
+  const vehicleIdentitySection = `
+    <div class="vehicle-kardex-identity">
+      <div class="vehicle-kardex-photo-wrap">
+        ${renderIdentityPhoto(record)}
       </div>
-      <div class="vehicle-detail-sections">
-        <section class="vehicle-detail-section">
-          <h5>Identificación y placas</h5>
-          <div class="vehicle-detail-grid">
-            ${renderVehicleDetailField("No. patrulla", record.patrolNumber)}
-            ${renderVehicleDetailField("CIV", record.civ)}
-            ${renderVehicleDetailField("Placas anteriores", record.previousPlates)}
-            ${renderVehicleDetailField("Placas 2024", record.plates2024)}
-            ${renderVehicleDetailField("Placas 2025", record.plates2025)}
-            ${renderVehicleDetailField("Placas 2026", record.plates2026)}
-          </div>
-        </section>
-
-        <section class="vehicle-detail-section">
-          <h5>Características</h5>
-          <div class="vehicle-detail-grid">
-            ${renderVehicleDetailField("Clase", record.vehicleClass)}
-            ${renderVehicleDetailField("Uso", record.useType)}
-            ${renderVehicleDetailField("Marca", record.brand)}
-            ${renderVehicleDetailField("Tipo", record.type)}
-            ${renderVehicleDetailField("Modelo", record.model)}
-            ${renderVehicleDetailField("Cilindros", record.cylinders)}
-            ${renderVehicleDetailField("Capacidad litros", record.fuelCapacityLiters)}
-            ${renderVehicleDetailField("Número de motor", record.engineNumber)}
-            ${renderVehicleDetailField("Número de serie", record.serialNumber)}
-            ${renderVehicleDetailField("Color", record.color)}
-          </div>
-        </section>
-
-        <section class="vehicle-detail-section">
-          <h5>Asignación y estado</h5>
-          <div class="vehicle-detail-grid">
-            ${renderVehicleDetailField("Resguardante", record.custodian)}
-            ${renderVehicleDetailField("Adscripción", record.adscription)}
-            ${renderVehicleDetailField("Ubicación real", record.realLocation)}
-            ${renderVehicleDetailField("Delegación actual", record.delegation.name)}
-            ${renderVehicleDetailField("Estado físico", record.physicalStatus)}
-            ${renderVehicleDetailField("Estatus sistema", record.status)}
-            ${renderVehicleDetailField("Estatus Excel", record.rawCirculationStatus)}
-            ${renderVehicleDetailField("Clasificación del bien", record.assetClassification)}
-            ${renderVehicleDetailField("Anotación general", record.rawAssetClassification)}
-          </div>
-        </section>
+      <div class="vehicle-kardex-identity-copy">
+        <h3>${escapeHtml(record.patrolNumber || "Sin número de patrulla")}</h3>
+        <p>${escapeHtml(record.brand || "Marca no registrada")} ${escapeHtml(record.type || "")} · Modelo ${escapeHtml(record.model || "No registrado")} · ${escapeHtml(displayPlates)}</p>
+        <div class="vehicle-kardex-chip-row">
+          <span class="vehicle-kardex-chip">ESTADO: ${escapeHtml(vehicleState)}</span>
+          <span class="vehicle-kardex-chip">DELEGACIÓN: ${escapeHtml(record.delegation.name)}</span>
+          <span class="vehicle-kardex-chip">CLASE: ${escapeHtml(record.vehicleClass || "No registrado")}</span>
+          <span class="vehicle-kardex-chip">USO: ${escapeHtml(record.useType || "No registrado")}</span>
+          <span class="vehicle-kardex-chip">FÍSICO: ${escapeHtml(record.physicalStatus || "No registrado")}</span>
+        </div>
       </div>
     </div>
   `;
 
-  const currentStateSection = `
-    <div class="vehicle-detail-current-card">
-      <div class="vehicle-detail-current-item">
-        <span>Estado del registro</span>
-        <strong>${escapeHtml(record.recordState === "CURRENT" ? "Vigente" : "Trasladado")}</strong>
-      </div>
-      <div class="vehicle-detail-current-item">
-        <span>Delegación actual</span>
-        <strong>${escapeHtml(record.delegation.name)}</strong>
-      </div>
-      <div class="vehicle-detail-current-item">
-        <span>Delegación consultada</span>
-        <strong>${escapeHtml(record.viewDelegation.name)}</strong>
-      </div>
-      <div class="vehicle-detail-current-item">
-        <span>Placas visibles</span>
-        <strong>${escapeHtml(displayPlates)}</strong>
-      </div>
+  const vehicleDetailsSection = `
+    <div class="vehicle-kardex-read-body">
+      <section class="vehicle-kardex-panel">
+        <h4>Identificación y placas</h4>
+        <div class="vehicle-kardex-grid">
+          ${renderVehicleDetailField("No. patrulla", record.patrolNumber)}
+          ${renderVehicleDetailField("CIV", record.civ)}
+          ${renderVehicleDetailField("Placas anteriores", record.previousPlates)}
+          ${renderVehicleDetailField("Placas 2024", record.plates2024)}
+          ${renderVehicleDetailField("Placas 2025", record.plates2025)}
+          ${renderVehicleDetailField("Placas 2026", record.plates2026)}
+        </div>
+      </section>
+
+      <section class="vehicle-kardex-panel">
+        <h4>Características</h4>
+        <div class="vehicle-kardex-grid">
+          ${renderVehicleDetailField("Clase", record.vehicleClass)}
+          ${renderVehicleDetailField("Uso", record.useType)}
+          ${renderVehicleDetailField("Marca", record.brand)}
+          ${renderVehicleDetailField("Tipo", record.type)}
+          ${renderVehicleDetailField("Modelo", record.model)}
+          ${renderVehicleDetailField("Cilindros", record.cylinders)}
+          ${renderVehicleDetailField("Capacidad litros", record.fuelCapacityLiters)}
+          ${renderVehicleDetailField("Número de motor", record.engineNumber)}
+          ${renderVehicleDetailField("Número de serie", record.serialNumber)}
+          ${renderVehicleDetailField("Color", record.color)}
+        </div>
+      </section>
+
+      <section class="vehicle-kardex-panel">
+        <h4>Asignación y estado</h4>
+        <div class="vehicle-kardex-grid">
+          ${renderVehicleDetailField("Resguardante", record.custodian)}
+          ${renderVehicleDetailField("Adscripción", record.adscription)}
+          ${renderVehicleDetailField("Ubicación real", record.realLocation)}
+          ${renderVehicleDetailField("Delegación actual", record.delegation.name)}
+          ${renderVehicleDetailField("Delegación consultada", record.viewDelegation.name)}
+          ${renderVehicleDetailField("Estado del registro", record.recordState === "CURRENT" ? "Vigente" : "Trasladado")}
+          ${renderVehicleDetailField("Estado físico", record.physicalStatus)}
+          ${renderVehicleDetailField("Estatus sistema", record.status)}
+          ${renderVehicleDetailField("Estatus Excel", record.rawCirculationStatus)}
+          ${renderVehicleDetailField("Clasificación del bien", record.assetClassification)}
+          ${renderVehicleDetailField("Anotación general", record.rawAssetClassification)}
+        </div>
+      </section>
     </div>
   `;
 
-  const transferHistory =
-    record.transferHistory.length > 0
-      ? record.transferHistory.map((transfer) => renderTransferLine(transfer)).join("")
-      : '<div class="activity-item"><span>Sin traslados registrados.</span></div>';
+  const transferHistory = record.transferHistory.length > 0
+    ? record.transferHistory.map((transfer) => renderTransferRow(transfer)).join("")
+    : '<tr><td colspan="5" class="vehicle-kardex-empty-row">Aún no hay traslados registrados para esta unidad.</td></tr>';
 
-  const editHistory =
-    record.editHistory.length > 0
-      ? record.editHistory.map((edit) => renderEditLine(edit)).join("")
-      : '<div class="activity-item"><span>Sin ediciones registradas.</span></div>';
+  const editHistory = record.editHistory.length > 0
+    ? record.editHistory.map((edit) => renderEditRows(edit)).join("")
+    : '<tr><td colspan="5" class="vehicle-kardex-empty-row">Aún no hay ediciones registradas para esta unidad.</td></tr>';
 
-  const photosSection =
-    record.photos && record.photos.length > 0
-      ? `
-        <div class="activity-item">
-          <div class="activity-item-head">
-            <strong>Fotos de la unidad</strong>
-            <span>${record.photos.length} imagen(es)</span>
+  const photosSection = record.photos && record.photos.length > 0
+    ? `
+      <section class="vehicle-kardex-panel">
+        <div class="vehicle-kardex-panel-title-row">
+          <div>
+            <h4>Fotografías</h4>
+            <p>Evidencia visual registrada para la unidad.</p>
           </div>
-          <div class="photo-gallery">
-            ${record.photos.map((photo) => renderPhotoThumbnail(photo)).join("")}
-          </div>
+          <span class="vehicle-kardex-count">${record.photos.length}</span>
         </div>
-      `
-      : '<div class="activity-item"><span>Sin fotos cargadas.</span></div>';
+        <div class="photo-gallery vehicle-kardex-gallery">
+          ${record.photos.map((photo) => renderPhotoThumbnail(photo)).join("")}
+        </div>
+      </section>
+    `
+    : `
+      <section class="vehicle-kardex-panel">
+        <h4>Fotografías</h4>
+        <div class="vehicle-kardex-empty">Sin fotografías cargadas.</div>
+      </section>
+    `;
+
+  const historySection = `
+    <div class="vehicle-kardex-read-body">
+      <section class="vehicle-kardex-panel">
+        <div class="vehicle-kardex-panel-title-row">
+          <div>
+            <h4>Historial de traslados</h4>
+            <p>Fecha, usuario, delegación de origen, destino y motivo.</p>
+          </div>
+          <span class="vehicle-kardex-count">${record.transferHistory.length}</span>
+        </div>
+        <div class="vehicle-kardex-table-wrap">
+          <table class="vehicle-kardex-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Usuario</th>
+                <th>Origen</th>
+                <th>Destino</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>${transferHistory}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="vehicle-kardex-panel">
+        <div class="vehicle-kardex-panel-title-row">
+          <div>
+            <h4>Historial de ediciones</h4>
+            <p>Campo modificado, valor anterior, valor nuevo, fecha y usuario.</p>
+          </div>
+          <span class="vehicle-kardex-count">${record.editHistory.length}</span>
+        </div>
+        <div class="vehicle-kardex-table-wrap">
+          <table class="vehicle-kardex-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Usuario</th>
+                <th>Campo</th>
+                <th>Antes</th>
+                <th>Después</th>
+              </tr>
+            </thead>
+            <tbody>${editHistory}</tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  `;
 
   const result = await Swal.fire({
-    title: `Kárdex vehicular · ${vehicleIdentifier}`,
-    width: 900,
+    title: "Kárdex vehicular",
+    width: 980,
     confirmButtonText: canEdit ? (options.editButtonText ?? "Editar vehículo") : "Cerrar",
     showCancelButton: canEdit,
     cancelButtonText: "Cerrar",
     focusConfirm: false,
     customClass: {
       popup: "vehicle-detail-popup",
-      confirmButton: canEdit ? "vehicle-detail-edit-primary" : undefined,
+      title: "vehicle-kardex-modal-title",
+      actions: "vehicle-kardex-modal-actions",
+      confirmButton: canEdit ? "vehicle-detail-edit-primary" : "vehicle-kardex-close-primary",
+      cancelButton: "vehicle-kardex-close-button",
     },
     html: `
+      <div class="vehicle-kardex-modal-subtitle">
+        <span>Consulta de información de la unidad.</span>
+        <span class="vehicle-kardex-mode-badge">Modo Consulta</span>
+      </div>
+
+      ${vehicleIdentitySection}
+
       <div class="vehicle-detail-tabs" role="tablist" aria-label="Secciones del kárdex vehicular">
         <button
           type="button"
@@ -314,11 +404,8 @@ export async function openRecordDetails(
         role="tabpanel"
         data-vehicle-tab-panel="details"
       >
-        <div class="vehicle-detail-primary-stack">
-          ${vehicleSummarySection}
-          ${currentStateSection}
-          ${photosSection}
-        </div>
+        ${vehicleDetailsSection}
+        ${photosSection}
       </div>
 
       <div
@@ -328,33 +415,7 @@ export async function openRecordDetails(
         data-vehicle-tab-panel="history"
         hidden
       >
-        <div class="vehicle-detail-history-stack">
-          <section class="vehicle-detail-history-section">
-            <div class="vehicle-detail-history-header">
-              <div class="vehicle-detail-history-heading">
-                <strong>Historial de traslados</strong>
-                <span>Cambios de delegación registrados para esta unidad.</span>
-              </div>
-              <span class="vehicle-detail-history-count">${record.transferHistory.length}</span>
-            </div>
-            <div class="vehicle-detail-history-body">
-              ${transferHistory}
-            </div>
-          </section>
-
-          <section class="vehicle-detail-history-section">
-            <div class="vehicle-detail-history-header">
-              <div class="vehicle-detail-history-heading">
-                <strong>Historial de ediciones</strong>
-                <span>Modificaciones realizadas sobre los datos del vehículo.</span>
-              </div>
-              <span class="vehicle-detail-history-count">${record.editHistory.length}</span>
-            </div>
-            <div class="vehicle-detail-history-body">
-              ${editHistory}
-            </div>
-          </section>
-        </div>
+        ${historySection}
       </div>
     `,
     didOpen: () => {
@@ -416,10 +477,10 @@ export async function openRecordDetails(
         });
       });
 
-      popup.querySelectorAll(".photo-thumb").forEach((thumb) => {
+      popup.querySelectorAll<HTMLElement>("[data-photo-url]").forEach((thumb) => {
         thumb.addEventListener("click", () => {
-          const photoUrl = (thumb as HTMLElement).getAttribute("data-photo-url");
-          const photoName = (thumb as HTMLElement).getAttribute("data-photo-name");
+          const photoUrl = thumb.getAttribute("data-photo-url");
+          const photoName = thumb.getAttribute("data-photo-name");
 
           if (!photoUrl) {
             return;
