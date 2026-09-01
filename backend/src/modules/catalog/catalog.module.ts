@@ -9,6 +9,7 @@ import { CatalogGroupEntity } from './entities/catalog-group.entity';
 import { CatalogItemEntity } from './entities/catalog-item.entity';
 import { DelegationEntity } from './entities/delegation.entity';
 import { RegionEntity } from './entities/region.entity';
+import { VehicleFormCatalogService } from './vehicle-form-catalog.service';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { RegionEntity } from './entities/region.entity';
     ]),
   ],
   controllers: [CatalogController],
-  providers: [CatalogService],
-  exports: [CatalogService, TypeOrmModule],
+  providers: [CatalogService, VehicleFormCatalogService],
+  exports: [CatalogService, VehicleFormCatalogService, TypeOrmModule],
 })
 export class CatalogModule {}
