@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne } from "typeorm";
+import { AfterLoad, Column, Entity, ManyToOne } from "typeorm";
 import { BaseEntity } from "src/common/entities/base.entity";
 import { MessageEntity } from "src/modules/messages/entities/message.entity";
 import { UserEntity } from "src/modules/users/entities/user.entity";
@@ -37,4 +37,11 @@ export class MessagePhotoEntity extends BaseEntity {
     onDelete: "RESTRICT",
   })
   uploadedBy!: UserEntity;
+
+  @AfterLoad()
+  useLocalPublicUrl() {
+    if (this.objectKey) {
+      this.publicUrl = `/api/files/${this.objectKey}`;
+    }
+  }
 }
