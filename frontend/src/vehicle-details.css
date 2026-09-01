@@ -1,0 +1,158 @@
+/* Kárdex vehicular: navegación por pestañas y composición del modal de detalle. */
+.vehicle-detail-popup .swal2-html-container {
+  margin-top: 0.75rem;
+  text-align: left;
+}
+
+.vehicle-detail-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--slate-100);
+}
+
+.vehicle-detail-tab {
+  flex: 1;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--slate-600);
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.vehicle-detail-tab:hover:not(:disabled) {
+  border-color: var(--slate-300);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--slate-900);
+  box-shadow: none;
+}
+
+.vehicle-detail-tab.is-active {
+  border-color: var(--border-strong);
+  background: #ffffff;
+  color: var(--slate-900);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07);
+}
+
+.vehicle-detail-tab-count,
+.vehicle-detail-history-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--slate-200);
+  color: var(--slate-700);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.vehicle-detail-tab.is-active .vehicle-detail-tab-count {
+  background: var(--slate-900);
+  color: #ffffff;
+}
+
+.vehicle-detail-tab-panel {
+  display: none;
+}
+
+.vehicle-detail-tab-panel.is-active {
+  display: block;
+}
+
+.vehicle-detail-primary-stack,
+.vehicle-detail-history-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.vehicle-detail-current-card,
+.vehicle-detail-history-section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.vehicle-detail-current-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.vehicle-detail-current-item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vehicle-detail-current-item span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vehicle-detail-current-item strong {
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.vehicle-detail-history-section {
+  overflow: hidden;
+}
+
+.vehicle-detail-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--slate-050);
+}
+
+.vehicle-detail-history-heading {
+  display: grid;
+  gap: 2px;
+}
+
+.vehicle-detail-history-heading strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.vehicle-detail-history-heading span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.vehicle-detail-history-body {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.vehicle-detail-history-body > .activity-item {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .vehicle-detail-tabs {
+    flex-direction: column;
+  }
+
+  .vehicle-detail-current-card {
+    grid-template-columns: 1fr;
+  }
+}
