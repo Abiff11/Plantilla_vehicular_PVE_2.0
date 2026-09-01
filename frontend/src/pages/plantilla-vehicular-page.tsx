@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { GroupedRecords } from '../components/grouped-records';
 import { LoadingSpinner } from '../components/loading-spinner';
-import { RecordForm } from '../components/record-form';
 import { VehicleEditModal } from '../components/vehicle-edit-modal';
 import { api } from '../lib/api';
 import { socket } from '../lib/socket';
@@ -11,7 +10,6 @@ import { openRecordDetails, openTransferDialog } from '../modules/records/record
 import type {
   GroupedRegionRecords,
   RecordFieldCatalogMap,
-  RecordFormValues,
   Region,
   VehicleEditPayload,
   VehicleRecord,
@@ -83,17 +81,6 @@ export function PlantillaVehicularPage() {
     };
   }, [dateFrom, dateTo, selectedDelegationId, selectedRegionId, session]);
 
-  const captureDelegations = useMemo(
-    () =>
-      catalogRegions.flatMap((region) =>
-        region.delegations.map((delegation) => ({
-          ...delegation,
-          name: `${region.name} - ${delegation.name}`,
-        })),
-      ),
-    [catalogRegions],
-  );
-
   const availableDelegations = useMemo(() => {
     if (!selectedRegionId) {
       return catalogRegions.flatMap((region) => region.delegations);
@@ -116,52 +103,6 @@ export function PlantillaVehicularPage() {
       `Hasta: ${dateTo || 'Sin fecha final'}`,
     ];
   }, [availableDelegations, catalogRegions, dateFrom, dateTo, selectedDelegationId, selectedRegionId]);
-
-  const createRecord = async (values: RecordFormValues, photos: File[] = []) => {
-    if (!session) {
-      return;
-    }
-
-    const selectedDelegation = captureDelegations.find(
-      (delegation) => delegation.id === values.delegationId,
-    );
-    const confirmation = await Swal.fire({
-      icon: 'question',
-      title: 'Confirmar alta de unidad',
-      text: `La unidad se asignará a ${selectedDelegation?.name ?? 'la delegación seleccionada'}.`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar unidad',
-      cancelButtonText: 'Cancelar',
-    });
-
-    if (!confirmation.isConfirmed) {
-      return;
-    }
-
-    try {
-      if (photos.length > 0) {
-        await api.createRecordWithPhotos(values, photos, session.accessToken);
-      } else {
-        await api.createRecord(values, session.accessToken);
-      }
-
-      await loadOverview();
-
-      await Swal.fire({
-        icon: 'success',
-        title: 'Unidad registrada',
-        text: 'La unidad se guardó y quedó asignada a la delegación seleccionada.',
-        confirmButtonText: 'Entendido',
-      });
-    } catch (requestError) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'No se pudo registrar la unidad',
-        text: (requestError as Error).message,
-        confirmButtonText: 'Entendido',
-      });
-    }
-  };
 
   const transferRecord = async (record: VehicleRecord) => {
     if (!session) {
@@ -307,13 +248,6 @@ export function PlantillaVehicularPage() {
       )}
 
       <div className="stack-lg">
-        <RecordForm
-          delegations={captureDelegations}
-          fieldCatalogs={fieldCatalogs}
-          delegationSelectionMode="select"
-          onSubmit={createRecord}
-        />
-
         <GroupedRecords
           regions={regions}
           fieldCatalogs={fieldCatalogs}
