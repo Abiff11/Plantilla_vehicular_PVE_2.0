@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role } from 'src/common/enums/role.enum';
 import { AuditLogsService } from 'src/modules/audit-logs/audit-logs.service';
-import { RECORD_FIELD_CATALOG } from 'src/modules/catalog/record-field-catalog';
+import { VehicleFormCatalogService } from 'src/modules/catalog/vehicle-form-catalog.service';
 import { RealtimeGateway } from 'src/modules/realtime/realtime.gateway';
 import { UpdateRecordDto } from './dto/update-record.dto';
 import { RecordEntity } from './entities/record.entity';
@@ -47,6 +47,7 @@ const editableRecordFields = [
   'status',
   'rawCirculationStatus',
   'assetClassification',
+  'rawAssetClassification',
   'observation',
   'realLocation',
   'sourceSection',
@@ -55,14 +56,6 @@ const editableRecordFields = [
 
 type EditableRecordField = (typeof editableRecordFields)[number];
 type EditableRecordValues = Pick<RecordEntity, EditableRecordField>;
-
-const catalogValidatedFields = [
-  'useType',
-  'vehicleClass',
-  'physicalStatus',
-  'status',
-  'assetClassification',
-] as const;
 
 const NO_PLATE_VALUES = new Set([
   '',
@@ -94,6 +87,7 @@ export class RecordFullEditService {
     private readonly recordRepository: Repository<RecordEntity>,
     private readonly auditLogsService: AuditLogsService,
     private readonly realtimeGateway: RealtimeGateway,
+    private readonly vehicleFormCatalogService: VehicleFormCatalogService,
   ) {}
 
   async update(id: string, dto: UpdateRecordDto, authUser: AuthUser) {
@@ -113,7 +107,10 @@ export class RecordFullEditService {
       return record;
     }
 
-    const catalogError = this.validateCatalogFields(normalizedValues, dto);
+    const catalogError = await this.vehicleFormCatalogService.validateValues(
+      { ...normalizedValues },
+      changedFields,
+    );
 
     if (catalogError) {
       throw new BadRequestException(catalogError);
@@ -177,33 +174,6 @@ export class RecordFullEditService {
         'El enlace solo puede editar capturas de su delegacion.',
       );
     }
-  }
-
-  private validateCatalogFields(values: EditableRecordValues, dto: UpdateRecordDto) {
-    for (const field of catalogValidatedFields) {
-      if (dto[field] === undefined) {
-        continue;
-      }
-
-      const value = values[field];
-
-      if (!value || String(value).trim().length === 0) {
-        continue;
-      }
-
-      const catalogEntry = RECORD_FIELD_CATALOG[field];
-      const validValues: string[] = catalogEntry.options.map((option) => option.value);
-
-      if (!validValues.includes(String(value))) {
-        if (catalogEntry.allowsCustom) {
-          continue;
-        }
-
-        return `${catalogEntry.label}: '${value}' no es una opcion valida. Valores permitidos: ${validValues.join(', ')}.`;
-      }
-    }
-
-    return null;
   }
 
   private async ensureNoDuplicateRecords(
@@ -283,6 +253,7 @@ export class RecordFullEditService {
       status: record.status,
       rawCirculationStatus: record.rawCirculationStatus,
       assetClassification: record.assetClassification,
+      rawAssetClassification: record.rawAssetClassification,
       observation: record.observation,
       realLocation: record.realLocation,
       sourceSection: record.sourceSection,
@@ -334,6 +305,7 @@ export class RecordFullEditService {
       status: normalizeCatalogText(values.status),
       rawCirculationStatus: normalizeCatalogText(values.rawCirculationStatus),
       assetClassification: normalizeCatalogText(values.assetClassification),
+      rawAssetClassification: normalizeCatalogText(values.rawAssetClassification),
       observation: normalizeText(values.observation),
       realLocation: normalizeCatalogText(values.realLocation),
       sourceSection: normalizeCatalogText(values.sourceSection),

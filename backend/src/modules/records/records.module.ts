@@ -6,6 +6,7 @@ import { CatalogAliasEntity } from 'src/modules/catalog/entities/catalog-alias.e
 import { CatalogGroupEntity } from 'src/modules/catalog/entities/catalog-group.entity';
 import { CatalogItemEntity } from 'src/modules/catalog/entities/catalog-item.entity';
 import { DelegationEntity } from 'src/modules/catalog/entities/delegation.entity';
+import { VehicleFormCatalogService } from 'src/modules/catalog/vehicle-form-catalog.service';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { DirectorOverviewController } from './director-overview.controller';
 import { DirectorOverviewService } from './director-overview.service';
@@ -61,6 +62,7 @@ import { StorageModule } from '../storage/storage.module';
     RecordPhotosService,
     RecordsImportService,
     DirectorOverviewService,
+    VehicleFormCatalogService,
     ControlPersonalIntegrationGuard,
     ControlPersonalIntegrationService,
   ],

@@ -9,8 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role } from 'src/common/enums/role.enum';
 import { AuditLogsService } from 'src/modules/audit-logs/audit-logs.service';
-import { RECORD_FIELD_CATALOG } from 'src/modules/catalog/record-field-catalog';
 import { DelegationEntity } from 'src/modules/catalog/entities/delegation.entity';
+import { VehicleFormCatalogService } from 'src/modules/catalog/vehicle-form-catalog.service';
 import { RealtimeGateway } from 'src/modules/realtime/realtime.gateway';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { StorageService } from '../storage/storage.service';
@@ -67,14 +67,6 @@ type NormalizedCreateValues = Pick<
   | 'sourceRowNumber'
 >;
 
-const catalogValidatedFields = [
-  'useType',
-  'vehicleClass',
-  'physicalStatus',
-  'status',
-  'assetClassification',
-] as const;
-
 const NO_PLATE_VALUES = new Set([
   '',
   '-',
@@ -113,6 +105,7 @@ export class RecordCreateService {
     private readonly realtimeGateway: RealtimeGateway,
     private readonly storageService: StorageService,
     private readonly recordsService: RecordsService,
+    private readonly vehicleFormCatalogService: VehicleFormCatalogService,
   ) {}
 
   async create(dto: CreateRecordDto, authUser: AuthUser, photos?: UploadedFile[]) {
@@ -144,7 +137,9 @@ export class RecordCreateService {
       delegation.name,
     );
 
-    const catalogError = this.validateCatalogFields(normalizedValues);
+    const catalogError = await this.vehicleFormCatalogService.validateValues({
+      ...normalizedValues,
+    });
     if (catalogError) {
       throw new BadRequestException(catalogError);
     }
@@ -253,24 +248,6 @@ export class RecordCreateService {
       sourceSection: normalizeCatalogText(dto.sourceSection),
       sourceRowNumber: dto.sourceRowNumber ?? null,
     };
-  }
-
-  private validateCatalogFields(values: NormalizedCreateValues) {
-    for (const field of catalogValidatedFields) {
-      const value = values[field];
-      if (!value || value.trim().length === 0) {
-        continue;
-      }
-
-      const catalogEntry = RECORD_FIELD_CATALOG[field];
-      const validValues: string[] = catalogEntry.options.map((option) => option.value);
-
-      if (!validValues.includes(value) && !catalogEntry.allowsCustom) {
-        return `${catalogEntry.label}: '${value}' no es una opcion valida. Valores permitidos: ${validValues.join(', ')}.`;
-      }
-    }
-
-    return null;
   }
 
   private async ensureNoDuplicateRecords(values: NormalizedCreateValues) {

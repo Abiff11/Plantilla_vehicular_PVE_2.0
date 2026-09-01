@@ -68,6 +68,28 @@ const schema = z
   });
 
 type VehicleEditFormData = z.infer<typeof schema>;
+type SimpleCatalogFieldName =
+  | 'brand'
+  | 'type'
+  | 'vehicleClass'
+  | 'color'
+  | 'adscription'
+  | 'realLocation'
+  | 'physicalStatus'
+  | 'rawCirculationStatus'
+  | 'sourceSection';
+
+type ExtendedRecordFieldCatalogMap = RecordFieldCatalogMap &
+  Record<
+    | 'brand'
+    | 'type'
+    | 'color'
+    | 'adscription'
+    | 'realLocation'
+    | 'rawCirculationStatus'
+    | 'sourceSection',
+    RecordFieldCatalog
+  >;
 
 type VehicleEditModalProps = {
   record: VehicleRecord;
@@ -227,6 +249,40 @@ function CatalogField({
   );
 }
 
+function SimpleCatalogField({
+  label,
+  fieldName,
+  catalog,
+  register,
+  currentValue,
+}: {
+  label: string;
+  fieldName: SimpleCatalogFieldName;
+  catalog: RecordFieldCatalog;
+  register: ReturnType<typeof useForm<VehicleEditFormData>>['register'];
+  currentValue: string;
+}) {
+  const currentIsCatalogued =
+    !currentValue || catalog.options.some((option) => option.value === currentValue);
+
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <select id={fieldName} {...register(fieldName)}>
+        <option value="">Selecciona una opción</option>
+        {!currentIsCatalogued && (
+          <option value={currentValue}>{currentValue} · valor actual</option>
+        )}
+        {catalog.options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function validatePhoto(file: File) {
   if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
     return `${file.name}: formato no permitido. Usa JPG, JPEG, PNG o WEBP.`;
@@ -247,6 +303,7 @@ export function VehicleEditModal({
   onRecordChanged,
   onCancel,
 }: VehicleEditModalProps) {
+  const catalogs = fieldCatalogs as ExtendedRecordFieldCatalogMap;
   const initialValues = useMemo(
     () => buildFormData(record, fieldCatalogs),
     [fieldCatalogs, record],
@@ -560,50 +617,38 @@ export function VehicleEditModal({
           <section className="vehicle-edit-section">
             <div className="vehicle-edit-section-head"><h4>Datos técnicos</h4></div>
             <div className="form-grid vehicle-edit-grid">
-              <label className="field"><span>Marca</span><input id="brand" {...register('brand')} /></label>
-              <label className="field"><span>Tipo</span><input id="type" {...register('type')} /></label>
-              <CatalogField label={fieldCatalogs.useType.label} fieldName="useType" catalog={fieldCatalogs.useType} register={register} selectedValue={selectedUseType} />
-              <label className="field">
-                <span>Clase de vehículo</span>
-                <select id="vehicleClass" {...register('vehicleClass')}>
-                  <option value="">Selecciona una opción</option>
-                  {fieldCatalogs.vehicleClass.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
+              <SimpleCatalogField label={catalogs.brand.label} fieldName="brand" catalog={catalogs.brand} register={register} currentValue={watch('brand')} />
+              <SimpleCatalogField label={catalogs.type.label} fieldName="type" catalog={catalogs.type} register={register} currentValue={watch('type')} />
+              <CatalogField label={catalogs.useType.label} fieldName="useType" catalog={catalogs.useType} register={register} selectedValue={selectedUseType} />
+              <SimpleCatalogField label={catalogs.vehicleClass.label} fieldName="vehicleClass" catalog={catalogs.vehicleClass} register={register} currentValue={watch('vehicleClass')} />
               <label className="field"><span>Modelo</span><input id="model" {...register('model')} /></label>
               <label className="field"><span>Cilindros</span><input id="cylinders" {...register('cylinders')} /></label>
               <label className="field"><span>Capacidad litros</span><input id="fuelCapacityLiters" {...register('fuelCapacityLiters')} /></label>
               <label className="field"><span>No. de motor</span><input id="engineNumber" {...register('engineNumber')} /></label>
               <label className="field"><span>No. de serie</span><input id="serialNumber" {...register('serialNumber')} /></label>
-              <label className="field"><span>Color</span><input id="color" {...register('color')} /></label>
+              <SimpleCatalogField label={catalogs.color.label} fieldName="color" catalog={catalogs.color} register={register} currentValue={watch('color')} />
             </div>
           </section>
 
           <section className="vehicle-edit-section">
             <div className="vehicle-edit-section-head"><h4>Asignación y ubicación</h4></div>
             <div className="form-grid vehicle-edit-grid">
+              <label className="field"><span>Delegación actual</span><input id="delegationName" value={record.delegation.name} readOnly /></label>
+              <SimpleCatalogField label={catalogs.adscription.label} fieldName="adscription" catalog={catalogs.adscription} register={register} currentValue={watch('adscription')} />
               <label className="field"><span>Resguardante</span><input id="custodian" {...register('custodian')} /></label>
+              <SimpleCatalogField label={catalogs.realLocation.label} fieldName="realLocation" catalog={catalogs.realLocation} register={register} currentValue={watch('realLocation')} />
               <label className="field"><span>No. patrulla</span><input id="patrolNumber" {...register('patrolNumber')} /></label>
-              <label className="field"><span>Adscripción</span><input id="adscription" {...register('adscription')} /></label>
-              <label className="field"><span>Ubicación real</span><input id="realLocation" {...register('realLocation')} /></label>
-              <label className="field field-full"><span>Delegación actual</span><input id="delegationName" value={record.delegation.name} readOnly /></label>
             </div>
           </section>
 
           <section className="vehicle-edit-section">
             <div className="vehicle-edit-section-head"><h4>Estado y observaciones</h4></div>
             <div className="form-grid vehicle-edit-grid">
-              <label className="field">
-                <span>Estado físico</span>
-                <select id="physicalStatus" {...register('physicalStatus')}>
-                  <option value="">Selecciona una opción</option>
-                  {fieldCatalogs.physicalStatus.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              <CatalogField label={fieldCatalogs.status.label} fieldName="status" catalog={fieldCatalogs.status} register={register} selectedValue={selectedStatus} />
-              <label className="field"><span>Estatus Excel</span><input id="rawCirculationStatus" {...register('rawCirculationStatus')} /></label>
+              <SimpleCatalogField label={catalogs.physicalStatus.label} fieldName="physicalStatus" catalog={catalogs.physicalStatus} register={register} currentValue={watch('physicalStatus')} />
+              <CatalogField label={catalogs.status.label} fieldName="status" catalog={catalogs.status} register={register} selectedValue={selectedStatus} />
+              <SimpleCatalogField label={catalogs.rawCirculationStatus.label} fieldName="rawCirculationStatus" catalog={catalogs.rawCirculationStatus} register={register} currentValue={watch('rawCirculationStatus')} />
               <label className="field"><span>Anotación general</span><input id="rawAssetClassification" {...register('rawAssetClassification')} /></label>
-              <CatalogField label={fieldCatalogs.assetClassification.label} fieldName="assetClassification" catalog={fieldCatalogs.assetClassification} register={register} selectedValue={selectedAssetClassification} />
+              <CatalogField label={catalogs.assetClassification.label} fieldName="assetClassification" catalog={catalogs.assetClassification} register={register} selectedValue={selectedAssetClassification} />
               <label className="field field-full"><span>Observación</span><textarea id="observation" rows={4} {...register('observation')} /></label>
             </div>
           </section>
@@ -611,7 +656,7 @@ export function VehicleEditModal({
           <section className="vehicle-edit-section">
             <div className="vehicle-edit-section-head"><h4>Metadatos de importación</h4></div>
             <div className="form-grid vehicle-edit-grid">
-              <label className="field"><span>Sección Excel</span><input id="sourceSection" {...register('sourceSection')} /></label>
+              <SimpleCatalogField label={catalogs.sourceSection.label} fieldName="sourceSection" catalog={catalogs.sourceSection} register={register} currentValue={watch('sourceSection')} />
               <label className="field"><span>Fila Excel</span><input id="sourceRowNumber" type="number" inputMode="numeric" {...register('sourceRowNumber')} /></label>
               <label className="field"><span>Lote importación</span><input id="importBatchId" value={record.importBatchId ?? '-'} readOnly /></label>
             </div>
