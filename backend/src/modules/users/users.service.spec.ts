@@ -225,7 +225,11 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(target)
         .mockResolvedValueOnce(actor);
       userRepository.save.mockResolvedValue(target);
-      userRepository.softDelete.mockResolvedValue({ raw: [], affected: 1 });
+      userRepository.softDelete.mockResolvedValue({
+        raw: [],
+        affected: 1,
+        generatedMaps: [],
+      });
 
       await expect(service.softDelete(target.id, actor.id)).resolves.toBeUndefined();
       expect(userRepository.softDelete).toHaveBeenCalledWith(target.id);
