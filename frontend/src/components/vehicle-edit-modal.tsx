@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import Swal from 'sweetalert2';
 import { z } from 'zod';
 import { recordPhotoApi } from '../lib/record-photo-api';
+import { resolveVehiclePhotoUrl } from '../lib/vehicle-photo-url';
 import { resolveVehicleDisplayPlate } from '../lib/vehicle-plates';
 import type {
   RecordFieldCatalog,
@@ -226,16 +227,6 @@ function CatalogField({
   );
 }
 
-function resolvePhotoUrl(photo: VehiclePhoto) {
-  const value = photo.publicUrl?.trim() || `/api/files/${photo.objectKey}`;
-
-  if (/^https?:\/\//u.test(value) || typeof window === 'undefined') {
-    return value;
-  }
-
-  return new URL(value, window.location.origin).toString();
-}
-
 function validatePhoto(file: File) {
   if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
     return `${file.name}: formato no permitido. Usa JPG, JPEG, PNG o WEBP.`;
@@ -278,8 +269,11 @@ export function VehicleEditModal({
 
   useEffect(() => {
     reset(initialValues);
+  }, [initialValues, reset]);
+
+  useEffect(() => {
     setPhotoRecord(record);
-  }, [initialValues, record, reset]);
+  }, [record]);
 
   const plateLabel = resolveVehicleDisplayPlate(record);
   const selectedUseType = watch('useType');
@@ -504,7 +498,7 @@ export function VehicleEditModal({
                       key={photo.id}
                     >
                       <div className="vehicle-photo-preview">
-                        <img src={resolvePhotoUrl(photo)} alt={photo.fileName} />
+                        <img src={resolveVehiclePhotoUrl(photo)} alt={photo.fileName} />
                         {isPrimary && <span className="vehicle-photo-primary-badge">Foto principal</span>}
                       </div>
                       <div className="vehicle-photo-card-copy">
