@@ -193,7 +193,7 @@ export type VehiclePhoto = {
   publicUrl: string;
   mimeType: string;
   size: number;
-  storageProvider: 'local' | 'r2';
+  storageProvider: 'local';
   isPrimary: boolean;
   uploadedBy: User;
   createdAt: string;
