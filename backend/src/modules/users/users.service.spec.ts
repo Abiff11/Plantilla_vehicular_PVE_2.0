@@ -128,12 +128,63 @@ describe('UsersService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('throws ForbiddenException when editing superadmin', async () => {
-      const superadmin = createMockUser({ role: Role.SuperAdmin });
-      userRepository.findOne.mockResolvedValue(superadmin);
+    it('allows superadmin to edit a privileged user', async () => {
+      const target = createMockUser({
+        id: 'target-id',
+        firstName: 'TARGET',
+        role: Role.Coordinacion,
+      });
+      const actor = createMockUser({
+        id: 'superadmin-id',
+        role: Role.SuperAdmin,
+      });
+
+      userRepository.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce(actor)
+        .mockResolvedValueOnce(target);
+      userRepository.save.mockResolvedValue(target);
 
       await expect(
-        service.update('user-id', { firstName: 'New' }),
+        service.update(target.id, { firstName: 'Updated' }, actor.id),
+      ).resolves.toMatchObject({
+        id: target.id,
+        firstName: 'UPDATED',
+        role: Role.Coordinacion,
+      });
+    });
+
+    it('throws ForbiddenException when coordinacion edits a privileged user', async () => {
+      const target = createMockUser({
+        id: 'target-id',
+        role: Role.SuperAdmin,
+      });
+      const actor = createMockUser({
+        id: 'coordinacion-id',
+        role: Role.Coordinacion,
+      });
+
+      userRepository.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce(actor);
+
+      await expect(
+        service.update(target.id, { firstName: 'New' }, actor.id),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('prevents superadmin from removing its own privileged role', async () => {
+      const actor = createMockUser({
+        id: 'superadmin-id',
+        role: Role.SuperAdmin,
+      });
+
+      userRepository.findOne
+        .mockResolvedValueOnce(actor)
+        .mockResolvedValueOnce(actor);
+
+      await expect(
+        service.update(actor.id, { role: Role.Enlace }, actor.id),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -143,6 +194,41 @@ describe('UsersService', () => {
       await expect(
         service.update('nonexistent', { firstName: 'New' }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('softDelete', () => {
+    it('prevents an administrator from deleting its own account', async () => {
+      const actor = createMockUser({
+        id: 'superadmin-id',
+        role: Role.SuperAdmin,
+      });
+      userRepository.findOne.mockResolvedValueOnce(actor);
+
+      await expect(service.softDelete(actor.id, actor.id)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(userRepository.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('allows superadmin to delete another privileged account', async () => {
+      const target = createMockUser({
+        id: 'coordinacion-id',
+        role: Role.Coordinacion,
+      });
+      const actor = createMockUser({
+        id: 'superadmin-id',
+        role: Role.SuperAdmin,
+      });
+
+      userRepository.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce(actor);
+      userRepository.save.mockResolvedValue(target);
+      userRepository.softDelete.mockResolvedValue({ raw: [], affected: 1 });
+
+      await expect(service.softDelete(target.id, actor.id)).resolves.toBeUndefined();
+      expect(userRepository.softDelete).toHaveBeenCalledWith(target.id);
     });
   });
 });
