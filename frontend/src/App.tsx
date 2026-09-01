@@ -5,6 +5,7 @@ import { HomePage } from "./pages/home-page";
 import { LoginPage } from "./pages/login-page";
 import { EnlacePage } from "./pages/enlace-page";
 import { EnlaceRecordsPage } from "./pages/enlace-records-page";
+import { SuperadminCapturePage } from "./pages/superadmin-capture-page";
 import { PlantillaVehicularPage } from "./pages/plantilla-vehicular-page";
 import { CoordinacionPage } from "./pages/coordinacion-page";
 import { CoordinacionAuditPage } from "./pages/coordinacion-audit-page";
@@ -37,6 +38,14 @@ export function App() {
           element={
             <ProtectedRoute allowedRoles={ROUTE_ROLES.workspace}>
               <EnlacePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={APP_ROUTES.superadminCapture.slice(1)}
+          element={
+            <ProtectedRoute allowedRoles={ROUTE_ROLES.superadminCapture}>
+              <SuperadminCapturePage />
             </ProtectedRoute>
           }
         />
