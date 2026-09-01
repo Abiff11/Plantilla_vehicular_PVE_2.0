@@ -41,8 +41,9 @@ export class FilesController {
     @CurrentUser() user: AuthUser,
     @Res() response: Response,
   ) {
+    const objectKey = `vehicle-photos/${fileName}`;
     const photo = await this.vehiclePhotoRepository.findOne({
-      where: { fileName },
+      where: { objectKey },
       relations: {
         record: {
           delegation: {
@@ -67,8 +68,9 @@ export class FilesController {
     @CurrentUser() user: AuthUser,
     @Res() response: Response,
   ) {
+    const objectKey = `message-photos/${fileName}`;
     const photo = await this.messagePhotoRepository.findOne({
-      where: { fileName },
+      where: { objectKey },
       relations: {
         message: {
           conversation: {
