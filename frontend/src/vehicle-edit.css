@@ -239,6 +239,24 @@
   display: block;
 }
 
+.vehicle-kardex-gallery .photo-thumb {
+  position: relative;
+}
+
+.vehicle-kardex-gallery-primary {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 @media (max-width: 900px) {
   .vehicle-edit-summary,
   .vehicle-edit-grid,
