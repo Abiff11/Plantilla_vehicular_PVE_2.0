@@ -431,7 +431,7 @@ export function GroupedRecords({
                             <td>{formatDateTimeMx(record.createdAt)}</td>
                             <td>
                               <div className="vehicle-main-cell">
-                                <strong>{resolveVehicleDisplayPlate(record)}</strong>
+                                <strong>{record.patrolNumber || 'Sin número de patrulla'}</strong>
                                 <span>{record.vehicleClass} · {record.useType}</span>
                                 <small>{record.brand} {record.type} · Modelo {record.model}</small>
                                 {resolveImportMetadata(record) && <small>{resolveImportMetadata(record)}</small>}
