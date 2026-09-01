@@ -235,8 +235,7 @@ export function PlantillaVehicularPage() {
           fieldCatalogs={fieldCatalogs}
           token={session.accessToken}
           onCancel={() => setEditingRecord(null)}
-          onRecordChanged={async (updatedRecord) => {
-            setEditingRecord(updatedRecord);
+          onRecordChanged={async () => {
             await loadOverview();
           }}
           onSubmit={async (values) => {
