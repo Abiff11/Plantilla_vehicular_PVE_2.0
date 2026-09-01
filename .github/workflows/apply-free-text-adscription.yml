@@ -1,0 +1,209 @@
+name: Apply free-text adscription
+
+on:
+  push:
+    branches:
+      - feat/free-text-adscription
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/free-text-adscription
+          fetch-depth: 0
+
+      - name: Apply source changes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, found {count}: {old[:80]!r}')
+              file.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'frontend/src/components/record-form.tsx',
+              "const requiredText = z.string().trim().min(1, 'Campo obligatorio.');\nconst optionalText = z.string();",
+              """const requiredText = z.string().trim().min(1, 'Campo obligatorio.');
+const optionalText = z.string();
+const ADSCRIPTION_PATTERN = /^[\\p{L}\\p{N} .,'’()\\-\\/&#º°]+$/u;
+const adscriptionText = z
+  .string()
+  .trim()
+  .min(1, 'Campo obligatorio.')
+  .max(160, 'Máximo 160 caracteres.')
+  .regex(
+    ADSCRIPTION_PATTERN,
+    'Usa solo letras, números, espacios y signos habituales.',
+  );""",
+          )
+          replace_once(
+              'frontend/src/components/record-form.tsx',
+              '    adscription: requiredText,',
+              '    adscription: adscriptionText,',
+          )
+          replace_once(
+              'frontend/src/components/record-form.tsx',
+              "          {renderSimpleCatalogField('adscription', true)}",
+              """          <label className=\"field\">
+            <span>Adscripción<RequiredMark /></span>
+            <input
+              {...register('adscription')}
+              maxLength={160}
+              autoCapitalize=\"characters\"
+              autoComplete=\"off\"
+              spellCheck
+              lang=\"es-MX\"
+              style={{ textTransform: 'uppercase' }}
+              onInput={(event) => {
+                event.currentTarget.value = event.currentTarget.value.toUpperCase();
+              }}
+              placeholder=\"Ej. COORDINACIÓN OPERATIVA\"
+              title=\"Se guardará en mayúsculas. Revisa las sugerencias ortográficas del navegador.\"
+            />
+            {errors.adscription && <small>{errors.adscription.message}</small>}
+          </label>""",
+          )
+
+          replace_once(
+              'frontend/src/components/vehicle-edit-modal.tsx',
+              "const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];",
+              """const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ADSCRIPTION_PATTERN = /^[\\p{L}\\p{N} .,'’()\\-\\/&#º°]+$/u;
+const optionalAdscriptionText = z
+  .string()
+  .trim()
+  .max(160, 'Máximo 160 caracteres.')
+  .refine(
+    (value) => !value || ADSCRIPTION_PATTERN.test(value),
+    'Usa solo letras, números, espacios y signos habituales.',
+  );""",
+          )
+          replace_once(
+              'frontend/src/components/vehicle-edit-modal.tsx',
+              '    adscription: z.string(),',
+              '    adscription: optionalAdscriptionText,',
+          )
+          replace_once(
+              'frontend/src/components/vehicle-edit-modal.tsx',
+              '              <SimpleCatalogField label={catalogs.adscription.label} fieldName="adscription" catalog={catalogs.adscription} register={register} currentValue={watch(\'adscription\')} />',
+              """              <label className=\"field\">
+                <span>Adscripción</span>
+                <input
+                  id=\"adscription\"
+                  {...register('adscription')}
+                  maxLength={160}
+                  autoCapitalize=\"characters\"
+                  autoComplete=\"off\"
+                  spellCheck
+                  lang=\"es-MX\"
+                  style={{ textTransform: 'uppercase' }}
+                  onInput={(event) => {
+                    event.currentTarget.value = event.currentTarget.value.toUpperCase();
+                  }}
+                  placeholder=\"Ej. COORDINACIÓN OPERATIVA\"
+                  title=\"Se guardará en mayúsculas. Revisa las sugerencias ortográficas del navegador.\"
+                />
+              </label>""",
+          )
+
+          replace_once(
+              'backend/src/modules/catalog/vehicle-form-catalog.service.ts',
+              "  adscription: { groupCode: 'adscription', label: 'Adscripcion', allowsCustom: false },",
+              "  adscription: { groupCode: 'adscription', label: 'Adscripción', allowsCustom: true },",
+          )
+          replace_once(
+              'backend/src/modules/catalog/vehicle-form-catalog.service.spec.ts',
+              "      label: 'Adscripcion',\n      allowsCustom: false,",
+              "      label: 'Adscripción',\n      allowsCustom: true,",
+          )
+
+          replace_once(
+              'backend/src/modules/records/record-create.service.ts',
+              '      adscription: normalizeCatalogText(dto.adscription),',
+              '      adscription: normalizeFreeUpperText(dto.adscription),',
+          )
+          replace_once(
+              'backend/src/modules/records/record-create.service.ts',
+              """function normalizeText(value: unknown) {
+  return String(value ?? '').trim().replace(/\\s+/gu, ' ');
+}
+
+function normalizeCatalogText(value: unknown) {""",
+              """function normalizeText(value: unknown) {
+  return String(value ?? '').trim().replace(/\\s+/gu, ' ');
+}
+
+function normalizeFreeUpperText(value: unknown) {
+  return normalizeText(value).toUpperCase();
+}
+
+function normalizeCatalogText(value: unknown) {""",
+          )
+
+          replace_once(
+              'backend/src/modules/records/record-full-edit.service.ts',
+              '      adscription: normalizeCatalogText(values.adscription),',
+              '      adscription: normalizeFreeUpperText(values.adscription),',
+          )
+          replace_once(
+              'backend/src/modules/records/record-full-edit.service.ts',
+              """function normalizeText(value: unknown) {
+  return String(value ?? '').trim().replace(/\\s+/gu, ' ');
+}
+
+function normalizeCatalogText(value: unknown) {""",
+              """function normalizeText(value: unknown) {
+  return String(value ?? '').trim().replace(/\\s+/gu, ' ');
+}
+
+function normalizeFreeUpperText(value: unknown) {
+  return normalizeText(value).toUpperCase();
+}
+
+function normalizeCatalogText(value: unknown) {""",
+          )
+          PY
+
+      - name: Remove one-time workflow
+        run: rm .github/workflows/apply-free-text-adscription.yml
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Backend checks
+        working-directory: backend
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+          npm run test
+
+      - name: Frontend checks
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat: permitir adscripción libre normalizada"
+          git push origin HEAD:feat/free-text-adscription
