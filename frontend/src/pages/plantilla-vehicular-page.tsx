@@ -177,14 +177,7 @@ export function PlantillaVehicularPage() {
   };
 
   const openDetails = async (record: VehicleRecord) => {
-    const action = await openRecordDetails(record, {
-      canEdit: record.recordState === 'CURRENT',
-      editButtonText: 'Editar vehículo',
-    });
-
-    if (action === 'edit') {
-      setEditingRecord(record);
-    }
+    await openRecordDetails(record);
   };
 
   const deleteRecord = async (record: VehicleRecord) => {
@@ -240,7 +233,12 @@ export function PlantillaVehicularPage() {
         <VehicleEditModal
           record={editingRecord}
           fieldCatalogs={fieldCatalogs}
+          token={session.accessToken}
           onCancel={() => setEditingRecord(null)}
+          onRecordChanged={async (updatedRecord) => {
+            setEditingRecord(updatedRecord);
+            await loadOverview();
+          }}
           onSubmit={async (values) => {
             await updateRecord(editingRecord.id, values);
           }}
