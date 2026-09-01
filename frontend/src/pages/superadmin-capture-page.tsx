@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { EmptyState } from '../components/empty-state';
 import { LoadingSpinner } from '../components/loading-spinner';
@@ -37,17 +37,6 @@ export function SuperadminCapturePage() {
     void loadCaptureData();
   }, [session]);
 
-  const delegations = useMemo(
-    () =>
-      regions.flatMap((region) =>
-        region.delegations.map((delegation) => ({
-          ...delegation,
-          name: `${region.name} - ${delegation.name}`,
-        })),
-      ),
-    [regions],
-  );
-
   if (!session) {
     return null;
   }
@@ -68,14 +57,20 @@ export function SuperadminCapturePage() {
   }
 
   const createRecord = async (values: RecordFormValues, photos: File[] = []) => {
-    const selectedDelegation = delegations.find(
+    const selectedRegion = regions.find((region) =>
+      region.delegations.some((delegation) => delegation.id === values.delegationId),
+    );
+    const selectedDelegation = selectedRegion?.delegations.find(
       (delegation) => delegation.id === values.delegationId,
     );
+    const destinationLabel = selectedRegion && selectedDelegation
+      ? `${selectedRegion.name} - ${selectedDelegation.name}`
+      : 'la delegación seleccionada';
 
     const confirmation = await Swal.fire({
       icon: 'question',
       title: 'Confirmar alta de unidad',
-      text: `La unidad se asignará a ${selectedDelegation?.name ?? 'la delegación seleccionada'}.`,
+      text: `La unidad se asignará a ${destinationLabel}.`,
       showCancelButton: true,
       confirmButtonText: 'Guardar unidad',
       cancelButtonText: 'Cancelar',
@@ -95,7 +90,7 @@ export function SuperadminCapturePage() {
       await Swal.fire({
         icon: 'success',
         title: 'Unidad registrada',
-        text: 'La unidad quedó asignada a la delegación seleccionada.',
+        text: `La unidad quedó asignada a ${destinationLabel}.`,
         confirmButtonText: 'Entendido',
       });
     } catch (requestError) {
@@ -120,7 +115,7 @@ export function SuperadminCapturePage() {
       </section>
 
       <RecordForm
-        delegations={delegations}
+        regions={regions}
         fieldCatalogs={fieldCatalogs}
         delegationSelectionMode="select"
         onSubmit={createRecord}
