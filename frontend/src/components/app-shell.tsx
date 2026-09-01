@@ -29,6 +29,10 @@ const pageTitles: Record<string, { title: string; description: string }> = {
     title: "Captura vehicular",
     description: "Registra unidades vehiculares desde tu delegación asignada.",
   },
+  [APP_ROUTES.superadminCapture]: {
+    title: "Captura vehicular",
+    description: "Registra unidades y selecciona la delegación de destino.",
+  },
   [APP_ROUTES.archive]: {
     title: "Mi plantilla vehicular",
     description:
@@ -109,6 +113,12 @@ const sidebarSections: SidebarSection[] = [
         label: "Capturar vehículo",
         route: APP_ROUTES.workspace,
         allowedRoles: ROUTE_ROLES.workspace,
+        end: true,
+      },
+      {
+        label: "Capturar vehículo",
+        route: APP_ROUTES.superadminCapture,
+        allowedRoles: ROUTE_ROLES.superadminCapture,
         end: true,
       },
       {
@@ -460,4 +470,3 @@ export function AppShell() {
     </div>
   );
 }
-

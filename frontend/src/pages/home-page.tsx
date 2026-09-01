@@ -23,7 +23,7 @@ const roleDescriptions: Record<Role, string> = {
   director_general:
     'Consulta indicadores directivos, mapa operativo y validaciones mensuales.',
   superadmin:
-    'Administra usuarios, bitácora y supervisa la operación general del sistema.',
+    'Administra usuarios, bitácora, captura unidades y supervisa la operación general del sistema.',
   coordinacion:
     'Administra usuarios, bitácora y da seguimiento operativo general.',
 };
@@ -93,6 +93,11 @@ const quickActions: Record<Role, QuickAction[]> = {
     },
   ],
   superadmin: [
+    {
+      label: 'Capturar vehículo',
+      to: APP_ROUTES.superadminCapture,
+      helper: 'Registrar unidad y asignar delegación',
+    },
     {
       label: 'Vista general',
       to: APP_ROUTES.overview,
@@ -262,5 +267,3 @@ export function HomePage() {
     </div>
   );
 }
-
-

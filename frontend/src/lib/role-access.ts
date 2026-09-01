@@ -23,6 +23,7 @@ export const MESSENGER_ROLES: Role[] = [
 // Route-level role requirements (matches backend guards)
 export const ROUTE_ROLES = {
   workspace: ["enlace"] as Role[],
+  superadminCapture: ["superadmin"] as Role[],
   archive: ["enlace"] as Role[],
   monitor: ["director_operativo"] as Role[],
   overview: ["plantilla_vehicular", "superadmin", "coordinacion"] as Role[],
