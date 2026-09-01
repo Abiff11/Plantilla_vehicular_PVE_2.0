@@ -21,24 +21,21 @@ async function parseResponse(response: Response): Promise<VehicleRecord> {
   const responseText = await response.text();
 
   if (!response.ok) {
+    let message = 'No se pudo actualizar el expediente fotográfico.';
+
     if (responseText.trim()) {
       try {
         const payload = JSON.parse(responseText) as { message?: string | string[] };
-        const message = Array.isArray(payload.message)
+        const parsedMessage = Array.isArray(payload.message)
           ? payload.message.join(' ')
           : payload.message;
-
-        if (message) {
-          throw new Error(message);
-        }
-      } catch (error) {
-        if (error instanceof Error && error.message !== responseText) {
-          throw error;
-        }
+        if (parsedMessage) message = parsedMessage;
+      } catch {
+        message = responseText;
       }
     }
 
-    throw new Error('No se pudo actualizar el expediente fotográfico.');
+    throw new Error(message);
   }
 
   return JSON.parse(responseText) as VehicleRecord;
