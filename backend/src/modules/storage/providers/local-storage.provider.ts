@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { SavedFileInput, StorageProvider, StoredFile, StoredFileObject } from "../storage.types";
 import { extname, join, normalize } from "path";
-import { mkdir, readFile, stat, writeFile } from "fs/promises";
+import { mkdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import { randomBytes } from "crypto";
 
 @Injectable()
@@ -34,12 +34,7 @@ export class LocalStorageProvider implements StorageProvider {
   }
 
   async getObject(objectKey: string): Promise<StoredFileObject> {
-    const normalizedKey = normalize(objectKey).replace(/^\.{2}(\/|\\|$)/u, "");
-    const filePath = join(this.uploadsRoot, normalizedKey);
-
-    if (!filePath.startsWith(this.uploadsRoot)) {
-      throw new NotFoundException("No se encontro el archivo.");
-    }
+    const filePath = this.resolveObjectPath(objectKey);
 
     try {
       const [fileBuffer, fileStat] = await Promise.all([
@@ -55,6 +50,29 @@ export class LocalStorageProvider implements StorageProvider {
     } catch {
       throw new NotFoundException("No se encontro el archivo.");
     }
+  }
+
+  async deleteObject(objectKey: string): Promise<void> {
+    const filePath = this.resolveObjectPath(objectKey);
+
+    try {
+      await unlink(filePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+
+  private resolveObjectPath(objectKey: string) {
+    const normalizedKey = normalize(objectKey).replace(/^\.{2}(\/|\\|$)/u, "");
+    const filePath = join(this.uploadsRoot, normalizedKey);
+
+    if (!filePath.startsWith(this.uploadsRoot)) {
+      throw new NotFoundException("No se encontro el archivo.");
+    }
+
+    return filePath;
   }
 
   private resolveMimeType(filePath: string) {

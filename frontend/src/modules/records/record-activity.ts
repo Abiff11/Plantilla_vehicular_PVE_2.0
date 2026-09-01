@@ -131,20 +131,34 @@ function resolvePhotoUrl(photo: VehiclePhoto) {
   return "";
 }
 
+function getOrderedPhotos(record: VehicleRecord) {
+  return [...(record.photos ?? [])].sort((left, right) => {
+    if (left.isPrimary !== right.isPrimary) {
+      return left.isPrimary ? -1 : 1;
+    }
+
+    return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+  });
+}
+
 function renderPhotoThumbnail(photo: VehiclePhoto) {
   const photoUrl = escapeHtml(resolvePhotoUrl(photo));
   const photoName = escapeHtml(photo.fileName);
+  const primaryBadge = photo.isPrimary
+    ? '<span class="vehicle-kardex-gallery-primary">Principal</span>'
+    : "";
 
   return `
     <div class="photo-thumb" data-photo-url="${photoUrl}" data-photo-name="${photoName}">
       <img src="${photoUrl}" alt="${photoName}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';" />
       <div class="photo-fallback" style="display:none;">Imagen no disponible</div>
+      ${primaryBadge}
     </div>
   `;
 }
 
 function renderIdentityPhoto(record: VehicleRecord) {
-  const photo = record.photos?.[0];
+  const photo = getOrderedPhotos(record)[0];
 
   if (!photo) {
     return `
@@ -193,13 +207,12 @@ export function getRecordActivitySummary(record: VehicleRecord) {
 
 export async function openRecordDetails(
   record: VehicleRecord,
-  options: OpenRecordDetailsOptions = {},
+  _options: OpenRecordDetailsOptions = {},
 ): Promise<RecordDetailsAction> {
   const displayPlates = resolveVehicleDisplayPlate(record);
-  const vehicleIdentifier = record.patrolNumber || displayPlates;
-  const canEdit = options.canEdit === true && record.recordState === "CURRENT";
   const historyCount = record.transferHistory.length + record.editHistory.length;
   const vehicleState = record.recordState === "CURRENT" ? "VIGENTE" : "TRASLADADO";
+  const orderedPhotos = getOrderedPhotos(record);
 
   const vehicleIdentitySection = `
     <div class="vehicle-kardex-identity">
@@ -277,18 +290,18 @@ export async function openRecordDetails(
     ? record.editHistory.map((edit) => renderEditRows(edit)).join("")
     : '<tr><td colspan="5" class="vehicle-kardex-empty-row">Aún no hay ediciones registradas para esta unidad.</td></tr>';
 
-  const photosSection = record.photos && record.photos.length > 0
+  const photosSection = orderedPhotos.length > 0
     ? `
       <section class="vehicle-kardex-panel">
         <div class="vehicle-kardex-panel-title-row">
           <div>
             <h4>Fotografías</h4>
-            <p>Evidencia visual registrada para la unidad.</p>
+            <p>Evidencia visual registrada para la unidad. La imagen marcada como principal se utiliza en la cabecera del Kárdex.</p>
           </div>
-          <span class="vehicle-kardex-count">${record.photos.length}</span>
+          <span class="vehicle-kardex-count">${orderedPhotos.length}</span>
         </div>
         <div class="photo-gallery vehicle-kardex-gallery">
-          ${record.photos.map((photo) => renderPhotoThumbnail(photo)).join("")}
+          ${orderedPhotos.map((photo) => renderPhotoThumbnail(photo)).join("")}
         </div>
       </section>
     `
@@ -311,15 +324,7 @@ export async function openRecordDetails(
         </div>
         <div class="vehicle-kardex-table-wrap">
           <table class="vehicle-kardex-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Usuario</th>
-                <th>Origen</th>
-                <th>Destino</th>
-                <th>Motivo</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Fecha</th><th>Usuario</th><th>Origen</th><th>Destino</th><th>Motivo</th></tr></thead>
             <tbody>${transferHistory}</tbody>
           </table>
         </div>
@@ -335,15 +340,7 @@ export async function openRecordDetails(
         </div>
         <div class="vehicle-kardex-table-wrap">
           <table class="vehicle-kardex-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Usuario</th>
-                <th>Campo</th>
-                <th>Antes</th>
-                <th>Después</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Fecha</th><th>Usuario</th><th>Campo</th><th>Antes</th><th>Después</th></tr></thead>
             <tbody>${editHistory}</tbody>
           </table>
         </div>
@@ -351,19 +348,17 @@ export async function openRecordDetails(
     </div>
   `;
 
-  const result = await Swal.fire({
+  await Swal.fire({
     title: "Kárdex vehicular",
     width: 980,
-    confirmButtonText: canEdit ? (options.editButtonText ?? "Editar vehículo") : "Cerrar",
-    showCancelButton: canEdit,
-    cancelButtonText: "Cerrar",
+    confirmButtonText: "Cerrar",
+    showCancelButton: false,
     focusConfirm: false,
     customClass: {
       popup: "vehicle-detail-popup",
       title: "vehicle-kardex-modal-title",
       actions: "vehicle-kardex-modal-actions",
-      confirmButton: canEdit ? "vehicle-detail-edit-primary" : "vehicle-kardex-close-primary",
-      cancelButton: "vehicle-kardex-close-button",
+      confirmButton: "vehicle-kardex-close-primary",
     },
     html: `
       <div class="vehicle-kardex-modal-subtitle">
@@ -374,63 +369,29 @@ export async function openRecordDetails(
       ${vehicleIdentitySection}
 
       <div class="vehicle-detail-tabs" role="tablist" aria-label="Secciones del kárdex vehicular">
-        <button
-          type="button"
-          class="vehicle-detail-tab is-active"
-          role="tab"
-          aria-selected="true"
-          aria-controls="vehicle-detail-panel-details"
-          data-vehicle-tab="details"
-        >
+        <button type="button" class="vehicle-detail-tab is-active" role="tab" aria-selected="true" aria-controls="vehicle-detail-panel-details" data-vehicle-tab="details">
           Detalles del vehículo
         </button>
-        <button
-          type="button"
-          class="vehicle-detail-tab"
-          role="tab"
-          aria-selected="false"
-          aria-controls="vehicle-detail-panel-history"
-          data-vehicle-tab="history"
-          tabindex="-1"
-        >
-          Historial
-          <span class="vehicle-detail-tab-count">${historyCount}</span>
+        <button type="button" class="vehicle-detail-tab" role="tab" aria-selected="false" aria-controls="vehicle-detail-panel-history" data-vehicle-tab="history" tabindex="-1">
+          Historial <span class="vehicle-detail-tab-count">${historyCount}</span>
         </button>
       </div>
 
-      <div
-        id="vehicle-detail-panel-details"
-        class="vehicle-detail-tab-panel is-active"
-        role="tabpanel"
-        data-vehicle-tab-panel="details"
-      >
+      <div id="vehicle-detail-panel-details" class="vehicle-detail-tab-panel is-active" role="tabpanel" data-vehicle-tab-panel="details">
         ${vehicleDetailsSection}
         ${photosSection}
       </div>
 
-      <div
-        id="vehicle-detail-panel-history"
-        class="vehicle-detail-tab-panel"
-        role="tabpanel"
-        data-vehicle-tab-panel="history"
-        hidden
-      >
+      <div id="vehicle-detail-panel-history" class="vehicle-detail-tab-panel" role="tabpanel" data-vehicle-tab-panel="history" hidden>
         ${historySection}
       </div>
     `,
     didOpen: () => {
       const popup = Swal.getPopup();
+      if (!popup) return;
 
-      if (!popup) {
-        return;
-      }
-
-      const tabButtons = Array.from(
-        popup.querySelectorAll<HTMLButtonElement>("[data-vehicle-tab]"),
-      );
-      const tabPanels = Array.from(
-        popup.querySelectorAll<HTMLElement>("[data-vehicle-tab-panel]"),
-      );
+      const tabButtons = Array.from(popup.querySelectorAll<HTMLButtonElement>("[data-vehicle-tab]"));
+      const tabPanels = Array.from(popup.querySelectorAll<HTMLElement>("[data-vehicle-tab-panel]"));
 
       const activateTab = (tabName: string) => {
         tabButtons.forEach((button) => {
@@ -448,28 +409,16 @@ export async function openRecordDetails(
       };
 
       tabButtons.forEach((button, index) => {
-        button.addEventListener("click", () => {
-          activateTab(button.dataset.vehicleTab ?? "details");
-        });
-
+        button.addEventListener("click", () => activateTab(button.dataset.vehicleTab ?? "details"));
         button.addEventListener("keydown", (event) => {
-          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
-            return;
-          }
-
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
           event.preventDefault();
 
           let targetIndex = index;
-
-          if (event.key === "ArrowLeft") {
-            targetIndex = (index - 1 + tabButtons.length) % tabButtons.length;
-          } else if (event.key === "ArrowRight") {
-            targetIndex = (index + 1) % tabButtons.length;
-          } else if (event.key === "Home") {
-            targetIndex = 0;
-          } else if (event.key === "End") {
-            targetIndex = tabButtons.length - 1;
-          }
+          if (event.key === "ArrowLeft") targetIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+          if (event.key === "ArrowRight") targetIndex = (index + 1) % tabButtons.length;
+          if (event.key === "Home") targetIndex = 0;
+          if (event.key === "End") targetIndex = tabButtons.length - 1;
 
           const targetButton = tabButtons[targetIndex];
           targetButton?.focus();
@@ -481,10 +430,7 @@ export async function openRecordDetails(
         thumb.addEventListener("click", () => {
           const photoUrl = thumb.getAttribute("data-photo-url");
           const photoName = thumb.getAttribute("data-photo-name");
-
-          if (!photoUrl) {
-            return;
-          }
+          if (!photoUrl) return;
 
           void Swal.fire({
             imageUrl: photoUrl,
@@ -498,7 +444,7 @@ export async function openRecordDetails(
     },
   });
 
-  return canEdit && result.isConfirmed ? "edit" : "closed";
+  return "closed";
 }
 
 export async function openTransferDialog(params: {
@@ -548,8 +494,6 @@ export async function openTransferDialog(params: {
   }
 
   await api.transferRecord(params.record.id, targetConfirmation.value, reasonConfirmation.value, params.token);
-
   await params.onTransferred();
-
   return true;
 }

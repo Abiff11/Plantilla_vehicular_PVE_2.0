@@ -15,4 +15,12 @@ export class StorageService {
 
     return this.storageProvider.saveFile(input);
   }
+
+  async deleteObject(objectKey: string): Promise<void> {
+    if (!this.storageProvider) {
+      throw new Error("Storage provider missing");
+    }
+
+    await this.storageProvider.deleteObject(objectKey);
+  }
 }

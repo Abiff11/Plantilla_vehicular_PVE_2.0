@@ -26,6 +26,9 @@ export class VehiclePhotoEntity extends BaseEntity {
   @Column({ default: "local" })
   storageProvider!: string;
 
+  @Column({ default: false })
+  isPrimary!: boolean;
+
   @ManyToOne(() => RecordEntity, (record) => record.photos, {
     nullable: false,
     onDelete: "CASCADE",

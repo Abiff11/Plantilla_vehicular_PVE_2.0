@@ -194,6 +194,7 @@ export type VehiclePhoto = {
   mimeType: string;
   size: number;
   storageProvider: 'local' | 'r2';
+  isPrimary: boolean;
   uploadedBy: User;
   createdAt: string;
 };
