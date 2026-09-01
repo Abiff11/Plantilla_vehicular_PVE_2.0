@@ -1,26 +1,20 @@
-import { Inject, Injectable, Optional } from "@nestjs/common";
-import { STORAGE_PROVIDER } from "./storage.constants";
-import { SavedFileInput, StorageProvider, StoredFile } from "./storage.types";
+import { Injectable } from "@nestjs/common";
+import { LocalStorageProvider } from "./providers/local-storage.provider";
+import { SavedFileInput, StoredFile } from "./storage.types";
 
 @Injectable()
 export class StorageService {
-  constructor(
-    @Optional() @Inject(STORAGE_PROVIDER) private readonly storageProvider?: StorageProvider,
-  ) {}
+  constructor(private readonly localStorageProvider: LocalStorageProvider) {}
 
-  async saveFile(input: SavedFileInput): Promise<StoredFile> {
-    if (!this.storageProvider) {
-      throw new Error("Storage provider missing");
-    }
-
-    return this.storageProvider.saveFile(input);
+  saveFile(input: SavedFileInput): Promise<StoredFile> {
+    return this.localStorageProvider.saveFile(input);
   }
 
-  async deleteObject(objectKey: string): Promise<void> {
-    if (!this.storageProvider) {
-      throw new Error("Storage provider missing");
-    }
+  getObject(objectKey: string) {
+    return this.localStorageProvider.getObject(objectKey);
+  }
 
-    await this.storageProvider.deleteObject(objectKey);
+  deleteObject(objectKey: string) {
+    return this.localStorageProvider.deleteObject(objectKey);
   }
 }

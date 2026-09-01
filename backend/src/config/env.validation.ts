@@ -26,11 +26,13 @@ const REQUIRED_IN_PRODUCTION = [
   'FRONTEND_ORIGINS',
 ] as const;
 
-const REQUIRED_R2_STORAGE = [
+const DEPRECATED_STORAGE_VARIABLES = [
+  'STORAGE_DRIVER',
   'R2_ACCOUNT_ID',
   'R2_ACCESS_KEY_ID',
   'R2_SECRET_ACCESS_KEY',
   'R2_BUCKET',
+  'R2_PUBLIC_URL',
 ] as const;
 
 function requireValue(config: EnvConfig, key: string): string {
@@ -117,32 +119,23 @@ function validateOrigins(value: string, isProduction: boolean): string {
   return origins.join(',');
 }
 
-function validateOptionalUrl(value: string, key: string): string {
-  const trimmedValue = value.trim();
+function stripDeprecatedStorageVariables(config: EnvConfig): EnvConfig {
+  const sanitizedConfig = { ...config };
 
-  if (!trimmedValue) {
-    return '';
+  for (const key of DEPRECATED_STORAGE_VARIABLES) {
+    delete sanitizedConfig[key];
   }
 
-  try {
-    const parsedValue = new URL(trimmedValue);
-
-    if (parsedValue.protocol !== 'http:' && parsedValue.protocol !== 'https:') {
-      throw new Error();
-    }
-
-    return trimmedValue.replace(/\/+$/u, '');
-  } catch {
-    throw new Error(`${key} must be a valid http/https URL`);
-  }
+  return sanitizedConfig;
 }
 
 export function validateEnv(config: EnvConfig): NormalizedEnvConfig {
   const nodeEnv = config.NODE_ENV?.trim() || 'development';
   const isProduction = nodeEnv === 'production';
+  const runtimeConfig = stripDeprecatedStorageVariables(config);
 
   const normalizedConfig: NormalizedEnvConfig = {
-    ...config,
+    ...runtimeConfig,
     NODE_ENV: nodeEnv,
     PORT: config.PORT?.trim() || '3101',
     HOST: config.HOST?.trim() || '0.0.0.0',
@@ -158,8 +151,6 @@ export function validateEnv(config: EnvConfig): NormalizedEnvConfig {
     RATE_LIMIT_AUTH_MAX_REQUESTS: config.RATE_LIMIT_AUTH_MAX_REQUESTS?.trim() || '10',
     RATE_LIMIT_WRITE_MAX_REQUESTS: config.RATE_LIMIT_WRITE_MAX_REQUESTS?.trim() || '60',
     RATE_LIMIT_IMPORT_MAX_REQUESTS: config.RATE_LIMIT_IMPORT_MAX_REQUESTS?.trim() || '20',
-    STORAGE_DRIVER: config.STORAGE_DRIVER?.trim() || 'local',
-    R2_PUBLIC_URL: config.R2_PUBLIC_URL?.trim() || '',
   } as NormalizedEnvConfig;
 
   if (isProduction) {
@@ -194,26 +185,6 @@ export function validateEnv(config: EnvConfig): NormalizedEnvConfig {
     'DATABASE_SSL_REJECT_UNAUTHORIZED',
   );
   validateBoolean(normalizedConfig.DATABASE_MIGRATIONS_RUN, 'DATABASE_MIGRATIONS_RUN');
-
-  if (!['local', 'r2'].includes(normalizedConfig.STORAGE_DRIVER)) {
-    throw new Error('STORAGE_DRIVER must be local or r2');
-  }
-
-  if (normalizedConfig.STORAGE_DRIVER === 'r2') {
-    for (const key of REQUIRED_R2_STORAGE) {
-      normalizedConfig[key] = requireValue(config, key);
-    }
-
-    normalizedConfig.R2_SECRET_ACCESS_KEY = validateSecret(
-      normalizedConfig.R2_SECRET_ACCESS_KEY,
-      'R2_SECRET_ACCESS_KEY',
-      32,
-    );
-    normalizedConfig.R2_PUBLIC_URL = validateOptionalUrl(
-      normalizedConfig.R2_PUBLIC_URL,
-      'R2_PUBLIC_URL',
-    );
-  }
 
   return normalizedConfig;
 }

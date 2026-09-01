@@ -2,7 +2,6 @@ import {
   Controller,
   ForbiddenException,
   Get,
-  Inject,
   NotFoundException,
   Param,
   Res,
@@ -16,8 +15,7 @@ import { Role } from "src/common/enums/role.enum";
 import { JwtAuthGuard } from "src/modules/auth/jwt-auth.guard";
 import { MessagePhotoEntity } from "src/modules/messages/entities/message-photo.entity";
 import { VehiclePhotoEntity } from "src/modules/records/entities/vehicle-photo.entity";
-import { STORAGE_PROVIDER } from "src/modules/storage/storage.constants";
-import type { StorageProvider } from "src/modules/storage/storage.types";
+import { StorageService } from "src/modules/storage/storage.service";
 
 type AuthUser = {
   sub: string;
@@ -34,8 +32,7 @@ export class FilesController {
     private readonly vehiclePhotoRepository: Repository<VehiclePhotoEntity>,
     @InjectRepository(MessagePhotoEntity)
     private readonly messagePhotoRepository: Repository<MessagePhotoEntity>,
-    @Inject(STORAGE_PROVIDER)
-    private readonly storageProvider: StorageProvider,
+    private readonly storageService: StorageService,
   ) {}
 
   @Get("vehicle-photos/:fileName")
@@ -113,7 +110,7 @@ export class FilesController {
   }
 
   private async sendStoredObject(objectKey: string, mimeType: string, response: Response) {
-    const fileObject = await this.storageProvider.getObject(objectKey);
+    const fileObject = await this.storageService.getObject(objectKey);
 
     response.setHeader("Content-Type", mimeType || fileObject.mimeType);
     response.setHeader("Content-Length", String(fileObject.size));
