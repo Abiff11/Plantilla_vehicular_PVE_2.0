@@ -17,6 +17,16 @@ const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp
 
 const requiredText = z.string().trim().min(1, 'Campo obligatorio.');
 const optionalText = z.string();
+const ADSCRIPTION_PATTERN = /^[\p{L}\p{N} .,'’()\-\/&#º°]+$/u;
+const adscriptionText = z
+  .string()
+  .trim()
+  .min(1, 'Campo obligatorio.')
+  .max(160, 'Máximo 160 caracteres.')
+  .regex(
+    ADSCRIPTION_PATTERN,
+    'Usa solo letras, números, espacios y signos habituales.',
+  );
 
 const schema = z
   .object({
@@ -39,7 +49,7 @@ const schema = z
     serialNumber: requiredText,
     color: optionalText,
     custodian: optionalText,
-    adscription: requiredText,
+    adscription: adscriptionText,
     realLocation: optionalText,
     physicalStatus: requiredText,
     status: requiredText,
@@ -546,7 +556,24 @@ export function RecordForm({
             </label>
           )}
 
-          {renderSimpleCatalogField('adscription', true)}
+          <label className="field">
+            <span>Adscripción<RequiredMark /></span>
+            <input
+              {...register('adscription')}
+              maxLength={160}
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck
+              lang="es-MX"
+              style={{ textTransform: 'uppercase' }}
+              onInput={(event) => {
+                event.currentTarget.value = event.currentTarget.value.toUpperCase();
+              }}
+              placeholder="Ej. COORDINACIÓN OPERATIVA"
+              title="Se guardará en mayúsculas. Revisa las sugerencias ortográficas del navegador."
+            />
+            {errors.adscription && <small>{errors.adscription.message}</small>}
+          </label>
         </div>
 
         <label className="field field-full">

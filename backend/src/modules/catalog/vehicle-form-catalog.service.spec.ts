@@ -26,8 +26,8 @@ describe('VehicleFormCatalogService', () => {
     const result = await service.getRecordFieldCatalog();
 
     expect(result.adscription).toEqual({
-      label: 'Adscripcion',
-      allowsCustom: false,
+      label: 'Adscripción',
+      allowsCustom: true,
       options: [
         {
           value: 'GRUPO MOTORIZADO',

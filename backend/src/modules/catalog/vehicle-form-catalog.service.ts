@@ -22,7 +22,7 @@ const VEHICLE_FORM_CATALOGS = {
   brand: { groupCode: 'vehicle_brand', label: 'Marca', allowsCustom: false },
   type: { groupCode: 'vehicle_type', label: 'Tipo', allowsCustom: false },
   color: { groupCode: 'vehicle_color', label: 'Color', allowsCustom: false },
-  adscription: { groupCode: 'adscription', label: 'Adscripcion', allowsCustom: false },
+  adscription: { groupCode: 'adscription', label: 'Adscripción', allowsCustom: true },
   realLocation: { groupCode: 'real_location', label: 'Ubicacion real', allowsCustom: false },
   rawCirculationStatus: {
     groupCode: 'circulation_status',

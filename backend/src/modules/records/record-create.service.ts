@@ -234,7 +234,7 @@ export class RecordCreateService {
       serialNumber: normalizeCode(dto.serialNumber),
       regionName: normalizeCatalogText(regionName),
       delegationName: normalizeCatalogText(delegationName),
-      adscription: normalizeCatalogText(dto.adscription),
+      adscription: normalizeFreeUpperText(dto.adscription),
       custodian: normalizeText(dto.custodian).toUpperCase(),
       patrolNumber: normalizeCode(dto.patrolNumber),
       color: normalizeCatalogText(dto.color),
@@ -294,6 +294,10 @@ export class RecordCreateService {
 
 function normalizeText(value: unknown) {
   return String(value ?? '').trim().replace(/\s+/gu, ' ');
+}
+
+function normalizeFreeUpperText(value: unknown) {
+  return normalizeText(value).toUpperCase();
 }
 
 function normalizeCatalogText(value: unknown) {

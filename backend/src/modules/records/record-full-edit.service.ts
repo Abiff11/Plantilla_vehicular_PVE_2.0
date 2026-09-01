@@ -297,7 +297,7 @@ export class RecordFullEditService {
       serialNumber: normalizeCode(values.serialNumber),
       regionName: normalizeCatalogText(values.regionName),
       delegationName: normalizeCatalogText(values.delegationName),
-      adscription: normalizeCatalogText(values.adscription),
+      adscription: normalizeFreeUpperText(values.adscription),
       custodian: normalizeText(values.custodian).toUpperCase(),
       patrolNumber: normalizeCode(values.patrolNumber),
       color: normalizeCatalogText(values.color),
@@ -327,6 +327,10 @@ export class RecordFullEditService {
 
 function normalizeText(value: unknown) {
   return String(value ?? '').trim().replace(/\s+/gu, ' ');
+}
+
+function normalizeFreeUpperText(value: unknown) {
+  return normalizeText(value).toUpperCase();
 }
 
 function normalizeCatalogText(value: unknown) {
