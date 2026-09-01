@@ -56,6 +56,7 @@ type RecordFormProps = {
   fieldCatalogs: RecordFieldCatalogMap;
   initialValues?: RecordFormValues;
   mode?: 'create' | 'edit';
+  delegationSelectionMode?: 'fixed' | 'select';
   onSubmit: (values: RecordFormValues, photos: File[]) => Promise<void>;
   onCancel?: () => void;
 };
@@ -167,6 +168,7 @@ export function RecordForm({
   fieldCatalogs,
   initialValues,
   mode = 'create',
+  delegationSelectionMode = 'fixed',
   onSubmit,
   onCancel,
 }: RecordFormProps) {
@@ -196,7 +198,7 @@ export function RecordForm({
       return;
     }
 
-    if (!delegations.length) {
+    if (delegationSelectionMode !== 'fixed' || !delegations.length) {
       return;
     }
 
@@ -204,7 +206,7 @@ export function RecordForm({
       shouldValidate: true,
       shouldDirty: false,
     });
-  }, [delegations, initialValues, reset, setValue]);
+  }, [delegationSelectionMode, delegations, initialValues, reset, setValue]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -287,7 +289,8 @@ export function RecordForm({
         if (mode === 'create') {
           reset({
             ...emptyFormValues,
-            delegationId: delegations[0]?.id ?? '',
+            delegationId:
+              delegationSelectionMode === 'fixed' ? delegations[0]?.id ?? '' : '',
           });
           setPhotos([]);
           setPhotoErrors([]);
@@ -303,12 +306,25 @@ export function RecordForm({
 
       <label className="field">
         <span>Delegacion</span>
-        <input
-          disabled
-          readOnly
-          value={delegations[0]?.name ?? 'Sin delegacion asignada'}
-        />
-        <input type="hidden" {...register('delegationId')} />
+        {delegationSelectionMode === 'select' ? (
+          <select {...register('delegationId')}>
+            <option value="">Selecciona una delegacion</option>
+            {delegations.map((delegation) => (
+              <option key={delegation.id} value={delegation.id}>
+                {delegation.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <>
+            <input
+              disabled
+              readOnly
+              value={delegations[0]?.name ?? 'Sin delegacion asignada'}
+            />
+            <input type="hidden" {...register('delegationId')} />
+          </>
+        )}
         {errors.delegationId && <small>{errors.delegationId.message}</small>}
       </label>
 

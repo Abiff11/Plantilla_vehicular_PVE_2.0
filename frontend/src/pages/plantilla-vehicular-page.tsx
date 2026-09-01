@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { GroupedRecords } from '../components/grouped-records';
 import { LoadingSpinner } from '../components/loading-spinner';
+import { RecordForm } from '../components/record-form';
 import { VehicleEditModal } from '../components/vehicle-edit-modal';
 import { api } from '../lib/api';
 import { socket } from '../lib/socket';
@@ -10,6 +11,7 @@ import { openRecordDetails, openTransferDialog } from '../modules/records/record
 import type {
   GroupedRegionRecords,
   RecordFieldCatalogMap,
+  RecordFormValues,
   Region,
   VehicleEditPayload,
   VehicleRecord,
@@ -81,6 +83,17 @@ export function PlantillaVehicularPage() {
     };
   }, [dateFrom, dateTo, selectedDelegationId, selectedRegionId, session]);
 
+  const captureDelegations = useMemo(
+    () =>
+      catalogRegions.flatMap((region) =>
+        region.delegations.map((delegation) => ({
+          ...delegation,
+          name: `${region.name} - ${delegation.name}`,
+        })),
+      ),
+    [catalogRegions],
+  );
+
   const availableDelegations = useMemo(() => {
     if (!selectedRegionId) {
       return catalogRegions.flatMap((region) => region.delegations);
@@ -103,6 +116,52 @@ export function PlantillaVehicularPage() {
       `Hasta: ${dateTo || 'Sin fecha final'}`,
     ];
   }, [availableDelegations, catalogRegions, dateFrom, dateTo, selectedDelegationId, selectedRegionId]);
+
+  const createRecord = async (values: RecordFormValues, photos: File[] = []) => {
+    if (!session) {
+      return;
+    }
+
+    const selectedDelegation = captureDelegations.find(
+      (delegation) => delegation.id === values.delegationId,
+    );
+    const confirmation = await Swal.fire({
+      icon: 'question',
+      title: 'Confirmar alta de unidad',
+      text: `La unidad se asignará a ${selectedDelegation?.name ?? 'la delegación seleccionada'}.`,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar unidad',
+      cancelButtonText: 'Cancelar',
+    });
+
+    if (!confirmation.isConfirmed) {
+      return;
+    }
+
+    try {
+      if (photos.length > 0) {
+        await api.createRecordWithPhotos(values, photos, session.accessToken);
+      } else {
+        await api.createRecord(values, session.accessToken);
+      }
+
+      await loadOverview();
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Unidad registrada',
+        text: 'La unidad se guardó y quedó asignada a la delegación seleccionada.',
+        confirmButtonText: 'Entendido',
+      });
+    } catch (requestError) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'No se pudo registrar la unidad',
+        text: (requestError as Error).message,
+        confirmButtonText: 'Entendido',
+      });
+    }
+  };
 
   const transferRecord = async (record: VehicleRecord) => {
     if (!session) {
@@ -247,113 +306,122 @@ export function PlantillaVehicularPage() {
         />
       )}
 
-      <GroupedRecords
-        regions={regions}
-        fieldCatalogs={fieldCatalogs}
-        eyebrow="Vista general vehicular"
-        title="Operación vehicular general"
-        description="Consulta la plantilla vehicular registrada por región y delegación."
-        reportContext={reportContext}
-        vehicleClassAfterDate
-        onRecordSelect={(record) => void openDetails(record)}
-        renderRecordActions={(record) =>
-          record.recordState === 'CURRENT' ? (
-            <>
-              <button className="inline-button" type="button" onClick={() => setEditingRecord(record)}>
-                Editar
-              </button>
-              <button className="inline-button" type="button" onClick={() => void transferRecord(record)}>
-                Trasladar
-              </button>
-              {canDeleteRecord ? (
-                <button className="inline-button" type="button" onClick={() => void deleteRecord(record)}>
-                  Eliminar
+      <div className="stack-lg">
+        <RecordForm
+          delegations={captureDelegations}
+          fieldCatalogs={fieldCatalogs}
+          delegationSelectionMode="select"
+          onSubmit={createRecord}
+        />
+
+        <GroupedRecords
+          regions={regions}
+          fieldCatalogs={fieldCatalogs}
+          eyebrow="Vista general vehicular"
+          title="Operación vehicular general"
+          description="Consulta la plantilla vehicular registrada por región y delegación."
+          reportContext={reportContext}
+          vehicleClassAfterDate
+          onRecordSelect={(record) => void openDetails(record)}
+          renderRecordActions={(record) =>
+            record.recordState === 'CURRENT' ? (
+              <>
+                <button className="inline-button" type="button" onClick={() => setEditingRecord(record)}>
+                  Editar
                 </button>
-              ) : null}
-            </>
-          ) : null
-        }
-        headerFilters={
-          <section className="query-filter-panel">
-            <div className="query-filter-header">
-              <div>
-                <p className="eyebrow">Filtros de consulta</p>
-                <h3>Consulta general</h3>
-              </div>
+                <button className="inline-button" type="button" onClick={() => void transferRecord(record)}>
+                  Trasladar
+                </button>
+                {canDeleteRecord ? (
+                  <button className="inline-button" type="button" onClick={() => void deleteRecord(record)}>
+                    Eliminar
+                  </button>
+                ) : null}
+              </>
+            ) : null
+          }
+          headerFilters={
+            <section className="query-filter-panel">
+              <div className="query-filter-header">
+                <div>
+                  <p className="eyebrow">Filtros de consulta</p>
+                  <h3>Consulta general</h3>
+                </div>
 
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => {
-                  setSelectedRegionId('');
-                  setSelectedDelegationId('');
-                  setDateFrom('');
-                  setDateTo('');
-                }}
-              >
-                Limpiar consulta
-              </button>
-            </div>
-
-            <div className="form-grid director-filter-grid query-filter-grid">
-              <label className="field">
-                <span>Región</span>
-                <select
-                  value={selectedRegionId}
-                  onChange={(event) => {
-                    setSelectedRegionId(event.target.value);
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={() => {
+                    setSelectedRegionId('');
                     setSelectedDelegationId('');
+                    setDateFrom('');
+                    setDateTo('');
                   }}
                 >
-                  <option value="">Todas las regiones</option>
-                  {catalogRegions.map((region) => (
-                    <option key={region.id} value={region.id}>
-                      {region.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  Limpiar consulta
+                </button>
+              </div>
 
-              <label className="field">
-                <span>Delegación</span>
-                <select
-                  value={selectedDelegationId}
-                  onChange={(event) => setSelectedDelegationId(event.target.value)}
-                >
-                  <option value="">Todas las delegaciones</option>
-                  {availableDelegations.map((delegation) => (
-                    <option key={delegation.id} value={delegation.id}>
-                      {delegation.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="form-grid director-filter-grid query-filter-grid">
+                <label className="field">
+                  <span>Región</span>
+                  <select
+                    value={selectedRegionId}
+                    onChange={(event) => {
+                      setSelectedRegionId(event.target.value);
+                      setSelectedDelegationId('');
+                    }}
+                  >
+                    <option value="">Todas las regiones</option>
+                    {catalogRegions.map((region) => (
+                      <option key={region.id} value={region.id}>
+                        {region.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="field">
-                <span>Desde</span>
-                <input
-                  id="dateFrom"
-                  name="dateFrom"
-                  type="date"
-                  value={dateFrom}
-                  onChange={(event) => setDateFrom(event.target.value)}
-                />
-              </label>
+                <label className="field">
+                  <span>Delegación</span>
+                  <select
+                    value={selectedDelegationId}
+                    onChange={(event) => setSelectedDelegationId(event.target.value)}
+                  >
+                    <option value="">Todas las delegaciones</option>
+                    {availableDelegations.map((delegation) => (
+                      <option key={delegation.id} value={delegation.id}>
+                        {delegation.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="field">
-                <span>Hasta</span>
-                <input
-                  id="dateTo"
-                  name="dateTo"
-                  type="date"
-                  value={dateTo}
-                  onChange={(event) => setDateTo(event.target.value)}
-                />
-              </label>
-            </div>
-          </section>
-        }
-      />
+                <label className="field">
+                  <span>Desde</span>
+                  <input
+                    id="dateFrom"
+                    name="dateFrom"
+                    type="date"
+                    value={dateFrom}
+                    onChange={(event) => setDateFrom(event.target.value)}
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Hasta</span>
+                  <input
+                    id="dateTo"
+                    name="dateTo"
+                    type="date"
+                    value={dateTo}
+                    onChange={(event) => setDateTo(event.target.value)}
+                  />
+                </label>
+              </div>
+            </section>
+          }
+        />
+      </div>
     </>
   );
 }

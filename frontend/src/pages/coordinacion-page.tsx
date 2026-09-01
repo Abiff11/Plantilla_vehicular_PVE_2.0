@@ -82,6 +82,8 @@ export function CoordinacionPage() {
   const selectedRegion = regions.find((region) => region.id === draftUser.regionId);
   const availableDelegations = selectedRegion?.delegations ?? [];
   const isEditing = editingUserId !== null;
+  const isEditingSelf = editingUserId === session.user.id;
+  const isSuperAdmin = session.user.role === 'superadmin';
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -292,6 +294,7 @@ export function CoordinacionPage() {
             <span>Rol</span>
             <select
               value={draftUser.role}
+              disabled={isEditingSelf && isSuperAdmin}
               onChange={(event) =>
                 setDraftUser((current) => ({
                   ...current,
@@ -303,8 +306,8 @@ export function CoordinacionPage() {
               <option value="director_operativo">Director Operativo</option>
               <option value="plantilla_vehicular">Admin Plantilla vehicular</option>
               <option value="director_general">Director General</option>
-              <option value="superadmin">Superadministrador</option>
-              <option value="coordinacion">Coordinación</option>
+              <option value="superadmin" disabled={!isSuperAdmin}>Superadministrador</option>
+              <option value="coordinacion" disabled={!isSuperAdmin}>Coordinación</option>
             </select>
           </label>
           <label className="field">
@@ -442,7 +445,10 @@ export function CoordinacionPage() {
               </thead>
               <tbody>
                 {filteredUsers.map((user) => {
-                  const isProtected = user.role === 'superadmin' || user.role === 'coordinacion';
+                  const isPrivileged =
+                    user.role === 'superadmin' || user.role === 'coordinacion';
+                  const canManageUser = !isPrivileged || isSuperAdmin;
+                  const canDeleteUser = canManageUser && user.id !== session.user.id;
 
                   return (
                   <tr key={user.id}>
@@ -458,7 +464,7 @@ export function CoordinacionPage() {
                         <button
                           className="primary-button"
                           type="button"
-                          disabled={isProtected}
+                          disabled={!canManageUser}
                           onClick={() => {
                             const resolvedRegionId =
                               user.region?.id ??
@@ -488,7 +494,7 @@ export function CoordinacionPage() {
                         <button
                           className="secondary-button table-action-button"
                           type="button"
-                          disabled={isProtected}
+                          disabled={!canDeleteUser}
                           onClick={async () => {
                             const confirmation = await Swal.fire({
                               icon: 'warning',
@@ -576,5 +582,4 @@ export function CoordinacionPage() {
     </div>
   );
 }
-
 

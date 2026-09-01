@@ -15,6 +15,7 @@ import {
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import { CurrentUser } from "src/common/auth/current-user.decorator";
+import { VEHICLE_ADMIN_ROLES } from "src/common/auth/role-groups";
 import { RequireRoles } from "src/common/auth/roles.decorator";
 import { RolesGuard } from "src/common/auth/roles.guard";
 import { Role } from "src/common/enums/role.enum";
@@ -92,7 +93,7 @@ export class RecordsController {
   ) {}
 
   @Post()
-  @RequireRoles(Role.Enlace)
+  @RequireRoles(Role.Enlace, ...VEHICLE_ADMIN_ROLES)
   @UseInterceptors(
     FilesInterceptor("photos", MAX_FILES, {
       storage: memoryStorage(),

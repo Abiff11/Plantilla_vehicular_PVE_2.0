@@ -186,8 +186,10 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto, actorId?: string) {
     const user = await this.findOneEntity(id);
 
-    if (PRIVILEGED_ROLES.includes(user.role)) {
-      throw new ForbiddenException('No se permite editar usuarios de coordinacion o superadministrador.');
+    await this.assertPrivilegedUserManagementAllowed(user.role, actorId);
+
+    if (actorId === id && dto.role && dto.role !== Role.SuperAdmin) {
+      throw new ForbiddenException('El superadministrador no puede retirar su propio rol.');
     }
 
     if (dto.role) {
@@ -264,9 +266,11 @@ export class UsersService {
   async softDelete(id: string, actorId?: string) {
     const user = await this.findOneEntity(id);
 
-    if (PRIVILEGED_ROLES.includes(user.role)) {
-      throw new ForbiddenException('No se permite eliminar usuarios de coordinacion o superadministrador.');
+    if (actorId === id) {
+      throw new ForbiddenException('No puedes eliminar tu propia cuenta.');
     }
+
+    await this.assertPrivilegedUserManagementAllowed(user.role, actorId);
 
     user.isActive = false;
     user.sessionVersion += 1;
@@ -288,6 +292,31 @@ export class UsersService {
     const user = await this.findOneEntity(id);
     user.sessionVersion += 1;
     await this.userRepository.save(user);
+  }
+
+  private async assertPrivilegedUserManagementAllowed(
+    targetRole: Role,
+    actorId?: string,
+  ) {
+    if (!PRIVILEGED_ROLES.includes(targetRole)) {
+      return;
+    }
+
+    if (!actorId) {
+      throw new ForbiddenException(
+        'Solo superadmin puede administrar usuarios privilegiados.',
+      );
+    }
+
+    const actor = await this.userRepository.findOne({
+      where: { id: actorId },
+    });
+
+    if (!actor || actor.role !== Role.SuperAdmin) {
+      throw new ForbiddenException(
+        'Solo superadmin puede administrar usuarios privilegiados.',
+      );
+    }
   }
 
   private async assertPrivilegedRoleChangeAllowed(role: Role, actorId?: string) {
