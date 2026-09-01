@@ -1,6 +1,7 @@
 import { resolveConfiguredNetworkUrl } from './resolve-network-url';
 import type { VehiclePhoto } from '../types';
 
+// CI validation branch: runtime behavior is identical to main.
 function resolveApiBaseUrl() {
   const configuredUrl = resolveConfiguredNetworkUrl(import.meta.env.VITE_API_URL, '/api');
 
