@@ -29,6 +29,11 @@ const VEHICLE_FORM_CATALOGS = {
     label: 'Estatus Excel',
     allowsCustom: false,
   },
+  sourceSection: {
+    groupCode: 'excel_section',
+    label: 'Seccion Excel',
+    allowsCustom: false,
+  },
 } satisfies Record<string, VehicleFormCatalogDefinition>;
 
 @Injectable()
