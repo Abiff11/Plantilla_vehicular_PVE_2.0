@@ -2,38 +2,60 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import type { Delegation, RecordFieldCatalogMap, RecordFormValues, Region } from '../types';
+import type {
+  Delegation,
+  RecordFieldCatalogMap,
+  RecordFormValues,
+  Region,
+  VehicleEditFormValues,
+} from '../types';
 
-const customCatalogFields = ['useType', 'status', 'assetClassification'] as const;
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
+const requiredText = z.string().trim().min(1, 'Campo obligatorio.');
+const optionalText = z.string();
+
 const schema = z
   .object({
-    delegationId: z.string().min(1),
-    plates: z.string().min(1),
-    brand: z.string().min(1),
-    type: z.string().min(1),
-    useType: z.string().min(1),
-    useTypeCustom: z.string().optional(),
-    vehicleClass: z.string().min(1),
-    model: z.string().min(1),
-    engineNumber: z.string().min(1),
-    serialNumber: z.string().min(1),
-    custodian: z.string().min(1),
-    patrolNumber: z.string().min(1),
-    physicalStatus: z.string().min(1),
-    status: z.string().min(1),
-    statusCustom: z.string().optional(),
-    assetClassification: z.string().min(1),
-    assetClassificationCustom: z.string().optional(),
-    observation: z.string(),
+    delegationId: requiredText,
+    civ: optionalText,
+    previousPlates: optionalText,
+    plates2024: optionalText,
+    plates2025: optionalText,
+    plates2026: optionalText,
+    patrolNumber: requiredText,
+    vehicleClass: requiredText,
+    useType: requiredText,
+    useTypeCustom: optionalText,
+    brand: requiredText,
+    type: requiredText,
+    model: requiredText,
+    cylinders: optionalText,
+    fuelCapacityLiters: optionalText,
+    engineNumber: requiredText,
+    serialNumber: requiredText,
+    color: optionalText,
+    custodian: optionalText,
+    adscription: optionalText,
+    realLocation: optionalText,
+    physicalStatus: requiredText,
+    status: requiredText,
+    statusCustom: optionalText,
+    rawCirculationStatus: optionalText,
+    assetClassification: requiredText,
+    assetClassificationCustom: optionalText,
+    observation: optionalText,
   })
   .superRefine((values, context) => {
-    for (const fieldName of customCatalogFields) {
-      const customFieldName = `${fieldName}Custom` as const;
+    const customCatalogFields = [
+      ['useType', 'useTypeCustom'],
+      ['status', 'statusCustom'],
+      ['assetClassification', 'assetClassificationCustom'],
+    ] as const;
 
+    for (const [fieldName, customFieldName] of customCatalogFields) {
       if (values[fieldName] === 'OTRO' && !values[customFieldName]?.trim()) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
@@ -45,6 +67,22 @@ const schema = z
   });
 
 type RecordFormData = z.infer<typeof schema>;
+
+type CompleteRecordFormValues = RecordFormValues &
+  Pick<
+    VehicleEditFormValues,
+    | 'civ'
+    | 'previousPlates'
+    | 'plates2024'
+    | 'plates2025'
+    | 'plates2026'
+    | 'cylinders'
+    | 'fuelCapacityLiters'
+    | 'color'
+    | 'adscription'
+    | 'realLocation'
+    | 'rawCirculationStatus'
+  >;
 
 type PhotoFile = {
   file: File;
@@ -58,28 +96,40 @@ type RecordFormProps = {
   initialValues?: RecordFormValues;
   mode?: 'create' | 'edit';
   delegationSelectionMode?: 'fixed' | 'select';
-  onSubmit: (values: RecordFormValues, photos: File[]) => Promise<void>;
+  onSubmit: (values: CompleteRecordFormValues, photos: File[]) => Promise<void>;
   onCancel?: () => void;
 };
 
-const textFields = [
-  ['plates', 'Placas'],
-  ['brand', 'Marca'],
-  ['type', 'Tipo'],
-  ['model', 'Modelo'],
-  ['engineNumber', 'No. de motor'],
-  ['serialNumber', 'No. de serie'],
-  ['custodian', 'Resguardante'],
-  ['patrolNumber', 'No. patrulla'],
-] as const;
-
-const catalogFields = [
-  ['useType', 'Uso'],
-  ['vehicleClass', 'Clase de vehiculo'],
-  ['physicalStatus', 'Estado fisico'],
-  ['status', 'Estatus'],
-  ['assetClassification', 'Clasificacion del bien'],
-] as const;
+const emptyFormValues: RecordFormData = {
+  delegationId: '',
+  civ: '',
+  previousPlates: '',
+  plates2024: '',
+  plates2025: '',
+  plates2026: '',
+  patrolNumber: '',
+  vehicleClass: '',
+  useType: '',
+  useTypeCustom: '',
+  brand: '',
+  type: '',
+  model: '',
+  cylinders: '',
+  fuelCapacityLiters: '',
+  engineNumber: '',
+  serialNumber: '',
+  color: '',
+  custodian: '',
+  adscription: '',
+  realLocation: '',
+  physicalStatus: '',
+  status: '',
+  statusCustom: '',
+  rawCirculationStatus: '',
+  assetClassification: '',
+  assetClassificationCustom: '',
+  observation: '',
+};
 
 function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, ' ');
@@ -87,6 +137,10 @@ function normalizeText(value: string) {
 
 function normalizeUpper(value: string) {
   return normalizeText(value).toUpperCase();
+}
+
+function normalizeCode(value: string) {
+  return normalizeUpper(value).replace(/\s+/g, '');
 }
 
 function normalizeCatalogValue(
@@ -101,27 +155,6 @@ function normalizeCatalogValue(
   return normalizeUpper(selectedValue);
 }
 
-const emptyFormValues = {
-  delegationId: '',
-  plates: '',
-  brand: '',
-  type: '',
-  useType: '',
-  useTypeCustom: '',
-  vehicleClass: '',
-  model: '',
-  engineNumber: '',
-  serialNumber: '',
-  custodian: '',
-  patrolNumber: '',
-  physicalStatus: '',
-  status: '',
-  statusCustom: '',
-  assetClassification: '',
-  assetClassificationCustom: '',
-  observation: '',
-};
-
 function toFormDefaults(initialValues?: RecordFormValues): RecordFormData {
   return {
     ...emptyFormValues,
@@ -132,29 +165,46 @@ function toFormDefaults(initialValues?: RecordFormValues): RecordFormData {
 function toSubmitValues(
   values: RecordFormData,
   fieldCatalogs: RecordFieldCatalogMap,
-): RecordFormValues {
+): CompleteRecordFormValues {
+  const previousPlates = normalizeCode(values.previousPlates);
+  const plates2024 = normalizeCode(values.plates2024);
+  const plates2025 = normalizeCode(values.plates2025);
+  const plates2026 = normalizeCode(values.plates2026);
+  const plates = plates2026 || plates2025 || plates2024 || previousPlates || '';
+
   return {
     delegationId: values.delegationId,
-    plates: normalizeUpper(values.plates),
-    brand: normalizeUpper(values.brand),
-    type: normalizeUpper(values.type),
+    plates,
+    civ: normalizeCode(values.civ),
+    previousPlates,
+    plates2024,
+    plates2025,
+    plates2026,
+    patrolNumber: normalizeCode(values.patrolNumber),
+    vehicleClass: normalizeUpper(values.vehicleClass),
     useType: normalizeCatalogValue(
       values.useType,
       values.useTypeCustom,
       fieldCatalogs.useType.allowsCustom,
     ),
-    vehicleClass: normalizeUpper(values.vehicleClass),
+    brand: normalizeUpper(values.brand),
+    type: normalizeUpper(values.type),
     model: normalizeUpper(values.model),
-    engineNumber: normalizeUpper(values.engineNumber),
-    serialNumber: normalizeUpper(values.serialNumber),
+    cylinders: normalizeUpper(values.cylinders),
+    fuelCapacityLiters: normalizeUpper(values.fuelCapacityLiters),
+    engineNumber: normalizeCode(values.engineNumber),
+    serialNumber: normalizeCode(values.serialNumber),
+    color: normalizeUpper(values.color),
     custodian: normalizeUpper(values.custodian),
-    patrolNumber: normalizeUpper(values.patrolNumber),
+    adscription: normalizeUpper(values.adscription),
+    realLocation: normalizeUpper(values.realLocation),
     physicalStatus: normalizeUpper(values.physicalStatus),
     status: normalizeCatalogValue(
       values.status,
       values.statusCustom,
       fieldCatalogs.status.allowsCustom,
     ),
+    rawCirculationStatus: normalizeUpper(values.rawCirculationStatus),
     assetClassification: normalizeCatalogValue(
       values.assetClassification,
       values.assetClassificationCustom,
@@ -162,6 +212,10 @@ function toSubmitValues(
     ),
     observation: normalizeText(values.observation),
   };
+}
+
+function RequiredMark() {
+  return <strong aria-hidden="true"> *</strong>;
 }
 
 export function RecordForm({
@@ -190,15 +244,32 @@ export function RecordForm({
   const [photoErrors, setPhotoErrors] = useState<string[]>([]);
   const [selectedRegionId, setSelectedRegionId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photosRef = useRef<PhotoFile[]>([]);
 
   const selectedUseType = watch('useType');
   const selectedStatus = watch('status');
   const selectedAssetClassification = watch('assetClassification');
+  const selectedDelegationId = watch('delegationId');
   const usesRegionDelegationCascade = delegationSelectionMode === 'select' && regions.length > 0;
   const selectedRegion = regions.find((region) => region.id === selectedRegionId) ?? null;
   const selectableDelegations = usesRegionDelegationCascade
     ? selectedRegion?.delegations ?? []
     : delegations;
+  const selectedDelegation = selectableDelegations.find(
+    (delegation) => delegation.id === selectedDelegationId,
+  );
+  const currentDelegationLabel =
+    selectedDelegation?.name ?? delegations[0]?.name ?? 'Pendiente de selección';
+
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+
+  useEffect(() => {
+    return () => {
+      photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.preview));
+    };
+  }, []);
 
   useEffect(() => {
     if (initialValues) {
@@ -239,85 +310,127 @@ export function RecordForm({
     });
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
 
     const remaining = MAX_PHOTOS - photos.length;
-
     if (remaining <= 0) {
-      setPhotoErrors(['Limite de 3 fotos alcanzado. Elimina una para agregar otra.']);
+      setPhotoErrors(['Límite de 3 fotos alcanzado. Elimina una para agregar otra.']);
       return;
     }
 
     const rejectionReasons: string[] = [];
-
     const validFiles = files.filter((file) => {
       if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
         rejectionReasons.push(`${file.name}: tipo no permitido (solo JPG, JPEG, PNG, WEBP).`);
         return false;
       }
+
       if (file.size > MAX_PHOTO_SIZE) {
-        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-        rejectionReasons.push(`${file.name}: excede 5MB (${sizeMB}MB).`);
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        rejectionReasons.push(`${file.name}: excede 5MB (${sizeMb}MB).`);
         return false;
       }
+
       return true;
     });
 
     const accepted = validFiles.slice(0, remaining);
-
     if (accepted.length < validFiles.length) {
       rejectionReasons.push(
-        `Se omitieron ${validFiles.length - accepted.length} foto(s) por exceder el limite de ${MAX_PHOTOS}.`,
+        `Se omitieron ${validFiles.length - accepted.length} foto(s) por exceder el límite de ${MAX_PHOTOS}.`,
       );
     }
 
-    if (rejectionReasons.length > 0) {
-      setPhotoErrors(rejectionReasons);
-    } else {
-      setPhotoErrors([]);
+    setPhotoErrors(rejectionReasons);
+    if (accepted.length === 0) {
+      return;
     }
 
-    if (accepted.length === 0) return;
-
-    const newFiles = accepted.map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
-
-    setPhotos((prev) => [...prev, ...newFiles]);
+    setPhotos((currentPhotos) => [
+      ...currentPhotos,
+      ...accepted.map((file) => ({
+        file,
+        preview: URL.createObjectURL(file),
+      })),
+    ]);
   };
 
   const removePhoto = (index: number) => {
-    setPhotos((prev) => {
-      const removed = prev[index];
+    setPhotos((currentPhotos) => {
+      const removed = currentPhotos[index];
       if (removed) {
         URL.revokeObjectURL(removed.preview);
       }
-      return prev.filter((_, i) => i !== index);
+      return currentPhotos.filter((_, photoIndex) => photoIndex !== index);
     });
     setPhotoErrors([]);
   };
 
-  useEffect(() => {
-    return () => {
-      photos.forEach((p) => URL.revokeObjectURL(p.preview));
-    };
-  }, [photos]);
+  const renderCatalogField = (
+    fieldName: 'useType' | 'vehicleClass' | 'physicalStatus' | 'status' | 'assetClassification',
+    required = false,
+  ) => {
+    const catalog = fieldCatalogs[fieldName];
+    const selectedValue =
+      fieldName === 'useType'
+        ? selectedUseType
+        : fieldName === 'status'
+          ? selectedStatus
+          : fieldName === 'assetClassification'
+            ? selectedAssetClassification
+            : watch(fieldName);
+    const customFieldName =
+      fieldName === 'useType'
+        ? 'useTypeCustom'
+        : fieldName === 'status'
+          ? 'statusCustom'
+          : fieldName === 'assetClassification'
+            ? 'assetClassificationCustom'
+            : null;
+
+    return (
+      <div className="field" key={fieldName}>
+        <span>
+          {catalog.label}
+          {required && <RequiredMark />}
+        </span>
+        <select {...register(fieldName)}>
+          <option value="">Selecciona una opción</option>
+          {catalog.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {errors[fieldName] && <small>{errors[fieldName]?.message}</small>}
+
+        {customFieldName && catalog.allowsCustom && selectedValue === 'OTRO' && (
+          <>
+            <input
+              placeholder={`Especifica ${catalog.label.toLowerCase()}`}
+              {...register(customFieldName)}
+            />
+            {errors[customFieldName] && <small>{errors[customFieldName]?.message}</small>}
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <form
       className="panel stack-md"
       onSubmit={handleSubmit(async (values) => {
-        const photoFiles = photos.map((p) => p.file);
-        const submitValues = toSubmitValues(values, fieldCatalogs);
-        await onSubmit(submitValues, photoFiles);
+        const photoFiles = photos.map((photo) => photo.file);
+        await onSubmit(toSubmitValues(values, fieldCatalogs), photoFiles);
 
         if (mode === 'create') {
+          photos.forEach((photo) => URL.revokeObjectURL(photo.preview));
           reset({
             ...emptyFormValues,
             delegationId:
@@ -335,37 +448,60 @@ export function RecordForm({
         <div>
           <p className="eyebrow">Formulario</p>
           <h2>{mode === 'edit' ? 'Editar captura' : 'Nueva captura'}</h2>
+          <small>Los campos marcados con * son obligatorios.</small>
         </div>
       </div>
 
-      {delegationSelectionMode === 'select' ? (
-        usesRegionDelegationCascade ? (
-          <div className="form-grid">
-            <label className="field">
-              <span>Región</span>
-              <select
-                value={selectedRegionId}
-                required
-                onChange={(event) => handleRegionChange(event.target.value)}
-              >
-                <option value="">Selecciona una región</option>
-                {regions.map((region) => (
-                  <option key={region.id} value={region.id}>
-                    {region.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+      <section className="panel stack-md">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Ubicación administrativa</p>
+            <h3>Región y delegación</h3>
+          </div>
+        </div>
 
+        {delegationSelectionMode === 'select' ? (
+          usesRegionDelegationCascade ? (
+            <div className="form-grid">
+              <label className="field">
+                <span>Región<RequiredMark /></span>
+                <select
+                  value={selectedRegionId}
+                  required
+                  onChange={(event) => handleRegionChange(event.target.value)}
+                >
+                  <option value="">Selecciona una región</option>
+                  {regions.map((region) => (
+                    <option key={region.id} value={region.id}>
+                      {region.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Delegación<RequiredMark /></span>
+                <select {...register('delegationId')} disabled={!selectedRegionId}>
+                  <option value="">
+                    {selectedRegionId
+                      ? 'Selecciona una delegación'
+                      : 'Selecciona primero una región'}
+                  </option>
+                  {selectableDelegations.map((delegation) => (
+                    <option key={delegation.id} value={delegation.id}>
+                      {delegation.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.delegationId && <small>{errors.delegationId.message}</small>}
+              </label>
+            </div>
+          ) : (
             <label className="field">
-              <span>Delegación</span>
-              <select {...register('delegationId')} disabled={!selectedRegionId}>
-                <option value="">
-                  {selectedRegionId
-                    ? 'Selecciona una delegación'
-                    : 'Selecciona primero una región'}
-                </option>
-                {selectableDelegations.map((delegation) => (
+              <span>Delegación<RequiredMark /></span>
+              <select {...register('delegationId')}>
+                <option value="">Selecciona una delegación</option>
+                {delegations.map((delegation) => (
                   <option key={delegation.id} value={delegation.id}>
                     {delegation.name}
                   </option>
@@ -373,92 +509,167 @@ export function RecordForm({
               </select>
               {errors.delegationId && <small>{errors.delegationId.message}</small>}
             </label>
-          </div>
+          )
         ) : (
           <label className="field">
-            <span>Delegación</span>
-            <select {...register('delegationId')}>
-              <option value="">Selecciona una delegación</option>
-              {delegations.map((delegation) => (
-                <option key={delegation.id} value={delegation.id}>
-                  {delegation.name}
-                </option>
-              ))}
-            </select>
+            <span>Delegación<RequiredMark /></span>
+            <input disabled readOnly value={delegations[0]?.name ?? 'Sin delegación asignada'} />
+            <input type="hidden" {...register('delegationId')} />
             {errors.delegationId && <small>{errors.delegationId.message}</small>}
           </label>
-        )
-      ) : (
-        <label className="field">
-          <span>Delegación</span>
-          <input
-            disabled
-            readOnly
-            value={delegations[0]?.name ?? 'Sin delegación asignada'}
-          />
-          <input type="hidden" {...register('delegationId')} />
-          {errors.delegationId && <small>{errors.delegationId.message}</small>}
-        </label>
-      )}
+        )}
+      </section>
 
-      <div className="form-grid">
-        {textFields.map(([fieldName, label]) => (
-          <label className="field" key={fieldName}>
-            <span>{label}</span>
-            <input {...register(fieldName)} />
-            {errors[fieldName] && <small>{errors[fieldName]?.message}</small>}
+      <section className="panel stack-md">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Identificación y placas</p>
+            <h3>Identificadores de la unidad</h3>
+          </div>
+        </div>
+        <div className="form-grid">
+          <label className="field">
+            <span>No. patrulla<RequiredMark /></span>
+            <input {...register('patrolNumber')} />
+            {errors.patrolNumber && <small>{errors.patrolNumber.message}</small>}
           </label>
-        ))}
+          <label className="field">
+            <span>CIV</span>
+            <input {...register('civ')} />
+          </label>
+          <label className="field">
+            <span>Placas anteriores</span>
+            <input {...register('previousPlates')} />
+          </label>
+          <label className="field">
+            <span>Placas 2024</span>
+            <input {...register('plates2024')} />
+          </label>
+          <label className="field">
+            <span>Placas 2025</span>
+            <input {...register('plates2025')} />
+          </label>
+          <label className="field">
+            <span>Placas 2026</span>
+            <input {...register('plates2026')} />
+          </label>
+        </div>
+      </section>
 
-        {catalogFields.map(([fieldName, fallbackLabel]) => {
-          const catalog = fieldCatalogs[fieldName];
-          const customFieldName = `${fieldName}Custom` as
-            | 'useTypeCustom'
-            | 'statusCustom'
-            | 'assetClassificationCustom';
-          const selectedValue =
-            fieldName === 'useType'
-              ? selectedUseType
-              : fieldName === 'status'
-                ? selectedStatus
-                : fieldName === 'assetClassification'
-                  ? selectedAssetClassification
-                  : '';
+      <section className="panel stack-md">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Características</p>
+            <h3>Datos técnicos de la unidad</h3>
+          </div>
+        </div>
+        <div className="form-grid">
+          {renderCatalogField('vehicleClass', true)}
+          {renderCatalogField('useType', true)}
+          <label className="field">
+            <span>Marca<RequiredMark /></span>
+            <input {...register('brand')} />
+            {errors.brand && <small>{errors.brand.message}</small>}
+          </label>
+          <label className="field">
+            <span>Tipo<RequiredMark /></span>
+            <input {...register('type')} />
+            {errors.type && <small>{errors.type.message}</small>}
+          </label>
+          <label className="field">
+            <span>Modelo<RequiredMark /></span>
+            <input {...register('model')} />
+            {errors.model && <small>{errors.model.message}</small>}
+          </label>
+          <label className="field">
+            <span>Cilindros</span>
+            <input {...register('cylinders')} />
+          </label>
+          <label className="field">
+            <span>Capacidad litros</span>
+            <input {...register('fuelCapacityLiters')} />
+          </label>
+          <label className="field">
+            <span>Número de motor<RequiredMark /></span>
+            <input {...register('engineNumber')} />
+            {errors.engineNumber && <small>{errors.engineNumber.message}</small>}
+          </label>
+          <label className="field">
+            <span>Número de serie<RequiredMark /></span>
+            <input {...register('serialNumber')} />
+            {errors.serialNumber && <small>{errors.serialNumber.message}</small>}
+          </label>
+          <label className="field">
+            <span>Color</span>
+            <input {...register('color')} />
+          </label>
+        </div>
+      </section>
 
-          return (
-            <div className="field" key={fieldName}>
-              <span>{catalog?.label ?? fallbackLabel}</span>
-              <select {...register(fieldName)}>
-                <option value="">Selecciona una opcion</option>
-                {catalog.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {errors[fieldName] && <small>{errors[fieldName]?.message}</small>}
+      <section className="panel stack-md">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Asignación y estado</p>
+            <h3>Situación operativa</h3>
+          </div>
+        </div>
+        <div className="form-grid">
+          <label className="field">
+            <span>Resguardante</span>
+            <input {...register('custodian')} />
+          </label>
+          <label className="field">
+            <span>Adscripción</span>
+            <input {...register('adscription')} />
+          </label>
+          <label className="field">
+            <span>Ubicación real</span>
+            <input {...register('realLocation')} />
+          </label>
+          <label className="field">
+            <span>Delegación actual</span>
+            <input disabled readOnly value={currentDelegationLabel} />
+          </label>
+          <label className="field">
+            <span>Estado del registro</span>
+            <input disabled readOnly value="VIGENTE" />
+          </label>
+          {renderCatalogField('physicalStatus', true)}
+          {renderCatalogField('status', true)}
+          <label className="field">
+            <span>Estatus Excel</span>
+            <input {...register('rawCirculationStatus')} />
+          </label>
+          {renderCatalogField('assetClassification', true)}
+        </div>
+        <small>
+          La delegación consultada es un dato contextual del Kárdex y se determina automáticamente al consultar la unidad.
+        </small>
+      </section>
 
-              {catalog.allowsCustom && selectedValue === 'OTRO' && (
-                <>
-                  <input
-                    placeholder={`Especifica ${catalog.label.toLowerCase()}`}
-                    {...register(customFieldName)}
-                  />
-                  {errors[customFieldName] && <small>{errors[customFieldName]?.message}</small>}
-                </>
-              )}
-            </div>
-          );
-        })}
-
-        <label className="field field-full">
-          <span>Observacion</span>
+      <section className="panel stack-md">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Anotación general</p>
+            <h3>Observaciones</h3>
+          </div>
+        </div>
+        <label className="field">
+          <span>Anotación general</span>
           <textarea rows={4} {...register('observation')} />
         </label>
+      </section>
 
-        {mode === 'create' && (
-          <div className="field field-full">
-            <span>Fotos (opcional, maximo 3)</span>
+      {mode === 'create' && (
+        <section className="panel stack-md">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Expediente fotográfico</p>
+              <h3>Fotografías de la unidad</h3>
+            </div>
+          </div>
+          <div className="field">
+            <span>Fotos (opcional, máximo 3)</span>
             <input
               ref={fileInputRef}
               type="file"
@@ -467,21 +678,19 @@ export function RecordForm({
               onChange={handlePhotoChange}
               disabled={photos.length >= MAX_PHOTOS}
             />
-            <small>JPG, JPEG, PNG o WEBP. Maximo 5MB por archivo.</small>
+            <small>JPG, JPEG, PNG o WEBP. Máximo 5MB por archivo.</small>
             {photoErrors.length > 0 && (
               <small className="photo-error" style={{ color: '#dc2626' }}>
-                {photoErrors.map((err, i) => (
-                  <span key={i}>{err}{' '}</span>
+                {photoErrors.map((error) => (
+                  <span key={error}>{error} </span>
                 ))}
               </small>
             )}
-            {photos.length >= MAX_PHOTOS && (
-              <small>Limite de fotos alcanzado (3)</small>
-            )}
+            {photos.length >= MAX_PHOTOS && <small>Límite de fotos alcanzado (3).</small>}
             {photos.length > 0 && (
               <div className="photo-preview-grid">
                 {photos.map((photo, index) => (
-                  <div key={index} className="photo-preview-item">
+                  <div key={`${photo.file.name}-${index}`} className="photo-preview-item">
                     <img src={photo.preview} alt={photo.file.name} />
                     <button
                       type="button"
@@ -495,8 +704,8 @@ export function RecordForm({
               </div>
             )}
           </div>
-        )}
-      </div>
+        </section>
+      )}
 
       <div className="form-actions">
         {onCancel && (
