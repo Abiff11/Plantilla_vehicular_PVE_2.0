@@ -18,6 +18,15 @@ const customCatalogFields = ['useType', 'status', 'assetClassification'] as cons
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const MAX_PHOTOS_PER_UPLOAD = 5;
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ADSCRIPTION_PATTERN = /^[\p{L}\p{N} .,'’()\-\/&#º°]+$/u;
+const optionalAdscriptionText = z
+  .string()
+  .trim()
+  .max(160, 'Máximo 160 caracteres.')
+  .refine(
+    (value) => !value || ADSCRIPTION_PATTERN.test(value),
+    'Usa solo letras, números, espacios y signos habituales.',
+  );
 
 const schema = z
   .object({
@@ -40,7 +49,7 @@ const schema = z
     custodian: z.string(),
     patrolNumber: z.string(),
     color: z.string(),
-    adscription: z.string(),
+    adscription: optionalAdscriptionText,
     realLocation: z.string(),
     physicalStatus: z.string(),
     status: z.string(),
@@ -634,7 +643,24 @@ export function VehicleEditModal({
             <div className="vehicle-edit-section-head"><h4>Asignación y ubicación</h4></div>
             <div className="form-grid vehicle-edit-grid">
               <label className="field"><span>Delegación actual</span><input id="delegationName" value={record.delegation.name} readOnly /></label>
-              <SimpleCatalogField label={catalogs.adscription.label} fieldName="adscription" catalog={catalogs.adscription} register={register} currentValue={watch('adscription')} />
+              <label className="field">
+                <span>Adscripción</span>
+                <input
+                  id="adscription"
+                  {...register('adscription')}
+                  maxLength={160}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck
+                  lang="es-MX"
+                  style={{ textTransform: 'uppercase' }}
+                  onInput={(event) => {
+                    event.currentTarget.value = event.currentTarget.value.toUpperCase();
+                  }}
+                  placeholder="Ej. COORDINACIÓN OPERATIVA"
+                  title="Se guardará en mayúsculas. Revisa las sugerencias ortográficas del navegador."
+                />
+              </label>
               <label className="field"><span>Resguardante</span><input id="custodian" {...register('custodian')} /></label>
               <SimpleCatalogField label={catalogs.realLocation.label} fieldName="realLocation" catalog={catalogs.realLocation} register={register} currentValue={watch('realLocation')} />
               <label className="field"><span>No. patrulla</span><input id="patrolNumber" {...register('patrolNumber')} /></label>
