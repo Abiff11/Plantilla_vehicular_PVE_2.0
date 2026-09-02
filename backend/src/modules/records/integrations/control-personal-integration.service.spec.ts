@@ -118,10 +118,29 @@ describe('ControlPersonalIntegrationService', () => {
     expect(result.matchSource).toBe('NOMBRE');
     expect(result.items[0].linkSource).toBe('NOMBRE');
     expect(legacyQuery.andWhere).toHaveBeenCalledWith(
-      expect.stringContaining('(CMDTE|CMTE|COMANDANTE)'),
+      expect.stringContaining('(CMDTE|CMTE|COMANDANTE|OF)'),
       { nameSignature: 'HUMBERTO JARQUIN VILLALOBOS' },
     );
   });
+
+  it.each(['OF. HUMBERTO JARQUIN VILLALOBOS', 'OF HUMBERTO JARQUIN VILLALOBOS'])(
+    'reconoce el prefijo legacy %s sin afectar el nombre del oficial',
+    async (custodian) => {
+      const record = {
+        ...baseRecord,
+        custodian,
+        custodianOficialId: null,
+      };
+      const { repo } = createLookupRepo([], [record]);
+      const { service } = createService(repo);
+
+      const result = await service.findVehiclesByOfficer(officerId, 'VILLALOBOS JARQUIN HUMBERTO');
+
+      expect(result.matchSource).toBe('NOMBRE');
+      expect(result.items[0].linkSource).toBe('NOMBRE');
+      expect((service as any).namesEquivalent(custodian, 'VILLALOBOS JARQUIN HUMBERTO')).toBe(true);
+    },
+  );
 
   it('does not return a historical vehicle for a different normalized name', async () => {
     const { repo, legacyQuery } = createLookupRepo();
