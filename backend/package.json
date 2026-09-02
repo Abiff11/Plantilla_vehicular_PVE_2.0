@@ -13,6 +13,7 @@
     "test:coverage": "jest --coverage",
     "seed:users": "node -r ts-node/register -r tsconfig-paths/register src/scripts/seed-users.ts",
     "seed:vehicles": "node -r ts-node/register -r tsconfig-paths/register src/scripts/seed-vehicles.ts",
+    "seed:vehicle-examples": "node -r ts-node/register -r tsconfig-paths/register src/scripts/seed-vehicles.ts --examples",
     "validate:release": "node -r ts-node/register -r tsconfig-paths/register src/scripts/validate-release.ts",
     "validate:imports": "node -r ts-node/register -r tsconfig-paths/register src/scripts/validate-excel-import.ts",
     "migration:generate": "node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate -d src/data-source.ts",
