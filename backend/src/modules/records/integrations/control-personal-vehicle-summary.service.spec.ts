@@ -49,6 +49,32 @@ describe('ControlPersonalIntegrationService vehicle summary', () => {
     expect(repo.createQueryBuilder).toHaveBeenCalledTimes(1);
   });
 
+  it('considera equivalente el nombre completo aunque sus palabras estén en cualquier orden', async () => {
+    const officer = {
+      id: officerB.id,
+      name: 'CARREÑO ARMENTA HIRAM',
+    };
+    const legacy = [
+      {
+        id: 'v-order',
+        patrolNumber: 'PV-ORDER',
+        custodianOficialId: null,
+        custodian: 'CMDTE. HIRAM ARMENTA CARREÑO',
+      },
+    ];
+    const { service } = createService([], legacy);
+
+    const result = await service.summarizeVehiclesByOfficers([officer]);
+
+    expect(result.items).toEqual([
+      { officerId: officer.id, count: 1 },
+    ]);
+    expect((service as any).namesEquivalent(
+      'HIRAM CARREÑO ARMENTA',
+      'ARMENTA HIRAM CARREÑO',
+    )).toBe(true);
+  });
+
   it('no atribuye un resguardo legacy cuando el nombre resulta ambiguo entre oficiales', async () => {
     const { service } = createService([], [
       {

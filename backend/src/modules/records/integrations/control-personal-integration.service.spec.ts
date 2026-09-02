@@ -61,8 +61,8 @@ describe('ControlPersonalIntegrationService', () => {
     expect(result.items[0].linkSource).toBe('NOMBRE');
     expect(repo.find).toHaveBeenCalledTimes(1);
     expect(legacyQuery.andWhere).toHaveBeenCalledWith(
-      expect.stringContaining('IN (:...normalizedOfficerNames)'),
-      { normalizedOfficerNames: ['OFICIAL PRUEBA', 'PRUEBA OFICIAL'] },
+      expect.stringContaining('STRING_AGG'),
+      { nameSignature: 'OFICIAL PRUEBA' },
     );
   });
 
@@ -90,7 +90,7 @@ describe('ControlPersonalIntegrationService', () => {
     ['JOSÉ PÉREZ', 'JOSE PEREZ'],
     ['josé pérez', 'JOSE PEREZ'],
     ['  JOSÉ   PÉREZ  ', 'JOSE PEREZ'],
-  ])('normalizes historical names before lookup: %s', async (officerName, expectedNormalizedName) => {
+  ])('normalizes historical names before lookup: %s', async (officerName, expectedNameSignature) => {
     const { repo, legacyQuery } = createLookupRepo([], [{ ...baseRecord, custodian: 'JOSÉ PÉREZ', custodianOficialId: null }]);
     const { service } = createService(repo);
 
@@ -99,17 +99,15 @@ describe('ControlPersonalIntegrationService', () => {
     expect(result.matchSource).toBe('NOMBRE');
     expect(result.items[0].linkSource).toBe('NOMBRE');
     expect(legacyQuery.andWhere).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        normalizedOfficerNames: expect.arrayContaining([expectedNormalizedName]),
-      }),
+      expect.stringContaining('STRING_AGG'),
+      { nameSignature: expectedNameSignature },
     );
   });
 
-  it('includes cyclic name order candidates and strips only known legacy ranks', async () => {
+  it('matches any token order and strips only known legacy ranks', async () => {
     const record = {
       ...baseRecord,
-      custodian: 'CMDTE. HUMBERTO VILLALOBOS JARQUIN',
+      custodian: 'CMDTE. HUMBERTO JARQUIN VILLALOBOS',
       custodianOficialId: null,
     };
     const { repo, legacyQuery } = createLookupRepo([], [record]);
@@ -121,13 +119,7 @@ describe('ControlPersonalIntegrationService', () => {
     expect(result.items[0].linkSource).toBe('NOMBRE');
     expect(legacyQuery.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('(CMDTE|CMTE|COMANDANTE)'),
-      {
-        normalizedOfficerNames: [
-          'VILLALOBOS JARQUIN HUMBERTO',
-          'JARQUIN HUMBERTO VILLALOBOS',
-          'HUMBERTO VILLALOBOS JARQUIN',
-        ],
-      },
+      { nameSignature: 'HUMBERTO JARQUIN VILLALOBOS' },
     );
   });
 
@@ -140,14 +132,8 @@ describe('ControlPersonalIntegrationService', () => {
     expect(result.matchSource).toBe('NINGUNO');
     expect(result.items).toEqual([]);
     expect(legacyQuery.andWhere).toHaveBeenCalledWith(
-      expect.any(String),
-      {
-        normalizedOfficerNames: [
-          'JOSE PEREZ GARCIA',
-          'PEREZ GARCIA JOSE',
-          'GARCIA JOSE PEREZ',
-        ],
-      },
+      expect.stringContaining('STRING_AGG'),
+      { nameSignature: 'GARCIA JOSE PEREZ' },
     );
   });
 
@@ -171,10 +157,10 @@ describe('ControlPersonalIntegrationService', () => {
     }));
   });
 
-  it('accepts a confirmed UUID link when the legacy custodian has a known rank and rotated name order', async () => {
+  it('accepts a confirmed UUID link when the legacy custodian has a known rank and any name order', async () => {
     const record = {
       ...baseRecord,
-      custodian: 'CMDTE. HUMBERTO VILLALOBOS JARQUIN',
+      custodian: 'CMDTE. HUMBERTO JARQUIN VILLALOBOS',
       custodianOficialId: null,
     };
     const repo = {
@@ -210,18 +196,23 @@ describe('ControlPersonalIntegrationService', () => {
       .rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('does not accept arbitrary token permutations as the same person', async () => {
+  it('accepts arbitrary token permutations as the same person', async () => {
+    const record = {
+      ...baseRecord,
+      custodian: 'CMDTE. VILLALOBOS HUMBERTO JARQUIN',
+      custodianOficialId: null,
+    };
     const repo = {
-      findOne: jest.fn().mockResolvedValue({
-        ...baseRecord,
-        custodian: 'CMDTE. VILLALOBOS HUMBERTO JARQUIN',
-        custodianOficialId: null,
-      }),
+      findOne: jest.fn().mockResolvedValue(record),
+      save: jest.fn().mockImplementation(async (value) => value),
     } as any;
     const { service } = createService(repo);
 
-    await expect(service.linkVehicleToOfficer(baseRecord.id, officerId, 'VILLALOBOS JARQUIN HUMBERTO'))
-      .rejects.toBeInstanceOf(BadRequestException);
+    const result = await service.linkVehicleToOfficer(baseRecord.id, officerId, 'VILLALOBOS JARQUIN HUMBERTO');
+
+    expect(result.matchSource).toBe('UUID');
+    expect(record.custodianOficialId).toBe(officerId);
+    expect(repo.save).toHaveBeenCalledTimes(1);
   });
 
   it('does not discard an unknown leading token while comparing people', async () => {
