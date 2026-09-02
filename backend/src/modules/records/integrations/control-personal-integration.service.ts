@@ -18,6 +18,7 @@ const LEGACY_CUSTODIAN_RANK_PREFIXES = new Set(['CMDTE', 'CMTE', 'COMANDANTE']);
 const LEGACY_CUSTODIAN_RANK_PREFIX_SQL = '(CMDTE|CMTE|COMANDANTE)';
 const NORMALIZED_CUSTODIAN_SQL = `UPPER(TRIM(REGEXP_REPLACE(REGEXP_REPLACE(TRANSLATE(record.custodian, '${LEGACY_NAME_ACCENTED_CHARACTERS}', '${LEGACY_NAME_ASCII_CHARACTERS}'), '[^A-Za-z0-9]+', ' ', 'g'), '[[:space:]]+', ' ', 'g')))`;
 const CUSTODIAN_WITHOUT_RANK_SQL = `REGEXP_REPLACE(${NORMALIZED_CUSTODIAN_SQL}, '^${LEGACY_CUSTODIAN_RANK_PREFIX_SQL}[[:space:]]+', '')`;
+const CANONICAL_CUSTODIAN_SQL = `(SELECT STRING_AGG(name_part.token, ' ' ORDER BY name_part.token) FROM REGEXP_SPLIT_TO_TABLE(${CUSTODIAN_WITHOUT_RANK_SQL}, '[[:space:]]+') AS name_part(token))`;
 
 @Injectable()
 export class ControlPersonalIntegrationService {
@@ -80,33 +81,30 @@ export class ControlPersonalIntegrationService {
       if (counts.has(officerId)) counts.set(officerId, (counts.get(officerId) || 0) + 1);
     }
 
-    const candidateOwners = new Map<string, Set<string>>();
+    const signatureOwners = new Map<string, Set<string>>();
     for (const officer of normalizedOfficers) {
-      if (!officer.name) continue;
-      for (const candidate of this.buildNameCandidates(officer.name)) {
-        const owners = candidateOwners.get(candidate) || new Set<string>();
-        owners.add(officer.id);
-        candidateOwners.set(candidate, owners);
-      }
+      const signature = this.buildNameSignature(officer.name);
+      if (!signature) continue;
+      const owners = signatureOwners.get(signature) || new Set<string>();
+      owners.add(officer.id);
+      signatureOwners.set(signature, owners);
     }
 
-    const normalizedOfficerNames = Array.from(candidateOwners.keys());
-    if (normalizedOfficerNames.length) {
+    const nameSignatures = Array.from(signatureOwners.keys());
+    if (nameSignatures.length) {
       const legacy = await this.recordsRepo
         .createQueryBuilder('record')
         .where('record."custodianOficialId" IS NULL')
         .andWhere(
-          `${CUSTODIAN_WITHOUT_RANK_SQL} IN (:...normalizedOfficerNames)`,
-          { normalizedOfficerNames },
+          `${CANONICAL_CUSTODIAN_SQL} IN (:...nameSignatures)`,
+          { nameSignatures },
         )
         .orderBy('record.patrolNumber', 'ASC')
         .getMany();
 
       for (const record of legacy) {
-        const normalizedCustodian = this.stripLegacyRankPrefix(
-          this.normalizeName(record.custodian || ''),
-        );
-        const owners = candidateOwners.get(normalizedCustodian);
+        const signature = this.buildNameSignature(record.custodian || '');
+        const owners = signatureOwners.get(signature);
         if (!owners || owners.size !== 1) continue;
         const [officerId] = Array.from(owners);
         counts.set(officerId, (counts.get(officerId) || 0) + 1);
@@ -173,35 +171,28 @@ export class ControlPersonalIntegrationService {
     return normalizedName;
   }
 
-  private buildNameCandidates(value: string) {
+  private buildNameSignature(value: string) {
     const normalized = this.stripLegacyRankPrefix(this.normalizeName(value));
-    if (!normalized) return [];
-
-    const tokens = normalized.split(' ');
-    return Array.from(new Set(tokens.map((_, index) => [
-      ...tokens.slice(index),
-      ...tokens.slice(0, index),
-    ].join(' '))));
+    if (!normalized) return '';
+    return normalized.split(' ').filter(Boolean).sort().join(' ');
   }
 
   private namesEquivalent(left: string, right: string) {
-    const leftNormalized = this.stripLegacyRankPrefix(this.normalizeName(left));
-    const rightNormalized = this.stripLegacyRankPrefix(this.normalizeName(right));
-    if (!leftNormalized || !rightNormalized) return false;
-
-    return this.buildNameCandidates(leftNormalized).includes(rightNormalized);
+    const leftSignature = this.buildNameSignature(left);
+    const rightSignature = this.buildNameSignature(right);
+    return Boolean(leftSignature && rightSignature && leftSignature === rightSignature);
   }
 
   private findLegacyVehicles(officerName: string) {
-    const normalizedOfficerNames = this.buildNameCandidates(officerName);
-    if (!normalizedOfficerNames.length) return Promise.resolve([] as RecordEntity[]);
+    const nameSignature = this.buildNameSignature(officerName);
+    if (!nameSignature) return Promise.resolve([] as RecordEntity[]);
 
     return this.recordsRepo
       .createQueryBuilder('record')
       .where('record."custodianOficialId" IS NULL')
       .andWhere(
-        `${CUSTODIAN_WITHOUT_RANK_SQL} IN (:...normalizedOfficerNames)`,
-        { normalizedOfficerNames },
+        `${CANONICAL_CUSTODIAN_SQL} = :nameSignature`,
+        { nameSignature },
       )
       .orderBy('record.patrolNumber', 'ASC')
       .getMany();
