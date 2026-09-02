@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ControlPersonalIntegrationGuard } from './control-personal-integration.guard';
 import { ControlPersonalIntegrationService } from './control-personal-integration.service';
 import { LinkControlPersonalCustodianDto } from './dto/link-control-personal-custodian.dto';
@@ -14,6 +14,13 @@ export class ControlPersonalIntegrationController {
     @Query('name') officerName?: string,
   ) {
     return this.service.findVehiclesByOfficer(officerId, officerName);
+  }
+
+  @Post('officers/vehicle-summary')
+  summarizeVehicles(
+    @Body() body: { officers?: Array<{ id?: string; name?: string }> },
+  ) {
+    return this.service.summarizeVehiclesByOfficers(body?.officers || []);
   }
 
   @Patch('records/:recordId/custodian-link')

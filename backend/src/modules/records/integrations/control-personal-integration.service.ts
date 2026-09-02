@@ -1,11 +1,16 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AuditLogsService } from 'src/modules/audit-logs/audit-logs.service';
 import { RecordEntity } from '../entities/record.entity';
 
 export type VehicleLinkSource = 'UUID' | 'NOMBRE';
 export type VehicleMatchSource = 'UUID' | 'NOMBRE' | 'MIXTO' | 'NINGUNO';
+
+type VehicleSummaryOfficerInput = {
+  id?: string;
+  name?: string;
+};
 
 const LEGACY_NAME_ACCENTED_CHARACTERS = 'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖòóôõöÙÚÛÜùúûüÝýÿÇç';
 const LEGACY_NAME_ASCII_CHARACTERS = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiNnOOOOOoooooUUUUuuuuYyyCc';
@@ -46,6 +51,73 @@ export class ControlPersonalIntegrationService {
         ...stable.map((item) => this.toView(item, 'UUID')),
         ...legacy.map((item) => this.toView(item, 'NOMBRE')),
       ],
+    };
+  }
+
+  async summarizeVehiclesByOfficers(officers: VehicleSummaryOfficerInput[]) {
+    const unique = new Map<string, { id: string; name: string }>();
+    for (const officer of Array.isArray(officers) ? officers : []) {
+      const id = String(officer?.id || '').trim();
+      const name = String(officer?.name || '').trim();
+      if (!id) continue;
+      if (!unique.has(id)) unique.set(id, { id, name });
+    }
+
+    const normalizedOfficers = Array.from(unique.values());
+    if (normalizedOfficers.length > 1000) {
+      throw new BadRequestException('El resumen masivo admite hasta 1000 oficiales por solicitud');
+    }
+    if (!normalizedOfficers.length) return { items: [] };
+
+    const officerIds = normalizedOfficers.map((officer) => officer.id);
+    const counts = new Map(officerIds.map((id) => [id, 0]));
+    const stable = await this.recordsRepo.find({
+      where: { custodianOficialId: In(officerIds) },
+      order: { patrolNumber: 'ASC' },
+    });
+    for (const record of stable) {
+      const officerId = String(record.custodianOficialId || '').trim();
+      if (counts.has(officerId)) counts.set(officerId, (counts.get(officerId) || 0) + 1);
+    }
+
+    const candidateOwners = new Map<string, Set<string>>();
+    for (const officer of normalizedOfficers) {
+      if (!officer.name) continue;
+      for (const candidate of this.buildNameCandidates(officer.name)) {
+        const owners = candidateOwners.get(candidate) || new Set<string>();
+        owners.add(officer.id);
+        candidateOwners.set(candidate, owners);
+      }
+    }
+
+    const normalizedOfficerNames = Array.from(candidateOwners.keys());
+    if (normalizedOfficerNames.length) {
+      const legacy = await this.recordsRepo
+        .createQueryBuilder('record')
+        .where('record."custodianOficialId" IS NULL')
+        .andWhere(
+          `${CUSTODIAN_WITHOUT_RANK_SQL} IN (:...normalizedOfficerNames)`,
+          { normalizedOfficerNames },
+        )
+        .orderBy('record.patrolNumber', 'ASC')
+        .getMany();
+
+      for (const record of legacy) {
+        const normalizedCustodian = this.stripLegacyRankPrefix(
+          this.normalizeName(record.custodian || ''),
+        );
+        const owners = candidateOwners.get(normalizedCustodian);
+        if (!owners || owners.size !== 1) continue;
+        const [officerId] = Array.from(owners);
+        counts.set(officerId, (counts.get(officerId) || 0) + 1);
+      }
+    }
+
+    return {
+      items: normalizedOfficers.map((officer) => ({
+        officerId: officer.id,
+        count: counts.get(officer.id) || 0,
+      })),
     };
   }
 
