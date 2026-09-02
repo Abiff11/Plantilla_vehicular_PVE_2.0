@@ -75,6 +75,35 @@ describe('ControlPersonalIntegrationService vehicle summary', () => {
     )).toBe(true);
   });
 
+  it.each(['OF. HIRAM ARMENTA CARREÑO', 'OF HIRAM ARMENTA CARREÑO'])(
+    'incluye vehículos legacy con prefijo %s en el resumen masivo',
+    async (custodian) => {
+      const officer = {
+        id: officerB.id,
+        name: 'CARREÑO ARMENTA HIRAM',
+      };
+      const legacy = [
+        {
+          id: 'v-of',
+          patrolNumber: 'PV-OF',
+          custodianOficialId: null,
+          custodian,
+        },
+      ];
+      const { service, query } = createService([], legacy);
+
+      const result = await service.summarizeVehiclesByOfficers([officer]);
+
+      expect(result.items).toEqual([
+        { officerId: officer.id, count: 1 },
+      ]);
+      expect(query.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('(CMDTE|CMTE|COMANDANTE|OF)'),
+        { nameSignatures: ['ARMENTA CARRENO HIRAM'] },
+      );
+    },
+  );
+
   it('no atribuye un resguardo legacy cuando el nombre resulta ambiguo entre oficiales', async () => {
     const { service } = createService([], [
       {
