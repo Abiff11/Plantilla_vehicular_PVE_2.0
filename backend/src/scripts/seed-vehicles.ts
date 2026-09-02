@@ -88,42 +88,43 @@ async function run() {
     }
 
     const createdBy = users[0];
-    let insertedExamples = 0;
-
-    for (const vehicle of TEST_VEHICLES) {
-      const existingVehicle = await source.query(
-        'SELECT 1 FROM "records" WHERE "plates" = $1 LIMIT 1',
-        [vehicle.plates],
-      );
-
-      if (existingVehicle.length > 0) {
-        continue;
-      }
-
-      await source.query(
-        `
-          INSERT INTO "records" (
-            "plates", "brand", "type", "useType", "vehicleClass", "model",
-            "engineNumber", "serialNumber", "custodian", "patrolNumber",
-            "physicalStatus", "status", "assetClassification", "observation",
-            "delegationId", "createdById"
-          )
-          VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
-          )
-        `,
-        [
-          vehicle.plates, vehicle.brand, vehicle.type, vehicle.useType,
-          vehicle.vehicleClass, vehicle.model, vehicle.engineNumber,
-          vehicle.serialNumber, TEST_CUSTODIAN, vehicle.patrolNumber,
-          vehicle.physicalStatus, vehicle.status, vehicle.assetClassification,
-          vehicle.observation, delegations[0].id, createdBy.id,
-        ],
-      );
-      insertedExamples += 1;
-    }
 
     if (onlyExamples) {
+      let insertedExamples = 0;
+
+      for (const vehicle of TEST_VEHICLES) {
+        const existingVehicle = await source.query(
+          'SELECT 1 FROM "records" WHERE "plates" = $1 LIMIT 1',
+          [vehicle.plates],
+        );
+
+        if (existingVehicle.length > 0) {
+          continue;
+        }
+
+        await source.query(
+          `
+            INSERT INTO "records" (
+              "plates", "brand", "type", "useType", "vehicleClass", "model",
+              "engineNumber", "serialNumber", "custodian", "patrolNumber",
+              "physicalStatus", "status", "assetClassification", "observation",
+              "delegationId", "createdById"
+            )
+            VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+            )
+          `,
+          [
+            vehicle.plates, vehicle.brand, vehicle.type, vehicle.useType,
+            vehicle.vehicleClass, vehicle.model, vehicle.engineNumber,
+            vehicle.serialNumber, TEST_CUSTODIAN, vehicle.patrolNumber,
+            vehicle.physicalStatus, vehicle.status, vehicle.assetClassification,
+            vehicle.observation, delegations[0].id, createdBy.id,
+          ],
+        );
+        insertedExamples += 1;
+      }
+
       const examples = await source.query(
         'SELECT "plates", "vehicleClass", "patrolNumber" FROM "records" WHERE "custodian" = $1 AND "plates" LIKE $2 ORDER BY "plates"',
         [TEST_CUSTODIAN, 'OAX-HCA-%'],
